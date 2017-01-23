@@ -16,7 +16,7 @@ January 21st, 2017 __/__ Columbia University __/__ New York
 
 * Jonathan Auerbach, Rob Trangucci: **_Twelve Cities: Does lowering speed limits save pedestrian lives?_** 
   - [Notebook and materials](2017/Contributed-Talks/01_auerbach) 
-  - [Slides]()
+  - [Slides](2017/Contributed-Talks/slides/02_kharratzadeh_stancon_slides.pdf)
 
 * Milad Kharratzadeh: **_Hierarchical Bayesian Modeling of the English Premier League_** 
   - [Notebook and materials](2017/Contributed-Talks/02_kharratzadeh)
