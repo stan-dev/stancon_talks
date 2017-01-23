@@ -11,10 +11,10 @@ StanCon’s version of conference proceedings is a collection of contributed tal
 ## StanCon 2017 
 
 * January 21st, 2017 __/__ Columbia University __/__ New York
-* [Organizing committee and reviewers](http://mc-stan.org/events/stancon#organizers)
+* [Organizing committee (reviewers)](http://mc-stan.org/events/stancon#organizers)
 * [Presenter bios and links](2017/Contributed-Talks/presenter-bios.md)
 
-#### Contributed talks
+#### Contributed talks (in order of presenting)
 
 * Jonathan Auerbach, Rob Trangucci: **_Twelve Cities: Does lowering speed limits save pedestrian lives?_** 
   - [Notebook and materials](2017/Contributed-Talks/01_auerbach) 
