@@ -2,9 +2,9 @@
 <img src="https://raw.githubusercontent.com/stan-dev/logos/master/logo.png" width=200 alt="Stan Logo"/>
 </a>
 
-# Talks from StanCon
+# StanCon Contributed Talks
 
-StanCon’s version of conference proceedings is a collection of contributed talks based on interactive notebooks (e.g., knitr, R Markdown, Jupyter). Every submission is peer reviewed by at least two members of the Stan Conference Organizing Committee.
+StanCon’s version of conference proceedings is a collection of contributed talks based on interactive notebooks. Every submission is peer reviewed by at least two members of the Stan Conference Organizing Committee. This repository contains all of the accepted notebooks as well as any supplementary materials required for building the notebooks. The slides presented at the conference are also included.
 
 ### StanCon 2017 
 
