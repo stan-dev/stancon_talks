@@ -1,0 +1,1153 @@
+---
+title: "Models of retrieval in sentence comprehension"
+author: 
+  - name: B. Nicenboim
+  - name: S. Vasishth
+
+date: "January 10th, 2017"
+output:
+  html_document:
+    toc: true
+    number_sections: true
+    fig_caption: true
+    css: styles.css
+bibliography: bibliography.bib
+---
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+  TeX: { equationNumbers: { autoNumber: "AMS" } }
+});
+</script>
+
+
+
+<!-- 
+To still fix:
+
+The Pareto k estimates are large for many observations. Can the code verifying that 10-fold CV gives essentially the same results (mentioned in footnote) be included as a supplementary file?
+
+Chains might not have converged all that well. Some Rhats maybe slightly high and ratio of n_eff to total sample size is pretty low for some parameters. Could be fine but maybe something to look into, potentially on stan-users mailing list.
+
+In Sec 2.1.5, it would be good to quickly note that the NaNs in Rhat are not a concern (because they are for matrix elements that aren't estimated). And I guess in a few cases the n_eff is below 100? Any cause for concern?
+
+
+Check if this is fixed now:
+In Eq 1, should RT have a second subscript? It's also a bit unclear how to interpret RT with the \forall c, c \neq w subscript. Is this meant to be the max RT over c (c != w)? Or something else? This would help clarify the probability at the start of Eq. 2, which suggests that both sides of the inequality are meant to be scalars. Does "vector of observed reading times" before eq. 1 refer to each RT_n being a vector? Or is RT meant to be a scalar, and RT_n picks out a component?
+ -->
+
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(tidy = TRUE, cache = TRUE)
+```
+
+```{r echo=FALSE}
+# From http://stackoverflow.com/questions/37116632/rmarkdown-html-number-figures
+#Determine the output format of the document
+outputFormat   = knitr::opts_knit$get("rmarkdown.pandoc.to")
+
+#Figure and Table Caption Numbering, for HTML do it manually
+capTabNo = 1; capFigNo = 1;
+
+#Function to add the Table Number 
+capTab = function(x){
+  if(outputFormat == 'html'){
+    x = paste0("Table ",capTabNo,". ",x)
+    capTabNo <<- capTabNo + 1
+  }; x
+}
+
+#Function to add the Figure Number
+capFig = function(x){
+  if(outputFormat == 'html'){
+    x = paste0("Figure ",capFigNo,". ",x)
+    capFigNo <<- capFigNo + 1
+  }; x
+} 
+```
+
+
+# Introduction: Models of memory retrieval in sentence comprehension
+
+Cognitive psychology has a long tradition of empirically investigating how
+short-term/working memory works. How do we encode information in memory, and
+what causes forgetting? In order to investigate
+memory-related processes, a common experimental approach is to have
+participants memorize words or numbers or letters, and then measure recall
+accuracy and recall time in milliseconds.
+
+Sentence comprehension is a field within linguistics that
+investigates the cognitive processes that unfold as one reads or hears a
+sentence. Theories of memory developed within cognitive psychology have
+come to play an important role in explaining sentence comprehension processes.
+Because reading or listening to a sentence involves maintaining
+words and phrases in memory and connecting them to one another to compute the
+meaning of a sentence, it is generally assumed that constraints on working
+memory influence the speed and accuracy of sentence comprehension processes.
+In the sentence shown below, for example, when we reach the verb *was
+imprisoned* a linguistic *dependency* must be completed between this verb and
+*friend* in order to understand the main assertion of the sentence.
+
+*Alice's friend, who defeated the Queen in Alice in Wonderland, was
+imprisoned.*
+
+A common assumption in many models of sentence comprehension is that this
+dependency completion process involves accessing some mental representation of
+*friend* at the moment that the verb *was imprisoned* is processed.
+
+What is the underlying cognitive process that leads to a successful dependency
+completion?  We consider here two psycholinguistic models that explain the
+incremental resolution of linguistic dependencies: the activation model
+[@LewisVasishth2005] and the direct access model [@McElree2000]. Both assume
+that working memory is involved in storing words, and that dependency
+completion involves a search in memory using a feature-specification. For
+example, at the verb *was imprisoned*, a search for a singular marked animate
+noun that is the subject of the sentence is assumed to be initiated.
+Informally speaking, the retrieval process involves looking for an item in
+memory with at least the following features:
+  
+  - singular
+  - animate
+  - grammatical subject
+  - noun
+
+Although both models assume that we retrieve words or phrases from memory
+using such feature specifications, there are some important differences in the
+retrieval process and in the way that the correct dependent is distinguished
+from other items in memory (i.e., *Alice*, *Queen*). In both models, the
+dependent measure that is modeled is the amount of time taken to complete the
+dependency, *retrieval time*; and the probability of retrieving the correct
+element from memory, *retrieval probability*.
+
+1. **The activation-based model** [@LewisVasishth2005]
+
+This model assumes that items in memory have an activation value, which is an
+abstract numerical value that represents how easy they are to access (as one
+might expect, items with higher activation are easier to access). Retrieval
+time in the activation-based model can be thought of as being generated from a
+lognormal race between accumulators of evidence, where the rate of
+accumulation of evidence for each retrieval is each item's activation in
+memory. Under this model, retrieval accuracy is determined by the winner of
+the race, and retrieval time by the rate of accumulation of the winner.
+Retrieval time and retrieval probability are therefore not independent: an
+item that takes longer to retrieve on average will have a lower mean retrieval
+probability.
+
+2. **The direct access model** [@McElree2000]
+
+In contrast to the activation model, the direct access model assumes a model
+of memory where the distribution of retrieval times for items in memory is
+independent of their probability of being retrieved. This model assumes that
+in some of the trials where an incorrect item is retrieved, a backtracking and
+repair process is initiated to retrieve the correct item [@McElree1993].  As a
+consequence, retrieval times associated with correct responses are a mixture
+of directly accessed correct items together with directly accessed incorrect
+items followed by a repair process (which costs time). In contrast,  retrieval
+times associated with incorrect responses are only due to directly accessed
+incorrect items.
+
+All things being equal (as in controlled experimental settings), we assume
+that reading times ($RT$s) at the retrieval site (i.e., *was imprisoned* in
+the previous example) include the retrieval time (as well as other
+theoretically uninteresting processes). We also assume that if participants in
+an experiment are asked the question, *Who was imprisoned?*, their answer is
+informative of the dependency completion they carried out. If they answer,
+*friend*, they are assumed to have made the correct dependency, 
+but if they answer *Queen* or
+*Alice*, they are assumed to have built the incorrect dependency.
+
+Below, we implement the two models and evaluate their predictions against
+empirical data from a reading study [@NicenboimEtAl2016NIG]. The original
+study had sentences in German, and reading times were measured  at an
+auxiliary verb. After every sentences a multiple choice question with four
+options (a noun which is the correct dependent, two other nouns which are
+incorrect, and an option of "I don't know") were presented. The dependent
+variables that we modeled were (i) reading times in milliseconds and (ii) a
+choice between one and four. For more detail see the following paper: [Models of
+retrieval in sentence comprehension: A computational evaluation using Bayesian
+hierarchical modeling](https://arxiv.org/abs/1612.04174), Nicenboim, Vasishth.
+
+After implementing the models, we inspect the descriptive adequacy of the
+models using posterior predictive checks and we use Pareto smoothed importance
+sampling [PSIS-LOO; @VehtariEtAl2016] to compare them. We show that the direct
+access model provides a superior fit to the data considered here.
+
+
+
+The modeling details are provided below, with reproducible code. 
+
+# Stan implementations of the two models
+
+For ease of presentation, we first show non-hierarchical implementations of
+the models (ignoring participants and experimental items, i.e., sentences),
+then hierarchical versions with simulated data, and finally we compare the
+models with the data of @NicenboimEtAl2016NIG.
+
+## Activation-based model
+
+### Implementation
+
+We first discuss a non-hierarchical version of the activation-based model. The
+implementation of the activation-based model is adapted from the shifted
+lognormal race model proposed by @RouderEtAl2014. We assume that each
+trial in the empirical data has two pieces of information: (i) reading times
+at the retrieval site (e.g., the verb *was imprisoned* in the example above),
+and (ii) question responses about which item was retrieved from memory (e.g.,
+*friend*, *Queen*, *Alice*). Even though retrieval times are unobserved, we
+assume that they are included in the reading times and so they are in the same
+unit. Regarding the probability of retrieving a certain noun, we assume that
+the probability of choosing an answer is directly mapped to the probability of
+retrieving a noun. We modeled the observed reading times ($RT$s) and question
+response ($w$), assuming that each element of the vector of observed reading
+times $\mathbf{RT}$ has the following distribution:
+
+\begin{equation}
+RT_n  \sim \psi +  lognormal(b - \alpha_{c=w} ,\sigma) \label{eq:observed}
+\end{equation}
+
+where:
+
+* $n$ represents each observation. I.e., given $N$ observations, $n=1,\dots, N$.
+* $c$ is one of the possible multiple responses.
+* $\psi$ is a shift to the distribution of $RT$s that represents represents
+  peripheral aspects of processing and is constrained so that $0 <\psi <
+  {\underset {n}{\operatorname {arg\,min} }}\,(RT_n)$. (This means that the
+  shift cannot speed processing up nor take more than the minimum RT.)
+* $b$ is an arbitrary threshold (set to 10) to ensure that rates of
+  accumulation are strictly positive [see @RouderEtAl2014; @HeathcoteLove2012].
+* $\alpha_{c=w}$ represents the rate of accumulation of evidence of the
+  ``winner'' accumulator (i.e., response) assuming a threshold $b$. Here, $w$
+  is a single element from the set of accumulators associated with the answers $\{friend, Queen,... \}$.
+* $\sigma$ is the standard deviation of the lognormal process and represents
+  the noise in the accumulation of evidence.
+
+The activation based model assumes that in a given trial, the item with the
+highest activation is retrieved. It follows that the accumulators that did not
+win the race, that is the accumulators associated with any candidate $c$
+except for the winner $w$ ($\forall c, c \neq w$) must have had lower
+activations (been slower) in that specific trial. This means that
+the accumulators that lost the race in the trial $n$ are associated with
+potential reading times $RT_{n,\forall c, c \neq w}$, which are larger than
+the reading time associated with the winner accumulator $RT_{n,c=w}$, which is
+the observed reading time for the trial $n$: $RT_{n}$ from Equation
+\\eqref{eq:observed}.
+
+If all the answers are selected at least once, the race turns into a problem
+of censored data, where $RT_{n,\forall c, c \neq w}$ will have a lower bound set by
+$RT_{n,c = w}$. In order to calculate the posterior of the rates of
+accumulation, $\alpha_c$, of all the accumulators, we cannot ignore the
+censored data [@GelmanEtAl2014, pp. 224-227]. However, it is not necessary to
+impute values, and the values can be integrated out with each censored data
+point having a probability of
+
+\begin{equation}
+\begin{aligned}
+Pr[RT_{n,\forall c, c \neq w}  > RT_{n,c=w} ] &= \int_{RT_{n,c=w}}^{\infty} lognormal(RT_{n,\forall c, c \neq w} - \psi | b- \alpha_{\forall c,c \neq w}  ,\sigma) \cdot dRT_{n,\forall c, c \neq w} \\
+                                          &= 1-\Phi \left( \frac{log(RT_{n,c=w} - \psi) -  (b - \alpha_{\forall c,c \neq w}) }{\sigma} \right) 
+\end{aligned}
+\end{equation}
+
+where $\Phi()$ is the cumulative distribution function of the standard normal
+distribution. 
+
+In order to fit the model, all the parameters were given weakly informative
+priors.
+
+### The *Stan* implementation of the activation-based model
+
+The *Stan* program follows the notation presented above with the
+probability function *race* taking two dependent variables: *winner* and *RT*.
+
+```{r stan_code, tidy = TRUE, comment="", echo=FALSE}
+cat(readLines("activation-based.stan"), sep = "\n")  
+```
+
+
+### Hierarchical structure
+
+The model presented above ignores the fact that the original data was
+elicited from different participants (*subj* in the code) reading different
+sentences (*item* in the code). We accounted for this by including a
+hierarchical structure to the rates of accumulation $\alpha$:
+
+\begin{equation}
+\alpha_{c,i,j} = \alpha_{0,c} + u_{c,i} + w_{c,j}
+\end{equation}
+
+Where $u$ represents the by-participant adjustment to the $\alpha_0$ with
+$i=\{1,..,N_{subj}\}$ and $w$ the by-items adjustment with
+$j=\{1,..,N_{item}\}$ with the following priors:
+
+\begin{equation}
+\mathbf{u}\ \sim\ \mathcal{N}(\mathbf{0},\, \boldsymbol\Sigma_u),
+\end{equation}
+
+\begin{equation}
+\mathbf{w}\ \sim\ \mathcal{N}(\mathbf{0},\, \boldsymbol\Sigma_w),
+\end{equation}
+
+In addition we included a by-participant adjustment to $\psi$:
+\begin{equation}
+\psi_i = exp(\psi_0 + u_{\psi,i})
+\end{equation}
+
+with 
+
+\begin{equation}
+\mathbf{u_\psi}\ \sim\ \mathcal{N}(\mathbf{0},\, \boldsymbol\Sigma_{u\psi}),
+\end{equation}
+
+The exponential function ensures that $\psi_i$ will be higher than zero. A
+constraint on the upper bound of the prior distribution of $\psi_0$ ensures
+that the shift of each participant is smaller than the participant minimum RT.
+This entails that for each observation $n$, where $[subj[n]]$ represents the
+participant associated with the observation $n$, the following inequalities
+hold:
+
+\begin{equation}
+\begin{aligned}
+\psi_i < RT_{n} \\
+exp \left(\psi_0 + u_{\psi,[subj[n]]}\right) &< RT_{n} \\
+\psi_0 + u_{\psi,[subj[n]]} &< log(RT_{n}) \\
+\psi_0  &< log(RT_{n}) - u_{\psi,[subj[n]]}
+\end{aligned}
+\end{equation}
+
+Thus the prior on $\psi_0$ was constrained in the following way:
+\begin{equation}
+\psi_0  < {\underset {n}{\operatorname {arg\,min} }}\,\left(log(RT_{n}) - u_{\psi,[subj[n]]}\right)
+\end{equation}
+
+In addition, all the parameters were given weakly informative priors; see the *Stan* implementation.
+
+
+### The *Stan* implementation of the hierarchical activation-based model.
+
+The *Stan* program follows the notation presented above with the same
+probability function `race` as for the non-hierarchical model. However, the
+code includes now some modifications to achieve convergence faster: We optimized
+the by-participant and by-items adjustments  through Cholesky Factorization
+[@Stan2016, page 76], and $\alpha_{0,c}$ and $\psi_0$ were transformed so that
+they their priors would have a scale close to one [@Stan2016, page 225]. The
+rates $\alpha_{0,c}$ were scaled using a helper function `mean_of_X_by_Y` that
+calculated the mean RTs for each winner. The code also includes a function
+with a pseudo random number generator `race_rng` which allows us to generate data
+following the activation-based model.
+
+
+```{r stan_code_activation_h, tidy = TRUE, comment="", echo=FALSE}
+cat(readLines("activation-based_h.stan"), sep = "\n")     
+```
+
+### Simulation
+
+We first show the ability of the model to recover parameters generated
+from a fake dataset.
+
+```{r, message=FALSE, warning=FALSE, results="hide"}
+# Load R packages
+library(ggplot2)
+library(scales)
+library(hexbin)
+library(tidyr)
+library(dplyr)
+library(MASS)
+library(rstan)
+library(loo)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+set.seed(42)
+iter <- 2000 
+chains <- 4
+```
+
+We generated 3600 observations; similar number as the data from
+@NicenboimEtAl2016NIG:
+
+
+```{r sim_data_race_h, results='hide'}
+# We extract the function 'race_rng' for simulating data: 
+expose_stan_functions(stanc(file = "activation-based_h.stan"))
+
+N_obs <- 3600 
+b <- 10
+alpha_0 <- c(4.5,2.3,2,2.3)
+sigma <- 1.2
+psi_0 <- 5.6
+tau_psi <- .2
+# For simplicity we assume the same correlation for all the adjustments:
+rhos <- .3 
+# Same SD for all the by-subj adjustments
+taus_u <- .7 
+N_subj <- 180
+# Same SD for all the by-item adjustments
+taus_w <- .2 
+N_item <- 20
+
+subj <- rep(1:N_subj, N_obs / N_subj)
+N_tau_u <- length(alpha_0)
+Cor_u <- matrix(rep(rhos,N_tau_u * N_tau_u), nrow = N_tau_u)
+diag(Cor_u) <-1
+tau_u <- rep(taus_u,N_tau_u)
+b_subj <- tau_u %*% t(tau_u)  
+Sigma_u <- b_subj * Cor_u  #variance covariance matrix for 'subj'
+u <- mvrnorm(n = N_subj, rep(0,N_tau_u), Sigma_u)
+
+item <- rep(1:N_item, each=N_obs / N_item)
+N_tau_w <- length(alpha_0)
+Cor_w <- matrix(rep(rhos,N_tau_w * N_tau_w), nrow = N_tau_w)
+diag(Cor_w) <-1
+tau_w <- rep(taus_w,N_tau_w)
+b_item <- tau_w %*% t(tau_w)  
+Sigma_w <- b_item * Cor_w  #variance covariance matrix for 'item'
+w <- mvrnorm(n = N_item, rep(0,N_tau_w), Sigma_w)
+psi <- exp(psi_0 + rnorm(N_subj,0,tau_psi))
+N_choices <- length(alpha_0)
+
+RT <- c()
+winner <- c()
+for(n in 1:N_obs){
+  pred <-  race_rng(alpha_0 + u[subj[n],] + w[item[n],], b, sigma, psi[subj[n]])
+  winner[n] <- round(pred[1])
+  RT[n] <- round(pred[2])
+}
+
+sim_data_race_h <- list(N_obs=N_obs,
+                 winner=winner, 
+                 RT=RT,
+                 N_choices=N_choices,
+                 subj = subj,
+                 N_subj=N_subj,
+                 item = item,
+                 N_item=N_item
+                 )
+```
+
+
+```{r sim_fit_race_h, results='hide', message=FALSE, warning=FALSE}
+# Fit model to simulated data 
+sim_fit_race_h <- stan(file = "activation-based_h.stan",  
+                data = sim_data_race_h, chains = chains, iter = iter) 
+```
+
+We fit the data and we show the summary of the parameters below:
+
+```{r  sim_result_race_h}
+print(sim_fit_race_h,pars=c("alpha_0","sigma","psi_0","tau_u","tau_w","tau_psi", "Cor_u","Cor_w"), prob=c(.025,.5,.975)) 
+```
+
+
+
+
+We adapted  a graph from [Daniel C. Furr's case study](http://mc-stan.org/documentation/case-studies/rasch_and_2pl.html) to show the scaled
+difference (the difference divided by the size of the generated value) between
+the posterior means of the parameters of the model and the values we generated
+for those parameters. (The code producing the graph is available in the Rmd
+file.)
+
+```{r sim_plot_race, echo=F, fig.cap=capFig("Scaled discrepancies between estimated and generating parameters of the activation-based model. Points indicate the scaled difference between the posterior means and generating values for a parameter, and horizontal lines indicate 95% posterior intervals for the difference.")}
+wanted_pars <- c(paste0("alpha[", 1:N_choices, "]"), "psi", "sigma")  
+# The plot function is based on http://mc-stan.org/documentation/case-studies/rasch_and_2pl.html 
+plot_discrepancies <- function(fit_model, wanted_pars,lim=1,breaks=.1){ 
+  # Extract the actual generating values:
+  generating_values <-   
+  unlist(sapply(wanted_pars, function(x) eval(parse(text = x)))) 
+  sim_monitor <- monitor(fit_model, probs = c(.025, .975), print = FALSE)
+  estimated_values <- sim_monitor[wanted_pars, c("mean", "2.5%", "97.5%")]
+  # Assemble a data frame to pass to ggplot()
+  sim_df <- data.frame(parameter = factor(wanted_pars, rev(wanted_pars)), row.names = NULL)
+  sim_df$middle <- (estimated_values[,"mean"] - generating_values)/generating_values
+  sim_df$lower <- (estimated_values[,"2.5%"] - generating_values)/generating_values
+  sim_df$upper <- (estimated_values[,"97.5%"] - generating_values)/generating_values
+
+  ggplot(sim_df) +
+    aes(x = parameter, y = middle, ymin = lower, ymax = upper) +
+    scale_x_discrete() + scale_y_continuous(breaks=round(seq(-lim,lim,breaks),2),limits=c(-lim,lim))+
+    labs(y = "Scaled discrepancy", x = NULL) +
+    geom_abline(intercept = 0, slope = 0, color = "black",linetype="dotted") +
+    geom_linerange() +
+    geom_point(size = 2) +
+    theme_bw() +
+    coord_flip()   
+}
+
+```
+
+
+```{r sim_plot_race_h_main, echo=F, fig.cap=capFig("Scaled discrepancies for the main parameters of the hierarchical version of the activation-based model. Points indicate the scaled difference between the posterior means and generating values for a parameter, and horizontal lines indicate 95% posterior intervals for the difference.")}
+wanted_pars <- c(paste0("alpha_0[", 1:N_choices, "]"), "psi_0", "sigma"
+  ) 
+plot_discrepancies(sim_fit_race_h, wanted_pars, lim=.3,breaks=.05)     
+```
+
+The graph above shows that in general the  model recovers the main parameters
+satisfactorily, and the discrepancies are relatively small. The graph also
+shows more uncertainty for the accumulators with lower rates of accumulation
+($\alpha$); this is so because their associated with less frequent responses,
+and thus there is less data for estimation.
+
+```{r sim_plot_race_h_re, echo=F, fig.cap=capFig("Scaled discrepancies for SD and correlations of the by-participant and by-item adjustments of the hierarchical version of the activation-based model. Points indicate the scaled difference between the posterior means and generating values for a parameter, and horizontal lines indicate 95% posterior intervals for the difference.")}
+wanted_pars <- c(paste0("tau_u[", 1:N_choices, "]"),paste0("tau_w[", 1:N_choices, "]"), "tau_psi",
+paste0("Cor_u[", combn(1:N_choices,2)[1,1:N_choices] 
+,",",combn(1:N_choices,2)[2,1:N_choices], "]")  
+  ,
+paste0("Cor_w[", combn(1:N_choices,2)[1,1:N_choices] 
+,",",combn(1:N_choices,2)[2,1:N_choices], "]")
+  )
+ 
+plot_discrepancies(sim_fit_race_h, wanted_pars, lim=3.5, breaks=.5)
+```
+
+Regarding the by-participant and by-item adjustments, the previous graph shows
+that the model cannot recover the correlations very precisely, and that the
+estimations of the by-intercept adjustments have more uncertainty than the
+by-participants adjustments.
+
+
+## Direct access model
+
+### Implementation
+
+As before, we first discuss a non-hierarchical version of the model. The
+response selection hypothesized  by the direct access model assumes that there
+is a certain probability associated with the retrieval of each candidate,
+$\theta_c$, but that the final response is affected by the possibility of
+backtracking and correctly repairing the incorrect retrievals, with
+probability $P_b$. This means that the probability of choosing an answer is
+not directly mapped to the probability of retrieving a noun, but it is also
+affected by the probability of backtracking and repairing. We implemented this
+by assuming that  the responses $w$ have a discrete distribution that follows
+a one-inflated categorical model, where additional probability mass is added
+to the outcome $one$ (correct response) due to backtracking (in order to
+correct an incorrect response) with probability $P_b$ as follows:
+
+\begin{equation}
+P(w_n=1 | \boldsymbol{\theta}, P_b ) = \theta_1 + (1-\theta_1) \cdot P_b \label{eq:dis1}
+\end{equation}
+
+\begin{equation}
+P(w_n=s |\boldsymbol{\theta}, P_b ) = \theta_s \cdot (1-P_b)  \label{eq:dis2}
+\end{equation}
+
+
+where:
+
+* $n$ represents each observation.
+* $s$ is one of the incorrect responses ($s>1$). 
+* $\boldsymbol{\theta}$ is a vector of $N_{choices}$ rows that represents
+the probability of each response. 
+
+We assume, as before, that RTs follow a lognormal distribution. If
+the response given in trial $n$ is wrong ($w_n>1$), we assume that there is no
+backtracking, and the distribution is as follows:
+
+\begin{equation}
+RT_{n,\forall w, w>1}  \sim  \psi + lognormal(\mu_{da},\sigma) \label{eq:errorRT}
+\end{equation} 
+
+where:
+
+* $n$ represents each observation.
+* $\forall w, w>1$ are incorrect responses.
+* $\psi$ is a shift to the distribution.
+* $\sigma$ is the standard deviation of the lognormal process and represents the noise in the RTs.
+* $e^{\mu_{da}}$ represents the time needed for the retrieval process
+  (together with nuisance processes), if there were no noise.
+
+
+If the response given is correct (i.e., $w=1$), $RT$s are assumed to have a
+mixture distribution. This is so because there are two "paths" to reach a
+correct response: (i) The correct item is accessed from memory at the first
+attempt, and this means that there is direct access and $RT$s should
+belong to a distribution similar to the previous one as shown in Equation
+\\eqref{eq:errorRT}; or (ii) the incorrect item is retrieved from memory, but
+is backtracked and repaired, and this means that $RT$s should belong to a
+distribution with a larger location than $\mu_{da}$, namely,
+$\mu_{da}+\mu_{b}$. Thus $RT$s should be distributed in the following way:
+
+\begin{equation}
+RT_{n,w=1}  \sim  \psi_i +
+\begin{cases}
+lognormal(\mu_{da},\sigma) \text{;  if } y=1 | Categorical( y | \boldsymbol{\theta})  \\ 
+lognormal(\mu_{da}+\mu_{b},\sigma) \text{;  if }y \neq 1 \text{ and } z=1 | Categorical(y | \boldsymbol{\theta}) \text{ and } Bernoulli(z | P_b)
+\end{cases} 
+\label{eq:correctRT}
+\end{equation}
+
+
+where, from Equation \\eqref{eq:dis1}, the first component of the mixture
+defined in
+\\eqref{eq:correctRT} is the probability of a correct retrieval at the first
+attempt conditional on obtaining $one$ as a response ($w_n=1$), and occurs
+with probability:
+
+\begin{equation}
+ \frac{\theta_1 }{ \theta_1 + (1-\theta_1) \cdot P_b }
+\end{equation}
+
+and the second component of the mixture \\eqref{eq:correctRT} represents the
+probability of backtracking when there is an error, this is formulated as  the
+probability of an incorrect retrieval in the first attempt conditional on
+obtaining $one$ as a response ($w_n=1$):
+
+
+\begin{equation}
+ \frac{1 - \theta_1 }{ \theta_1 + (1-\theta_1) \cdot P_b }
+\end{equation}
+
+
+In order to fit the complete model, all the parameters were given weakly
+informative priors except for $\theta$: Given that correct retrievals should
+be more common than incorrect ones, we constrained the probability of
+retrieving the correct item from memory to be larger than the probability of
+retrieving an incorrect item, so that $\theta_1 > 1 - \theta_1$.
+
+### The *Stan* implementation of the direct access model
+
+The *Stan* program is a close translation of the notation above, except that
+to avoid problems of identifiability, we used a categorical distribution with
+the parameters on the logit scale, so that the argument of the categorical
+distribution  was the vector $\boldsymbol{\beta}$ instead of
+$\boldsymbol{\theta}$ with ($K-1$)-arguments, that is
+($N_{choices}-1$)-arguments. This was achieved by fixing the $K$ argument to
+be zero:  $(\theta_1,\theta_2,...,\theta_K)^T =
+softmax((\beta_1,\beta_2,...,\beta_{K-1},0)^T)$.
+
+
+```{r stan_code_direct_access, tidy = TRUE, comment="", echo=FALSE}
+cat(readLines("direct_access.stan"), sep = "\n")      
+```
+
+### Hierarchical structure
+
+In order to account for differences in participants and items we included
+a hierarchical structure to the retrieval probabilities $\mathbf{\theta}$, and
+the parameters that affect RTs: $\mu_{da}$, $\mu_{b}$, and $\psi$.
+
+For convenience we included the hierarchical structure to the logit-transformed probabilities $\mathbf{\beta}$ rather than to $\mathbf{\theta}$:
+
+\begin{equation}
+\beta_{c,i,j} = \beta_{0,c} + u_{c,i} + w_{c,j}
+\end{equation}
+
+With $c=\{1,..,N_{choices}-1\}$ Where $u$ represents the by-participant
+adjustment to the $\beta_0$ with $i=\{1,..,N_{subj}\}$ and $w$ the by-items
+adjustment with $j=\{1,..,N_{item}\}$ with the following priors:
+
+\begin{equation}
+\mathbf{u}\ \sim\ \mathcal{N}(\mathbf{0},\, \boldsymbol\Sigma_u),
+\end{equation}
+
+\begin{equation}
+\mathbf{w}\ \sim\ \mathcal{N}(\mathbf{0},\, \boldsymbol\Sigma_w),
+\end{equation}
+
+  
+We included adjustments to the parameters affecting RTs in the following way:
+
+\begin{equation}
+\mu_{da} = \mu_{da_0} + u_{da,i} + w_{da,j}
+\end{equation}
+
+\begin{equation}
+\mu_{b} = \mu_{b_0} + u_{b,i} + w_{b,j}
+\end{equation}
+
+with the following priors:
+
+\begin{equation}
+(u_{da}, u_{b})^T  \sim\ \mathcal{N}(\mathbf{0},\, \boldsymbol\Sigma_{u_{rt}}),
+\end{equation}
+
+\begin{equation}
+(w_{da}, w_{b})^T \sim\ \mathcal{N}(\mathbf{0},\, \boldsymbol\Sigma_{w_{rt}}),
+\end{equation}
+
+
+We also included a by-participant adjustment to $\psi$ as described before for
+the activation-based model.
+
+### The *Stan* implementation of the hierarchical direct access model
+
+Similar to the hierarchical version of the activation-based model,  the
+code includes some minor modifications to the notation presented above to
+achieve convergence faster: We optimized the by-participant and by-items
+adjustments  through Cholesky Factorization [@Stan2016, page 76], and
+$\mu_{da_0,c}$ and $\psi_0$ were transformed so that  their priors would
+have a scale close to one [@Stan2016, page 225]. The code also includes a
+function with a pseudo random number generator `da_rng` which allows us to
+generate data following the assumptions of the direct access model.
+
+```{r stan_code_direct_access_h, tidy = TRUE, comment="", echo=FALSE}
+cat(readLines("direct_access_h.stan"), sep = "\n")     
+```
+
+### Simulation
+
+
+```{r sim_data_da_h, results='hide'}
+# We extract the function 'da_rng' for simulating data: 
+expose_stan_functions(stanc(file = "direct_access_h.stan"))
+# Some useful functions:
+logsumexp <- function (x) {
+  y = max(x)
+  y + log(sum(exp(x - y)))
+}
+softmax <- function (x) {
+  exp(x - logsumexp(x))
+}
+inv_softmax <- function (y) { 
+  #inverse of softmax function, setting that last value to 0
+  z <- -log(y[length(y)] + 1e-8)
+  y <- y[-length(y)]
+  return(c(z + log(y + 1e-8), 0))
+}
+
+N_obs <- 3600
+theta_m1 <- c(.68,.13,.06)
+theta_0 <- c(theta_m1, 1-sum(theta_m1))
+beta_0 <- inv_softmax(theta_0)
+mu_da_0 <- 5.2
+mu_b_0 <- .5
+P_b <- .35
+sigma <- .7
+psi_0 <- 5.6
+tau_psi <- .2
+rhos <- .3
+taus_u <- .7 
+N_subj <- 180
+taus_w <- .2 
+N_item <- 20
+
+## Adjustments by subject
+#
+# * To retrieval prob.:
+subj <- rep(1:N_subj, N_obs / N_subj)
+N_tau_u <- length(beta_0)-1
+Cor_u <- matrix(rep(rhos,N_tau_u * N_tau_u), nrow = N_tau_u)
+diag(Cor_u) <-1
+tau_u <- rep(taus_u,N_tau_u)
+b_subj <- tau_u %*% t(tau_u)  
+Sigma_u <- b_subj * Cor_u  #variance covariance matrix for subj
+u <- mvrnorm(n = N_subj, rep(0,N_tau_u), Sigma_u)
+# * To the shift:
+psi <- exp(psi_0 + rnorm(N_subj,0,tau_psi))
+# * To the location of the lognormal:
+Cor_u_RT <- matrix(rep(rhos, 2 * 2), nrow = 2)
+diag(Cor_u_RT) <-1
+tau_u_RT <- rep(taus_u,2)
+b_subj <- tau_u_RT %*% t(tau_u_RT)  
+Sigma_u_RT <- b_subj * Cor_u_RT  #variance covariance matrix for subj
+u_RT <- mvrnorm(n = N_subj, rep(0,2), Sigma_u_RT)
+
+## Adjustments by item:
+#
+# * To retrieval prob.:
+item <- rep(1:N_item, each=N_obs / N_item)
+N_tau_w <- length(beta_0)-1
+Cor_w <- matrix(rep(rhos,N_tau_w * N_tau_w), nrow = N_tau_w)
+diag(Cor_w) <-1
+tau_w <- rep(taus_w,N_tau_w)
+b_item <- tau_w %*% t(tau_w)  
+Sigma_w <- b_item * Cor_w  #variance covariance matrix for subj
+w <- mvrnorm(n = N_item, rep(0,N_tau_w), Sigma_w)
+# * To the location of the lognormal:
+Cor_w_RT <- matrix(rep(rhos, 2 * 2), nrow = 2)
+diag(Cor_w_RT) <-1
+tau_w_RT <- rep(taus_w,2)
+b_item <- tau_w_RT %*% t(tau_w_RT)  
+Sigma_w_RT <- b_item * Cor_w_RT  #variance covariance matrix for subj
+w_RT <- mvrnorm(n = N_item, rep(0,2), Sigma_w_RT)
+N_choices <- length(theta_0)
+
+RT <- c()
+winner <- c()
+for(n in 1:N_obs){
+  theta <- softmax(beta_0 + c(u[subj[n],],0) + c(w[item[n],],0))
+  mu_da <- mu_da_0 + u_RT[subj[n],1] + w_RT[item[n],1]
+  mu_b <- mu_b_0 + u_RT[subj[n],2] + w_RT[item[n],2]
+  pred <- da_rng(theta, P_b, mu_da, mu_b, sigma, psi[subj[n]])
+  winner[n] <- round(pred[1])
+  RT[n] <- round(pred[2])
+}
+
+sim_data_da_h <- list(N_obs=N_obs,
+                 winner=winner, 
+                 RT=RT,
+                 N_choices=N_choices,
+                 subj = subj,
+                 N_subj=N_subj,
+                 item = item,
+                 N_item=N_item
+                 )
+```
+
+
+```{r sim_fit_da_h, results='hide', message=F, warning=F}
+sim_fit_da_h <- stan(file = "direct_access_h.stan",  
+                 data = sim_data_da_h, chains = chains, iter = iter)
+```
+
+```{r sim_converge_da_h}
+print(sim_fit_da_h, pars=c("theta_0","P_b","mu_da_0", "mu_b_0", "sigma", "psi_0","tau_u", "tau_u_RT","tau_w", "tau_w_RT","tau_psi","Cor_u","Cor_w","Cor_u_RT","Cor_w_RT"), prob = c(.025, .5, .975)) 
+```
+
+
+
+```{r sim_plot_da_h_main, echo=F, fig.cap=capFig("Scaled discrepancies for the main parameters of the hierarchical version of the direct access model. Points indicate the scaled difference between the posterior means and generating values for a parameter, and horizontal lines indicate 95% posterior intervals for the difference.")}
+wanted_pars <- c(paste0("theta_0[", 1:N_choices, "]"),"P_b","mu_da_0", "mu_b_0", "sigma", "psi_0") 
+plot_discrepancies(sim_fit_da_h, wanted_pars, lim=1.2, breaks=.1)
+```
+The graph above shows that the direct access model
+recovers the main parameters with more uncertainty than the activation-based model. This could be due to the increased number of parameters.
+
+```{r sim_plot_da_h_re, echo=F, fig.cap=capFig("Scaled discrepancies for SD and correlations of the by-subject and by-item adjustments of the hierarchical version of the direct access model. Points indicate the scaled difference between the posterior means and generating values for a parameter, and horizontal lines indicate 95% posterior intervals for the difference.")}
+wanted_pars <- c(paste0("tau_u[", 1:(N_choices-1), "]"), paste0("tau_w[", 
+  1:(N_choices-1), "]"), "tau_psi", paste0("tau_u_RT[", 1:2,
+  "]"),paste0("tau_w_RT[", 1:2, "]"), paste0("Cor_u[", 
+  combn(1:(N_choices-1),2)[1,1:(N_choices-2)]
+  ,",",combn(1:(N_choices-1),2)[2,1:(N_choices-2)], "]")  
+  ,
+paste0("Cor_w[", combn(1:(N_choices-1),2)[1,1:(N_choices-2)]
+,",",combn(1:(N_choices-1),2)[2,1:(N_choices-2)], "]"),
+paste0("Cor_u_RT[1,2]"), paste0("Cor_w_RT[1,2]"))
+plot_discrepancies(sim_fit_da_h, wanted_pars, lim=4, breaks=.5)
+```
+
+Similarly to the activation-based model, the graph above shows that the
+implementation of the direct access model cannot recover the correlations
+between by-participant and by-item adjustments precisely, and it also shows
+that the estimations of the by-intercept adjustments have more uncertainty
+than the by-participants adjustments.
+
+# Example application
+
+## The example data 
+
+The example data are a subset of @NicenboimEtAl2016NIG, where the
+comprehension questions are meaningful for assessing which item is retrieved
+from memory. We ignore the experimental manipulation of the original
+experiment, and we focus on the ability of the models to account for the
+responses and the reading times of the data.
+
+```{r read_data}
+load("dataNIG-SRC.Rda")
+# dexp contains a subset of the data of Nicenboim et al 2016. 
+str(dexp)
+
+# To avoid problems of participant/item numbers being skipped,
+# we recode participant and item numbers  
+exp_data <- list(N_obs=nrow(dexp),
+                 winner=dexp$winner, 
+                 RT=dexp$RT,
+                 N_choices=max(dexp$winner),
+                 subj = as.numeric(as.factor(dexp$participant)),
+                 N_subj=length(unique(dexp$participant)),
+                 item = as.numeric(as.factor(dexp$item)),
+                 N_item=length(unique(dexp$item))
+                 ) 
+```
+
+```{r fit_data, results='hide', message=F, warning=F}
+# We fit the activation-based and direct access models
+# And we save the time taken to fit
+timer <- proc.time() 
+samples_dexp_ab <- stan(file = "activation-based_h.stan",  
+                 data = exp_data, chains = chains, iter = iter) 
+ab_time <- proc.time() - timer
+timer <- proc.time() 
+samples_dexp_da <- stan(file = "direct_access_h.stan",  
+                 data = exp_data, chains = chains, iter = iter) 
+da_time <- proc.time() - timer 
+```
+
+We fitted the data of the experiments with both models (activation-based: 
+`r round(ab_time[3]/60)` minutes; direct access:`r round(da_time[3]/60)`
+minutes). We show below the summaries of the posteriors for the activation-
+based model and the direct access model. Notice that the few NaNs in the
+`Rhat`s are not a concern because they appear only for the diagonal elements
+of a correlation matrix, which do not need to be estimated.
+
+### Summary of the posteriors of the activation-based model
+
+```{r  posterior_act, echo=FALSE}
+# Samples of the activation-based model:
+print(samples_dexp_ab,pars=c("alpha_0","sigma","psi_0","tau_u","tau_w","tau_psi", "Cor_u","Cor_w"), prob=c(.025,.5,.975)) 
+```
+
+### Summary of the posteriors of the direct access model
+
+```{r  posterior_da, echo=FALSE}
+# Samples of the direct access model:
+print(samples_dexp_da, pars=c("theta_0","P_b","mu_da_0", "mu_b_0", "sigma", "psi_0","tau_u", "tau_u_RT","tau_w", "tau_w_RT","tau_psi","Cor_u","Cor_w","Cor_u_RT","Cor_w_RT"), prob = c(.025, .5, .975)) 
+```
+
+## Posterior predictive checking
+
+We use posterior predictive checking to  examine the descriptive adequacy of
+the models [@ShiffrinEtAl2008; @GelmanEtAl2014, Chapter 6]. The posterior
+predictive distribution is composed of `r iter * chains/2` datasets (one for
+each iteration after the warm-up) that the model generates based on the
+posterior distributions of its parameters.
+
+
+
+Since the main difference between the activation-based model and the direct
+access model is in the way they account for the relationship between retrieval
+probability and latencies, for each of the generated datasets, we calculate
+the mean $RT$ associated with each response and the mean proportion of
+responses given. We represent this  using violin plots [@HintzeNelson1998]:
+the width of the violin plots represents the density of the predicted means.
+The observed mean of the data is represented with a cross. If the data could
+plausibly have been generated by the model, we would expect the crosses to be
+inside the violin plots. (The code producing the graph is available in the Rmd
+file.)
+
+
+```{r pred_act_based, echo=FALSE}
+# Predicted RTs and winners: 
+pred_rt <- rstan::extract(samples_dexp_ab)$gen_RT
+pred_winner <- rstan::extract(samples_dexp_ab)$gen_winner
+ 
+#summary of the data:
+mean_RT_by_winner <- summarise(group_by(dexp, winner), RT = mean(RT))
+mean_p_by_winner <- summarise(group_by(dexp, winner), P = length(winner) / nrow(dexp))
+
+#summary of the predicted values:
+pred_mean_RT_by_winner <- plyr::ldply(1:max(pred_winner),  function(l){
+      mean_by_winner <- rowMeans(ifelse(pred_winner == l ,pred_rt,NA),na.rm=T)
+      data.frame(RT=mean_by_winner, winner = l)})
+pred_mean_p_by_winner <- plyr::ldply(1:max(pred_winner),  function(l){
+      mean_by_winner <- rowMeans(ifelse(pred_winner == l, 1, 0),na.rm=T)
+      data.frame(P=mean_by_winner, winner=l)})
+
+pred_mean_RT_by_winner$winner <- factor(pred_mean_RT_by_winner$winner,labels=c("1. Correct", "2. Incorrect (a)","3. Incorrect (b)","4. Incorrect (c)"))
+
+mean_RT_by_winner$winner <- factor(mean_RT_by_winner$winner,labels=c("1. Correct", "2. Incorrect (a)","3. Incorrect (b)","4. Incorrect (c)"))
+pred_mean_p_by_winner$winner <- factor(pred_mean_p_by_winner$winner,labels=c("1. Correct", "2. Incorrect (a)","3. Incorrect (b)","4. Incorrect (c)"))
+
+mean_p_by_winner$winner <- factor(mean_p_by_winner$winner,labels=c("1. Correct", "2. Incorrect (a)","3. Incorrect (b)","4. Incorrect (c)"))
+
+
+plot_rt_ab <- 
+          ggplot(pred_mean_RT_by_winner, aes(x = factor(winner), y = RT)) + 
+          geom_violin() +
+          scale_y_continuous(name = "Log-scaled RT at the verb", trans =log_trans(), 
+            limits = c(400, 1450), breaks = seq(450, 1450, 100))+ 
+          geom_point(data = mean_RT_by_winner, aes(x =factor(winner), y = RT), 
+            shape = 4, size = 3) + xlab("Response") + 
+          ggtitle("Activation-based model") + theme(axis.text.x=element_text(size = 12))
+
+plot_p_ab <- ggplot(pred_mean_p_by_winner, aes(x = factor(winner),y=P)) + geom_violin() + 
+          geom_point(data = mean_p_by_winner, aes(x = factor(winner), y = P), shape = 4, size = 3) + xlab("Response") + ylab("Proportion") +
+          ggtitle("Activation-based model") + theme(axis.text.x=element_text(size = 12))
+```
+
+
+```{r pred_act_based_rt, echo=FALSE, fig.cap = capFig('The figure shows the fit of the mean reading times (RTs) for each response  for the activation-based model. The width of the violin plot represents to the density of predicted mean RTs generated by the model.  The observed means  are represented with a cross. Only response *one* is correct.')}
+print(plot_rt_ab)
+```
+  
+
+```{r pred_act_based_p, echo=FALSE, fig.cap = capFig('The figure shows the fit of the proportion of responses for the activation-based model. The width of the violin plot represents to the density of predicted proportion of responses generated by the model.  The observed means are represented with a cross. Only response *one* is correct.')}
+print(plot_p_ab)         
+``` 
+
+
+
+```{r pred_direct_access,echo=FALSE}
+# Predicted RTs and winners: 
+pred_rt <- rstan::extract(samples_dexp_da)$gen_RT
+pred_winner <- rstan::extract(samples_dexp_da)$gen_winner
+# Summary of the predicted values:
+pred_mean_RT_by_winner <- plyr::ldply(1:max(pred_winner),  function(l){
+      mean_by_winner <- rowMeans(ifelse(pred_winner == l ,pred_rt,NA),na.rm=T)
+      data.frame(RT=mean_by_winner, winner = l)})
+pred_mean_p_by_winner <- plyr::ldply(1:max(pred_winner),  function(l){
+      mean_by_winner <- rowMeans(ifelse(pred_winner == l, 1, 0),na.rm=T)
+      data.frame(P=mean_by_winner, winner=l)})
+
+pred_mean_RT_by_winner$winner <- factor(pred_mean_RT_by_winner$winner,labels=c("1. Correct", "2. Incorrect (a)","3. Incorrect (b)","4. Incorrect (c)"))
+
+mean_RT_by_winner$winner <- factor(mean_RT_by_winner$winner,labels=c("1. Correct", "2. Incorrect (a)","3. Incorrect (b)","4. Incorrect (c)"))
+pred_mean_p_by_winner$winner <- factor(pred_mean_p_by_winner$winner,labels=c("1. Correct", "2. Incorrect (a)","3. Incorrect (b)","4. Incorrect (c)"))
+
+mean_p_by_winner$winner <- factor(mean_p_by_winner$winner,labels=c("1. Correct", "2. Incorrect (a)","3. Incorrect (b)","4. Incorrect (c)"))
+
+
+plot_rt_da <- 
+      ggplot(pred_mean_RT_by_winner, aes(x = factor(winner), y = RT)) + 
+      geom_violin() +
+      scale_y_continuous(name = "Log-scaled RT at the verb", trans =log_trans(), 
+        limits = c(400, 1450), breaks = seq(450, 1450, 100)) + 
+      geom_point(data = mean_RT_by_winner, aes(x =factor(winner), y = RT), 
+        shape = 4, size = 3) + xlab("Response") +
+         ggtitle("Direct access model") + theme(axis.text.x=element_text(size = 12)) 
+plot_p_da <- ggplot(pred_mean_p_by_winner, aes(x = factor(winner),y=P)) + 
+          geom_violin() + 
+          geom_point(data = mean_p_by_winner, aes(x = factor(winner), y = P), 
+            shape = 4, size = 3) + xlab("Response") + ylab("Proportion") +
+                   ggtitle("Direct access model") + theme(axis.text.x=element_text(size = 12))
+```
+
+
+
+```{r pred_direct_access_rt, echo=FALSE, fig.cap = capFig('The figure shows the fit of the mean reading times (RTs) for each response  for the direct access model. The width of the violin plot represents to the density of predicted mean RTs generated by the model.  The observed means  are represented with a cross. Only response *one* is correct.')}
+print(plot_rt_da)
+```
+
+
+```{r pred_direct_access_p, echo=FALSE, fig.cap = capFig('The figure shows the fit of the proportion of responses for the direct access model. The width of the violin plot represents to the density of predicted proportion of responses generated by the model.  The observed means are represented with a cross. Only response *one* is correct.')}
+print(plot_p_da)       
+```
+
+
+The posterior predictive checks reveal that the activation-based model is
+inadequate for predicting some key characteristics of the data. This model
+predicts shorter times when the correct response is given and longer times
+when an incorrect answer is given. In other words, the model underestimates
+the retrieval time of the correct dependent and overestimates the retrieval
+time of the competitor items. The activation-based model also shows  a slight
+misfit for the predicted accuracy: the model tends to underestimate the
+proportion of correct responses. In contrast to the
+activation-based model, the direct access model is able to predict 
+the main characteristics of the data fairly well: The model is able to
+predict that reading times associated with correct responses are on average
+slower than the ones associated with incorrect ones, while is also able to
+predict fairly well the proportion of responses from the data. 
+
+
+## Cross-validation (Leave-one-out)
+
+Since the descriptive adequacy can also be achieved by a model that is too
+flexible and can generate too many different results, we also compared the
+expected predictive performance of the models using cross-validation. The
+leave-one-out [LOO; @GeisserEddy1979] method is a robust way to compare the
+expected predictive performance of the models [@VehtariEtAl2016]. In order to
+estimate the expected log pointwise predictive density ($\hat{elpd}$), we
+approximated LOO with PSIS-LOO using the `R` package `loo`.
+
+However, PSIS-LOO can be affected by highly influential observations; the
+estimated shape parameter $\hat{k}$ of the generalized Pareto distribution can
+be used to assess the reliability of the estimates, with $\hat{k} > 0.7$
+indicating an unreliable calculation of $\hat{elpd}$. Even though the
+calculation of PSIS-LOO shows several $\hat{k}$ above $0.7$, and k-fold cross
+validation is recommended instead,  for ease of presentation we show the
+results using PSIS-LOO. We verified that K-fold cross-validation
+[@VehtariOjanen2012] with $K=10$ yields virtually the same results, see [Appendix](kfold.html) for details.
+
+
+```{r loos}
+loglik_dexp_ab <- extract_log_lik(samples_dexp_ab) 
+loglik_dexp_da <- extract_log_lik(samples_dexp_da)
+(loo_dexp_ab <- loo(loglik_dexp_ab))
+(loo_dexp_da <- loo(loglik_dexp_da))
+```
+
+Comparing the models on PSIS-LOO reveals an estimated difference in
+$\hat{elpd}$in favor of the direct access model in comparison with the
+activation-based model:
+
+
+```{r loo_comparison}
+(loo_comparison <- compare(loo_dexp_ab, loo_dexp_da)) 
+```
+
+We compare the models in their $\hat{elpd}$, point by point below. (The code
+producing the graph is available in the Rmd file.)
+
+```{r elpd_comp, echo=F, fig.cap = capFig('Comparison of the activation-based and direct access models in terms of their predictive accuracy for each observation. Each axis shows the expected pointwise contributions to PSIS-LOO for each model ($\\hat{elpd}$ stands for the expected log pointwise predictive density of each observation). Higher (or less negative) values  of $\\hat{elpd}$ indicate a better fit. Darker cells represent a higher concentration of observations with a given fit.')}
+
+ 
+data_elpds <- data.frame(AB = loo_dexp_ab$pointwise[, "elpd_loo"], 
+              DA = loo_dexp_da$pointwise[, "elpd_loo"]) 
+ 
+y_axis_name <- expression(hat(elpd)[direct~~access~~model])
+x_axis_name <- expression(hat(elpd)[activation-based~~model])
+elpds <- ggplot(data_elpds,aes(x = AB, y = DA)) + theme_bw() + 
+                scale_y_continuous(name = y_axis_name, 
+                breaks = seq(-18, -2 ,2)) +
+                scale_x_continuous(name = x_axis_name, 
+                breaks = seq(-18, -2, 2)) +
+                geom_hex(bins = 50) + 
+                scale_fill_gradientn(colours = c("skyblue","darkblue"),
+                name="Number of\nobservations") +
+                theme(legend.key.size = unit(0.3, "cm"), 
+                legend.title = element_text(size = 9), 
+                legend.text = element_text(size = 8),
+                legend.position = c(.8,.2)) +
+                geom_abline(slope = 1 ,intercept = 0,linetype = "dotted") + 
+                ggtitle("Activation-based vs. direct access models")
+print(elpds) 
+```
+
+
+
+The figure above  shows for any given observation, whether one model
+has an advantage over the other in its predictive accuracy. Since higher (or
+less negative) values of $\hat{elpd}$ indicate a better fit for a model,
+observations that are further away from the dotted line correspond to data
+that are particularly better predicted by one model (and poorly by the other).
+This figure shows that the advantage of the direct access model is not due to
+some outlier observations, but mostly due to a high number of observations
+that  fit slightly better under this model than under the activation-based one
+(this is the darker patch on the top right corner). (The code
+producing the graph is available in the Rmd file.)
+
+```{r diff_elpd, echo=F, fig.cap = capFig('Comparison of the activation-based and direct access models in terms of their predictive accuracy for each observation depending on its log-transformed reading time (x-axis) and accuracy (left panel showing correct responses, and the right panel  showing  any of the possible incorrect responses). The y-axis shows the difference between the expected pointwise contributions to PSIS-LOO for each model ($\\hat{elpd}$ stands for the expected log pointwise predictive density of each observation); that is,  positive values represent  an advantage for the direct access model while negative values represent an advantage for the activation-based model. Darker cells represent a higher concentration of observations with a given fit.')}
+dexp$diff_elpd <- loo_dexp_da$pointwise[, "elpd_loo"] - 
+                  loo_dexp_ab$pointwise[, "elpd_loo"]
+# I group the responses in correct (1), and incorrect (2-4)
+dexp$response <- factor(ifelse(dexp$winner==1,"Correct", "Incorrect") 
+                                   ,levels=c("Correct", "Incorrect"))
+# Readable labels when back-converted from log-scale:
+RT_labels <- c(seq(200, 1000, 100), rep("", 9), 2000, rep("", 9), 3000, rep("",9), 4000,rep("",9), 5000)
+# Label for the y axis:
+y_axis_da_ab <- expression(hat(elpd)[direct~~access~~model] - 
+                          hat(elpd)[activation-based~~model])
+# Define the plot: 
+elpds_diff <- ggplot(dexp,aes(x = RT, y = diff_elpd)) + 
+              scale_x_continuous(name= "log-scaled RT", 
+                                 trans = log_trans(), 
+              breaks=seq(200, 5000, 100),labels = RT_labels) + theme_bw() +
+              theme(axis.text.x = 
+                    element_text(angle = 90, vjust = 1,hjust = 1),
+                    legend.key.size = unit(0.3, "cm"),
+                    legend.title = element_text(size = 9),
+                    legend.text = element_text(size = 8),
+                    legend.position = c(.9, .80)) + 
+              scale_y_continuous(name = y_axis_da_ab, breaks = seq(-4,4,.5)) +
+              geom_hex(bins = 50) + 
+              scale_fill_gradientn(colours = c("skyblue","darkblue"), 
+                                    name = "Number of\nobservations") + 
+              facet_grid(.~response) + 
+              geom_hline(yintercept = 0, linetype = "dotted") +
+              ggtitle("Comparison of models")
+print(elpds_diff)
+```
+The figure above shows the difference between the $\hat{elpd}$ of the two
+models for every observation corresponding to either a correct or an incorrect
+response. The figure shows that most of the advantage of the direct access
+model comes from reading times between 300 and 1000 ms (notice the darker
+patch above the zero dotted line). In addition, the direct access model has a
+clear advantage in predicting  long reading times associated with correct
+responses and short reading times associated with incorrect ones, while  the
+activation-based model has an advantage in predicting short reading times for
+correct responses and long reading times for incorrect ones.
+
+# Concluding remarks
+
+This work presents an evaluation of two well-known models of retrieval processes 
+in sentence comprehension, the activation-based model and the direct-access model.
+We implemented these models in a Bayesian hierarchical framework and showed that some aspects of the data can be explained better by the
+direct access model. Specifically, the activation-based cannot
+predict that, on average, incorrect retrievals would be faster than correct
+ones. 
+
+More generally, our work leverages the capabilities of Stan to provide a powerful 
+framework for flexibly developing computational models of competing theories of retrieval, 
+and demonstrates how these models' predictions can be compared in a Bayesian setting.
+
+# References
+
+<!-- This comment causes section to be numbered -->

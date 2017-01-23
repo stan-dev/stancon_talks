@@ -1,0 +1,461 @@
+---
+title: "Hierarchical Bayesian Modeling of the English Premier League"
+author: "Milad Kharratzadeh"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  pdf_document:
+      toc: true
+fontsize: 12pt
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE)
+```
+
+\newpage
+# Introduction
+
+In this case study, we provide a hierarchical Bayesian model for the English Premier League in the season of 2015/2016. The league consists of 20 teams and each two teams play two games with each other (home and away games). So, in total, there are 38 weeks, and 380 games. We model the score difference (home team goals $-$ away team goals) in each match. The main parameters of the model are the teams' abilities which is assumed to vary over the course of the 38 weeks. The initial abilities are determined by performance in the previous season plus some variation. Please see the next section for more details.
+
+We implement and fit our model in `Stan` and prepare the data and analyze the results in `R`. 
+
+# Model
+
+The score difference in game $i$, denoted as $y_i$, is modeled as a $t$ distribution:
+$$
+y_i \sim t_{\nu}(a_{home\_week(i), \ home\_team(i)} - a_{away\_week(i), \ away\_team(i)} + b_{home}, \sigma_y),
+$$
+where $a_{w,j}$ is the ability of team $j$ in week $w$. Because of the irregularities in the schedule of the games, the `week' for the home and away teams may not be the same; so, $home\_week(i)$ and $away\_week(i)$ denote the week for the home and away team in game $i$ respectively. The possible advantage (or disadvantage) for the home team is modeled by the variable $b_{home}$; we do not expect this effect to be large, and therefore, assign it a N$(0,1)$ weak prior. The variation in the score difference is modeled by $\sigma_y$ and we give it a weak prior N$(0,5)$. The degrees of freedom, $\nu$, has a prior of Gamma$(2,0.1)$\footnote{As suggested by: Juarez and Steel, ``Model-based clustering of non-Gaussian panel data based on skew-t distributions'', Journal of Business \& Economic Statistics 28 (2010), 52-66}. 
+
+We assume that the abilities of the teams can change during the season (due to injuries, player forms, etc.). We assume the following random walk model:
+$$
+a_{w,j} \sim \text{N}(a_{w-1,j}, \sigma_{aj}), \qquad w=2,\ldots,38
+$$
+where $\sigma_{aj}$ models the game-to-game variability for team $j$. We assume a hierarchical structure where the variations in team abilities are sampled from N$(0, \tau_a)$, and $\tau_a \sim$ Cauchy$(0,1)$.
+
+The ability for the first week is derived from the previous season performance with some variability:
+$$
+a_{1,j} \sim \text{N}(b_{prev} a_{0,j}, \sigma_{a0}),
+$$
+where $b_{prev}$ is the regression coefficient and $a_{0,j}$ is a score between $-1$ and $1$ achieved by a linear transformation of the total points achieved from last season. We expect some team-level variation in the initial performance; this is modeled by $\sigma_{a0}$. Both $b_{prev}$ and $\sigma_{a0}$ have weakly informative priors, N$(0,5)$.
+
+We fit our model every week using all the matches up until that point. (Therefore, we fit our model 38 times.)
+
+# Reading and Munging the Data
+We first read the data from the website `footbal-data.co.uk` and save it to a list called `epl`. The main components of this list are `home_team`, `away_team`, and `score_diff` which have 380 elements each. Teams have fixed IDs which are integers from 1 to 20 assigned to teams sorted alphabetically. The previous performance (points in previous season) is stored a separate CSV file; this data is read and mapped to a score between $-1$ and $+1$ using the user-defined function `map_to_score`. The variable `home_week`, also of length 380, identifies the 'week' for the home team (i.e., how many matches the home team has played so far, including the current match). 
+
+```{r data, cache=TRUE}
+library(plyr)
+# Linear map of points to a score between -1 and 1
+map_to_score <- function(x) { 
+  x_max <- max(x);   x_min <- min(x);
+  return(2*x/(x_max-x_min) - (x_max+x_min)/(x_max-x_min))
+}
+url_csv <- "http://www.football-data.co.uk/mmz4281/1516/E0.csv"; 
+# Data downloaded from football-data.co.uk
+mydat   <- read.csv(url(url_csv)); epl <- c();
+# teams are assigned IDs 1, 2, ...:
+epl$home_team       <- as.numeric(mydat$HomeTeam)  
+epl$away_team       <- as.numeric(mydat$AwayTeam)
+epl$team_names      <- levels(mydat$HomeTeam)
+epl$home_goals      <- mydat$FTHG # FTHG: full time home goals
+epl$away_goals      <- mydat$FTAG # FTHG: full time away goals
+epl$score_diff      <- epl$home_goals - epl$away_goals
+# Points from last season are read and mapped to a score
+epl$prev_perf       <- read.csv('DATA/prev_perf.csv', header = FALSE)
+epl$prev_perf       <- map_to_score(epl$prev_perf[,2]) 
+epl$nteams          <- length(unique(epl$home_team))
+epl$ngames          <- length(epl$score_diff)
+epl$nweeks          <- floor(2*epl$ngames/epl$nteams)
+# The following code computes the week for each team in their games:
+epl$home_week <- c();   epl$away_week <- c();
+for (g in 1:epl$ngames) {
+  epl$home_week[g]  <-  sum(epl$home_team[1:g] == epl$home_team[g]) + 
+    sum(epl$away_team[1:g] == epl$home_team[g]) 
+  epl$away_week[g]  <-  sum(epl$away_team[1:g] == epl$away_team[g]) +
+    sum(epl$home_team[1:g] == epl$away_team[g])
+}
+epl$bet_home <- mydat$B365H; # Betting odds for home team win
+epl$bet_draw <- mydat$B365D; # Betting odds for draw
+epl$bet_away <- mydat$B365A; # Betting odds for away team win
+saveRDS(epl,'epl_data.rds')
+```
+
+
+# Stan Code
+
+The `Stan` code for the model is shown below. The code is commented and self-explanatory. In the `generated quantities` block, we sample replications data for the `score_diff`; we will use these later for posterior predictive checks. 
+
+```{r, echo=FALSE, comment=NA}
+file_path <- "epl_model.stan";
+lines <- readLines(file_path, encoding="ASCII");
+for (n in 1:length(lines)) cat(lines[n],'\n');
+```
+
+# Fitting the Model
+
+As mentioned earlier, we fit the model multiple times, after every 10 games. In the code below, `epl_w` contains all the data for matches in the first $w\times 10$ matches. We fit the model with 4 chains of length 750 (with the first half for warmup), for a total of 1500 samples (after warmup).
+
+```{r, echo=FALSE, comment=NA}
+dir.create("FITS", showWarnings = FALSE)
+```
+
+```{r fitStan, cache=TRUE, results="hide", message=FALSE}
+library("rstan")
+epl <- readRDS("epl_data.rds")
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+sm <- stan_model("epl_model.stan")
+nsamples <- 1500
+a_sims <- array(NA, c(nsamples, epl$nweeks, epl$nteams))
+for (w in 1:38) {
+  epl_w <- epl
+  idx <- c(1:(w*10))
+  epl_w$home_team  <- epl$home_team[idx]
+  epl_w$away_team  <- epl$away_team[idx]
+  epl_w$home_goals <- epl$home_goals[idx]
+  epl_w$away_goals <- epl$away_goals[idx]
+  epl_w$score_diff <- epl$score_diff[idx]
+  epl_w$home_week  <- epl$home_week[idx]
+  epl_w$away_week  <- epl$away_week[idx]
+  epl_w$ngames     <- w*10
+  epl_w$nweeks     <- max(c(epl_w$home_week, epl_w$away_week))
+  fit <- sampling(sm, chains = 4, iter = (nsamples/2), data = epl_w)
+  saveRDS(fit, paste("FITS/fit_", w, ".rds", sep=""))
+  sims <- extract(fit)
+  for (g in ((w-1)*10 + 1):(w*10)) {
+    a_sims[,epl$home_week[g],epl$home_team[g]] <- 
+      sims$a[,epl$home_week[g],epl$home_team[g]]
+    a_sims[,epl$away_week[g],epl$away_team[g]] <- 
+      sims$a[,epl$away_week[g],epl$away_team[g]]
+  }
+}
+saveRDS(a_sims,"FITS/a_sims.rds")
+```
+
+\newpage 
+
+# Evolution of Team Abilities
+
+Remember that we re-fit the model after each week. In the first table below, we show the estimated team abilities (+/- 1 s.e.) after week 1. The teams in the table are sorted according their performance in the previous season. We observe that after only one match for each team, the estimated abilities are somewhat similar to previous performance with purturbations due to the results in the first week. We also observe that the uncertainty intervals are quite wide; this also makes sesne, because we have only one observation per team.
+
+
+```{r, message=FALSE, warnings=FALSE, results=FALSE, echo=FALSE, comment=NA, fig.width=6, fig.height=5.5}
+library (arm)
+library(rstan)
+library(matrixStats)
+prev_perf <- read.csv('DATA/prev_perf.csv', header = FALSE)
+sort_perf <- prev_perf[with(prev_perf, order(prev_perf[,2])), ]
+a_hat <- colMeans(a_sims[,1,])
+a_se <- sqrt(colVars(a_sims[,1,]))
+coefplot (a_hat[order(prev_perf[,2])], a_se[order(prev_perf[,2])], 
+          CI=1, varnames=as.character(sort_perf[,1]),
+          main="Team abilities after week 1 (estimate +/- 1 s.e.)\n Teams are sorted according to previous performance\n", 
+          cex.var=.9, mar=c(1,6,5.1,2), xlim=c(-2,2))
+```
+
+In the next figure, we plot the estimated abilities at the end of the season (i.e., after week 38). This time, we sort the teams in the tables according to their final standings in the table (i.e., sorted according to total points) at the end of the season. We observe that the estimated abilities are fairly consistent with the actual rankings and the uncertainty intervals are narrower compared to the results after week 1.
+
+```{r, message=FALSE, warnings=FALSE, results=FALSE, echo=FALSE, comment=NA, fig.width=6, fig.height=4}
+library (arm)
+library(rstan)
+library(matrixStats)
+curr_perf <- read.csv('DATA/curr_perf.csv', header = FALSE)
+sort_perf <- curr_perf[with(curr_perf, order(curr_perf[,2])), ]
+a_hat <- colMeans(a_sims[,38,])
+a_se <- sqrt(colVars(a_sims[,38,]))
+coefplot (a_hat[order(curr_perf[,2])], a_se[order(curr_perf[,2])], 
+          CI=1, varnames=as.character(sort_perf[,1]),
+          main="Team abilities after week 38 (estimate +/- 1 s.e.)\n Teams are sorted according to total achieved points\n", 
+          cex.var=.9, mar=c(1,6,5.1,2), xlim=c(-2,2))
+```
+
+We also examine the evolution of abilities for each team over the course of the season. In Fig. 2, we plot the estimated abilities for all the teams after each week (using the data from matches upto and including that week). The uncertainty intervals (+/- 1 s.e.) are shown with gray bands.  The score differences are shown by red dots. We observe that ability movements are consistent with score differences. For instance, Leicester did not do well in the previous season; so, its initial ability is not high. Despite some good results at the beginning of the season, they got some bad results in weeks 4 to 9 (a drop in the estimated ability). Afterwards, they did very well until the end of the season which is shown by the positive trend in the estimated abilities. 
+
+<div style="width:2in; float:right; padding: 1em">
+![Leicester performance and position in the table (source: Wikipedia)](Leicester.png)
+</div>
+
+```{r, message=FALSE, warnings=FALSE, results=FALSE, echo=FALSE, comment=NA, fig.width=5, fig.height=2.8}
+library(rstan)
+library (arm)
+library(matrixStats)
+a_hat <- matrix(NA, nrow=38, ncol=20)
+a_se <- matrix(NA, nrow=38, ncol=20)
+for (w in 1:38) { 
+  a_hat[w,] <- colMeans(a_sims[,w,])
+  a_se[w,] <- sqrt(colVars(a_sims[,w,]))
+}
+a_min <- a_hat-a_se 
+a_max <- a_hat+a_se
+x<-c(1:38)
+
+teamname <- "Leicester";  
+ind <- match(teamname, epl$team_names)
+plot(a_hat[,ind], type="l", ylim=c(-2,2),
+     lty = 1, lwd = 3, bty='l', xlab=NA, ylab=NA)
+polygon(c(x, rev(x)), c(a_min[,ind], rev(a_max[,ind])), col = 'grey80', border = NA)
+lines(a_hat[,ind], type="l", ylim=c(-2,2),
+      lty = 1, lwd = 3, bty='l')
+title(teamname, line=0)
+par(new = T)
+g1 <- lapply(ind, function(x) which(epl$home_team %in% x))
+g2 <- lapply(ind, function(x) which(epl$away_team %in% x))
+g <- c(g1[[1]],g2[[1]])
+scd <- epl$score_diff[g] * rep(c(1,-1), each=19)
+aa <- a_hat[,ind]
+scd <- scd[order(g)]
+plot(scd, col = 2, pch=16, axes=F, xlab=NA, ylab=NA, cex=0.7, ylim=c(-6,6))
+axis(side = 4, col="red",col.axis="red",las=1)
+title(xlab = "week",
+      ylab = "team ability",
+      outer = TRUE, line = 3, cex.lab=1.5)
+mtext("team ability",side=2,col="black",line=-1.6, outer = TRUE)
+mtext("week",side=1,col="black",line=-2.6, outer = TRUE)
+
+```
+
+```{r, message=FALSE, warnings=FALSE, results=FALSE, echo=FALSE, comment=NA, cache=TRUE, fig.keep="none"}
+library(rstan)
+library (arm)
+library(matrixStats)
+a_hat <- matrix(NA, nrow=38, ncol=20)
+a_se <- matrix(NA, nrow=38, ncol=20)
+for (w in 1:38) { 
+  a_hat[w,] <- colMeans(a_sims[,w,])
+  a_se[w,] <- sqrt(colVars(a_sims[,w,]))
+}
+a_min <- a_hat-a_se 
+a_max <- a_hat+a_se
+prev_perf <- read.csv('DATA/prev_perf.csv', header = FALSE)
+sort_perf <- prev_perf[with(prev_perf, rev(order(prev_perf[,2]))), ]
+png ("EPL_ability.png", height=10, width=8, units = 'in', res = 600)
+attach(mtcars)
+op <- par(mfrow = c(5,4),
+          oma = c(5,4,0,0) + 0.1,
+          mar = c(0.8,0.8,4,4) + 0.1)
+x<-c(1:38)
+for (i in 1:20) {
+  teamname <- sort_perf[i,1];  
+  ind <- match(sort_perf[i,1], epl$team_names)
+  plot(a_hat[,ind], type="l", ylim=c(-2,2),
+       lty = 1, lwd = 3, bty='l')
+  polygon(c(x, rev(x)), c(a_min[,ind], rev(a_max[,ind])), col = 'grey80', border = NA)
+  lines(a_hat[,ind], type="l", ylim=c(-2,2),
+       lty = 1, lwd = 3, bty='l')
+  title(teamname, line=0)
+  
+  par(new = T)
+  g1 <- lapply(ind, function(x) which(epl$home_team %in% x))
+  g2 <- lapply(ind, function(x) which(epl$away_team %in% x))
+  g <- c(g1[[1]],g2[[1]])
+  scd <- epl$score_diff[g] * rep(c(1,-1), each=19)
+  aa <- a_hat[,ind]
+  scd <- scd[order(g)]
+  plot(scd, col = 2, pch=16, axes=F, xlab=NA, ylab=NA, cex=0.7, ylim=c(-6,6))
+  axis(side = 4, col="red",col.axis="red",las=1)
+}
+title(xlab = "week",
+      ylab = "team ability",
+      outer = TRUE, line = 3, cex.lab=1.5)
+mtext("score difference",side=4,col="red",line=-1.5, outer = TRUE) 
+par(op)
+invisible(dev.off())
+```
+
+<div style="width:2.5in; float:right; padding: 2em">
+![For each of the 20 teams in the division, the black line shows estimated ability as the season goes on (at each point, posterior mean +/- 1 s.e. given only the first w weeks of the season, for each w); the red dots display the score difference for each game. ](EPL_ability.png)
+</div>
+
+# Parameter Estimates
+
+```{r, echo=FALSE, comment=NA}
+fit <- readRDS("FITS/fit_38.rds")
+sum_fit <- summary(fit)
+sf <- sum_fit$summary
+```
+
+The estimated model parameters after week 38 (all matches) are shown below. We observe that the home teams have an average of `r signif(sf[1,6], digits=2)` goals per game advantage. Also, the small value for $\tau_a$ shows that the game-to-game variation is relatively similar for all teams. The large value of estimated $\nu$ indicates that we could replace the $t$-student distribution with the normal without much change. 
+
+```{r home_team, echo=FALSE, comment=NA}
+print(sf[c(1:6),],digits=1)
+```
+
+
+# Model Checking
+```{r, results="hide", echo=FALSE, message=FALSE}
+library(matrixStats)
+fit <- readRDS("FITS/fit_38.rds")
+sims <- extract(fit)
+scd <- epl$score_diff
+scd_sims <- sims$score_diff_rep
+scd_hat <- colMedians(scd_sims)
+alpha <- 0.95
+scd_ub <- colQuantiles(scd_sims, probs = 1-(1-alpha)/2)
+scd_lb <- colQuantiles(scd_sims, probs = (1-alpha)/2)
+ci95 <- sum(scd < scd_ub & scd_lb<scd)/380
+alpha <- 0.5
+scd_ub <- colQuantiles(scd_sims, probs = 1-(1-alpha)/2)
+scd_lb <- colQuantiles(scd_sims, probs = (1-alpha)/2)
+ci50 <- sum(scd < scd_ub & scd_lb<scd)/380
+```
+
+As part of the Stan model, we sample replicated data for `score_diff` in the `generated_quantities` block. We can then check whether the actual score differences are consistent with the distribution of replicated data. Here, we examine the replicated score differences achieved by fitting the model to all the data (week 1 to week 38). In the figure below, all 380 matches are sorted according to their score difference (shown in black dots). For each match, the median of the replicated score differences is shown in red, the 95% uncertainty interval is shown in light yellow, and the 50% uncertainty interval is shown in dark yellow. We observe that most of the actual score differences are in the uncertainty intervals; in fact, `r signif(100*ci95, digits = 3)`% of them are in the interval.  We can plot the same figure for the 50% uncertainty interval. In this case, `r signif(100*ci50, digits = 3)`% of the actual score differences are in the interval. 
+
+
+```{r, message=FALSE, echo=FALSE, fig.height=3}
+library(ggplot2)
+library(matrixStats)
+fit <- readRDS("FITS/fit_38.rds")
+sims <- extract(fit)
+scd <- epl$score_diff
+scd_sims <- sims$score_diff_rep
+scd_hat <- colMedians(scd_sims)
+scd_se <- sqrt(colVars(scd_sims))
+alpha <- 0.95;
+scd_ub <- colQuantiles(scd_sims, probs = 1-(1-alpha)/2)
+scd_lb <- colQuantiles(scd_sims, probs = (1-alpha)/2)
+alpha <- 0.5;
+scd_ub2 <- colQuantiles(scd_sims, probs = 1-(1-alpha)/2)
+scd_lb2 <- colQuantiles(scd_sims, probs = (1-alpha)/2)
+
+sort_scd <- scd[order(scd)]
+sort_scd_hat <- scd_hat[order(scd)]
+sort_scd_se <- scd_se[order(scd)]
+sort_scd_ub <- scd_ub[order(scd)]
+sort_scd_lb <- scd_lb[order(scd)]
+sort_scd_ub2 <- scd_ub2[order(scd)]
+sort_scd_lb2 <- scd_lb2[order(scd)]
+df <- data.frame(list(scd = sort_scd, scd_hat = sort_scd_hat, scd_se = sort_scd_se, 
+                      scd_ub = sort_scd_ub, scd_lb = sort_scd_lb, 
+                      scd_ub2 = sort_scd_ub2, scd_lb2 = sort_scd_lb2))
+
+ggplot(df, aes(x = c(1:380))) +
+  geom_ribbon(aes(ymin = scd_lb,
+                  ymax = scd_ub),
+              fill="lightyellow") + 
+  geom_ribbon(aes(ymin = scd_lb2,
+                  ymax = scd_ub2),
+              fill="khaki3") + 
+  geom_line(aes(y=scd_hat),colour="darkred") + 
+  geom_point(aes(y=scd), size = 0.3) +
+  scale_x_continuous(name="match") +
+  scale_y_continuous(name="score difference", minor_breaks = seq(-6, 6, 1), 
+                     sec.axis = dup_axis()) +
+  ggtitle("Estimated score differences (red) with 95% intervals (light yellow), \n  50% intervals (dark yellow), and the actual score differences (black)");
+```
+
+# Making Probabilistic Predictions with The Model
+
+We can use our estimates in week $w$ to predict matches in week $w+1$. A part of the code for this is shown below. We use the parameters from our `r nsamples` draws to simulate score differences from the posterior predictive distribution. 
+
+```{r, echo=FALSE, message=FALSE, cache=TRUE}
+library(rstan)
+library(matrixStats)
+epl <- readRDS('epl_data.rds')
+a_sims<-readRDS("FITS/a_sims.rds")
+b_home <- array(NA, c(38,nsamples))
+nu <- array(NA, c(38,nsamples))
+sigma_y <- array(NA, c(38,nsamples))
+for (w in 1:38) { 
+  fit <- readRDS(paste("FITS/fit_", w, ".RDS", sep=""))
+  sims <- extract(fit)
+  b_home[w,] <- sims$b_home
+  nu[w,] <- sims$nu
+  sigma_y[w,] <- sims$sigma_y
+}
+score_diff_pred <- array(NA, c(380,nsamples))
+set.seed(1);
+```
+
+```{r, message=FALSE,cache=TRUE}
+rt_ls <- function(n, df, mu, a) rt(n,df)*a + mu
+for (i in 11:380) {
+  w <- ceiling(i/10)
+  for (j in 1:nsamples) {
+    score_diff_pred[i,j] <- 
+      rt_ls(1, nu[w-1,j], 
+        a_sims[j,epl$home_week[i]-1, epl$home_team[i]] - 
+        a_sims[j,epl$away_week[i]-1, epl$away_team[i]] +
+        b_home[w-1,j],
+        sigma_y[w-1,j]);
+  }
+}
+```
+
+
+```{r, echo=FALSE, message=FALSE}
+scd <- epl$score_diff[191:380]
+scd_sims <- t(score_diff_pred[191:380,])
+scd_hat <- colMedians(scd_sims, na.rm = TRUE)
+alpha <- 0.95
+scd_ub <- colQuantiles(scd_sims, probs = 1-(1-alpha)/2, na.rm = TRUE)
+scd_lb <- colQuantiles(scd_sims, probs = (1-alpha)/2, na.rm = TRUE)
+cip95 <- sum(scd < scd_ub & scd_lb<scd)/190
+alpha <- 0.5
+scd_ub <- colQuantiles(scd_sims, probs = 1-(1-alpha)/2, na.rm = TRUE)
+scd_lb <- colQuantiles(scd_sims, probs = (1-alpha)/2, na.rm = TRUE)
+cip50 <- sum(scd < scd_ub & scd_lb<scd)/190
+```
+
+We can then compare the distribution of predicted score differences with the actual score differences. We do the comparison in the second half of the season, allowing the model to see enough data before making predictions. The results are shown in the figure below. In this figure, all 190 matches in the second half of the season are sorted according to their score difference (shown in black dots). For each match, the median of the predicted score differences is shown in red, the 95% uncertainty interval is shown in light yellow, and the 50% uncertainty interval is shown in dark yellow. We observe that most of the actual score differences are in the uncertainty intervals of predictions; in fact, `r signif(100*cip95, digits = 3)`% of them are in the interval.  We can plot the same figure for the 50% uncertainty interval. In this case, `r signif(100*cip50, digits = 3)`% of the actual score differences are in the interval. \newline
+
+```{r, echo=FALSE, message=FALSE, fig.height=3}
+library(matrixStats)
+scd <- epl$score_diff[191:380]
+scd_sims <- t(score_diff_pred[191:380,])
+scd_hat <- colMedians(scd_sims, na.rm=TRUE)
+scd_se <- sqrt(colVars(scd_sims, na.rm=TRUE))
+scd_ub <- scd_hat + 1.95 * scd_se;
+scd_lb <- scd_hat - 1.95 * scd_se;
+scd_ub2 <- scd_hat + 0.67 * scd_se;
+scd_lb2 <- scd_hat - 0.67 * scd_se;
+
+sort_scd <- scd[order(scd)]
+sort_scd_hat <- scd_hat[order(scd)]
+sort_scd_se <- scd_se[order(scd)]
+sort_scd_ub <- scd_ub[order(scd)]
+sort_scd_lb <- scd_lb[order(scd)]
+sort_scd_ub2 <- scd_ub2[order(scd)]
+sort_scd_lb2 <- scd_lb2[order(scd)]
+df <- data.frame(list(scd = sort_scd, scd_hat = sort_scd_hat, scd_se = sort_scd_se, 
+                      scd_ub = sort_scd_ub, scd_lb = sort_scd_lb, 
+                      scd_ub2 = sort_scd_ub2, scd_lb2 = sort_scd_lb2))
+
+ggplot(df, aes(x = c(1:190))) +
+  geom_ribbon(aes(ymin = scd_lb,
+                  ymax = scd_ub),
+              fill="lightyellow") + 
+  geom_ribbon(aes(ymin = scd_lb2,
+                  ymax = scd_ub2),
+              fill="khaki3") + 
+  geom_line(aes(y=scd_hat),colour="darkred") + 
+  geom_point(aes(y=scd), size = 0.3) +
+  scale_x_continuous(name="match") +
+  scale_y_continuous(name="score difference", minor_breaks = seq(-6, 6, 1), 
+                     sec.axis = dup_axis()) +
+  ggtitle("Predicted score differences (red) with 95% intervals (light yellow), \n  50% intervals (dark yellow), and the actual score differences (black)");
+```
+
+
+```{r, message=FALSE, echo=FALSE}
+summ<-0
+sum_vec<-array(0,190)
+scd_h <-round(scd_hat);
+for (i in 1:190) {
+  if (scd[i]>0 & scd_h[i]>0)
+    summ<-summ+epl$bet_home[i+190];
+  if (scd[i]<0 & scd_h[i]<0)
+    summ<-summ+epl$bet_away[i+190];
+  if (scd[i]==0 & scd_h[i]==0)
+    summ<-summ+epl$bet_draw[i+190];
+  summ<-summ-1
+  sum_vec[i] <- summ;
+}
+```
+As part of our data, we have the betting odds offered for the matches. We can use this information to assess the quality of our predictions. For each match, we have probabilistic predictions---a distribution of predicted score differences. We can translate this information into a decision in a number of ways. Here, we use the median of the score difference and round it to the closest interger; depending on whether this value is positive, negative, or zero, we bet win, lose, or draw and wager \$1. We plot our cumulative winnings below. The total winnings after removing wagers is \$`r signif(summ, digits=3)` in the end---a return of `r signif(100*summ/190, digits=3)`$\%$!
+
+```{r, message=FALSE, echo=FALSE}
+plot(c(1:190),sum_vec,type="l",ylab="cumulative winnings - wager", xlab="match")
+```
+
