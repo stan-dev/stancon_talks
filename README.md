@@ -33,7 +33,7 @@ StanCon’s version of conference proceedings is a collection of contributed tal
 * Woo-Young Ahn, Nate Haines, Lei Zhang: **_hBayesDM: Hierarchical Bayesian modeling of decision-making tasks_** 
   - Presenter: <a href="https://ccs-lab.github.io"> **Woo-Young (Young) Ahn**</a> is an assistant professor in the Department of Psychology and Translational Data Analytics at the Ohio State University. He earned his Ph.D. in clinical science from Indiana University, Bloomington, S.M. in applied physics from Harvard University, and B.S. in materials science and engineering from Seoul National University.
   - [Notebook and materials](2017/Contributed-Talks/04_ahn)
-  - [Slides](2017/Contributed-Talks/slides/04_ahn_stancon_slides.pptx)
+  - [Slides](2017/Contributed-Talks/slides/04_ahn_stancon_slides.pdf)
 
 
 * Charles Margossian, Bill Gillespie: **_Differential Equation Based Models in Stan_** 
