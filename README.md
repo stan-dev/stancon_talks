@@ -6,13 +6,15 @@
 
 StanCon’s version of conference proceedings is a collection of contributed talks based on interactive notebooks. Every submission is peer reviewed by at least two members of the Stan Conference Organizing Committee. This repository contains all of the accepted notebooks as well as any supplementary materials required for building the notebooks. The slides presented at the conference are also included.
 
-### StanCon 2017 
+**License**: unless otherwise noted, the text in this repository is distributed under the [CC BY 4.0 License](https://creativecommons.org/licenses/by/4.0/) and code is distributed under the [New BSD License](https://opensource.org/licenses/BSD-3-Clause). Copyright to the authors.
 
-January 21st, 2017 __/__ Columbia University __/__ New York
+## StanCon 2017 
 
-[2017 Presenter Bios](2017/Contributed-Talks/presenter-bios.md)
+* January 21st, 2017 __/__ Columbia University __/__ New York
+* [Organizing committee and reviewers](http://mc-stan.org/events/stancon#organizers)
+* [Presenter bios and links](2017/Contributed-Talks/presenter-bios.md)
 
-**Contributed talks:**
+#### Contributed talks
 
 * Jonathan Auerbach, Rob Trangucci: **_Twelve Cities: Does lowering speed limits save pedestrian lives?_** 
   - [Notebook and materials](2017/Contributed-Talks/01_auerbach) 

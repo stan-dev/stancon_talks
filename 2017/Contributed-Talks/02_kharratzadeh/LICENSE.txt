@@ -1,3 +1,0 @@
-All code is released under the new BSD license.
-
-All text is released under the CC-BY 4.0 license.
