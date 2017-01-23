@@ -20,31 +20,32 @@ January 21st, 2017 __/__ Columbia University __/__ New York
 
 * Milad Kharratzadeh: **_Hierarchical Bayesian Modeling of the English Premier League_** 
   - [Notebook and materials](2017/Contributed-Talks/02_kharratzadeh)
-  - [Slides]()
+  - [Slides](2017/Contributed-Talks/slides/02_kharratzadeh_stancon_slides.pdf)
 
 * Victor Lei, Nathan Sanders, Abigail Dawson: **_Advertising Attribution Modeling in the Movie Industry_** 
   - [Notebook and materials](2017/Contributed-Talks/03_lei)
-  - [Slides]()
+  - [Slides](2017/Contributed-Talks/slides/03_lei_stancon_slides.pdf)
 
 * Woo-Young Ahn, Nate Haines, Lei Zhang: **_hBayesDM: Hierarchical Bayesian modeling of decision-making tasks_** 
   - [Notebook and materials](2017/Contributed-Talks/04_ahn)
-  - [Slides]()
+  - [Slides](2017/Contributed-Talks/slides/04_ahn_stancon_slides.pptx)
 
 * Charles Margossian, Bill Gillespie: **_Differential Equation Based Models in Stan_** 
   - [Notebook and materials](2017/Contributed-Talks/05_margossian)
-  - [Slides]()
+  - [Slides](2017/Contributed-Talks/slides/05_margossian_stancon_slides.pdf)
 
 * Teddy Groves: **_How to Test IRT Models Using Simulated Data_**
   - [Notebook and materials](2017/Contributed-Talks/06_groves)
+  - [Slides](2017/Contributed-Talks/slides/06_groves_stancon_slides.html)
 
 * Bruno Nicenboim, Shravan Vasishth: **_Models of Retrieval in Sentence Comprehension_** 
   - [Notebook and materials](2017/Contributed-Talks/07_nicenboim) 
-  - [Slides]()
+  - [Slides](2017/Contributed-Talks/slides/07_nicenboim_stancon_slides.pdf)
 
 * Rob Trangucci: **_Hierarchical Gaussian Processes in Stan_** 
   - [Notebook and materials](2017/Contributed-Talks/08_trangucci)
-  - [Slides]()
+  - [Slides](2017/Contributed-Talks/slides/08_trangucci_stancon_slides.pdf)
 
 * Nathan Sanders, Victor Lei: **_Modeling the Rate of Public Mass Shootings with Gaussian Processes_** 
   - [Notebook and materials](2017/Contributed-Talks/09_sanders)
-  - [Slides]()
+  - [Slides](2017/Contributed-Talks/slides/09_sanders_stancon_slides.pdf)
