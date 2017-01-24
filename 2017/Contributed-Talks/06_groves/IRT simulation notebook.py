@@ -13,9 +13,10 @@ from numpy import percentile, concatenate, array, linspace, append
 get_ipython().magic('matplotlib inline')
 
 
+# # Teddy Groves
 # # How to test IRT models using simulated data
 # 
-# Football Radar is interested in lots of tasks that can be performed better or worse, depending on how hard it is and how able the agent doing it is. 
+# My company, [Football Radar](https://www.footballradar.com/), is interested in lots of tasks that can be performed better or worse, depending on how hard it is and how able the agent doing it is. 
 # 
 # Specifically, we look at data encoding judgements by football scouts as to how well players perform different kinds of action, such as controlling a fast-moving ball under pressure from an opponent. Typically not all players attempt the same kinds of actions the same number of times. In these cases IRT models can be used to draw conclusions about the players' abilities and the tasks' difficulties. 
 # 
