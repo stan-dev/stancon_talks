@@ -224,7 +224,7 @@ stan_kfold <- function(file, list_of_datas, chains, cores,...){
           pbmclapply(1:(K*chains), mc.cores = cores, 
           function(i){
             # Fold number:
-            k <- ((i+1) / chains)
+            k <- round((i+1) / chains)
             s <- sampling(model, data = list_of_datas[[k]], 
             chains = 1, chain_id = i,  ...)
             return(s)
