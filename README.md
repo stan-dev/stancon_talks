@@ -92,7 +92,7 @@ This submission investigates whether the New York City Police Department (NYPD) 
 
 Links: 
 
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=1h58m49s)
+  - Video (coming soon)
   - [Notebook, code, slides](2018/Contributed-Talks/01_auerbach) 
   - <a href="https://github.com/jauerbach"> github.com/jauerbach</a>
 
@@ -106,7 +106,7 @@ Alzheimer's Disease is one the most debilitating diseases, but how do we diagnos
 
 Links: 
 
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=1h58m49s)
+  - Video (coming soon)
   - [Notebook, code, slides](2018/Contributed-Talks/02_pourzanjani)
   - [https://github.com/pourzanj/Stancon2018\_Alzheimers](https://github.com/pourzanj/Stancon2018_Alzheimers)
   - <a href="https://aryastats.com/"> aryastats.com</a>
@@ -121,7 +121,7 @@ notebook are a simplified version of those underpinning the `stan_jm` modeling f
 
 Links: 
 
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=1h58m49s)
+  - Video (coming soon)
   - [Notebook, code, slides](2018/Contributed-Talks/03_brilleman) 
   - [github.com/sambrilleman/2018-StanCon-Notebook](https://github.com/sambrilleman/2018-StanCon-Notebook)
   - <a href="http://www.sambrilleman.com/"> sambrilleman.com</a>
@@ -135,7 +135,7 @@ We implement a standard Hidden Markov Model (HMM) and the Input-Output Hidden Ma
 
 Links: 
 
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=1h58m49s)
+  - Video (coming soon)
   - [Notebook, code, slides](2018/Contributed-Talks/05_damiano) 
   - <a href="https://github.com/luisdamiano/stancon18"> github.com/luisdamiano/stancon18</a>
 
@@ -148,7 +148,7 @@ Ornstein-Uhlenbeck (OU) processes are a mean reverting process and is used to mo
 
 Links: 
 
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=1h58m49s)
+  - Video (coming soon)
   - [Notebook, code, slides](2018/Contributed-Talks/06_goodman) 
   - [github.com/aaronjg/outype\_t\_process\_stan](https://github.com/aaronjg/outype_t_process_stan)
   - <a href="https://web.stanford.edu/~aaronjg/"> web.stanford.edu/~aaronjg</a>
@@ -163,7 +163,7 @@ We present SlicStan — a probabilistic programming language that compiles to St
 
 Links: 
 
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=1h58m49s)
+  - Video (coming soon)
   - [Notebook, code, slides](2018/Contributed-Talks/07_gorinova) 
   - [github.com/mgorinova/SlicStan-Paper](https://github.com/mgorinova/SlicStan-Paper)
   - <a href="http://homepages.inf.ed.ac.uk/s1207807/"> homepages.inf.ed.ac.uk/s1207807</a>, <a href="https://www.microsoft.com/en-us/research/people/adg/"> microsoft.com/en-us/research/people/adg</a>, <a href="http://homepages.inf.ed.ac.uk/csutton/"> http://homepages.inf.ed.ac.uk/csutton</a> 
@@ -177,7 +177,7 @@ Item-response theory (IRT) ideal-point scaling/dimension reduction methods that 
 
 Links: 
 
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=1h58m49s)
+  - Video (coming soon)
   - [Notebook, code, slides](2018/Contributed-Talks/08_kubinec) 
   - [https://CRAN.R-project.org/package=idealstan](https://CRAN.R-project.org/package=idealstan)
 
@@ -190,7 +190,7 @@ Stan’s numerical algebraic solver can be used to solve systems of nonlinear al
 
 Links: 
 
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=1h58m49s)
+  - Video (coming soon)
   - [Notebook, code, slides](2018/Contributed-Talks/10_margossian) 
   - [github.com/charlesm93](https://github.com/charlesm93)
 
@@ -204,7 +204,7 @@ This outlines a Bayesian approach to resonance ultrasound spectroscopy (RUS), a 
 
 Links: 
 
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=1h58m49s)
+  - Video (coming soon)
   - [Notebook, code, slides](2018/Contributed-Talks/11_bales) 
   - [github.com/bbbales2/stancon_2018](https://github.com/bbbales2/stancon_2018)
 
@@ -217,7 +217,7 @@ This notebook illustrates how to fit aggregate random coefficient logit models i
 
 Links: 
 
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=1h58m49s)
+  - Video (coming soon)
   - [Notebook, code, slides](2018/Contributed-Talks/13_savage) 
   - [github.com/khakieconomics](https://github.com/khakieconomics), [github.com/shoshievass](https://github.com/shoshievass)
 
@@ -230,7 +230,7 @@ We develop a new statistical test to detect bias in decision making — the thre
 
 Links: 
 
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=1h58m49s)
+  - Video (coming soon)
   - [Notebook, code, slides](2018/Contributed-Talks/14_simoiu) 
   - [github.com/camioux/stancon2018](https://github.com/camioux/stancon2018) 
   - [web.stanford.edu/~csimoiu](http://web.stanford.edu/~csimoiu/), [samcorbettdavies.com](https://samcorbettdavies.com/), [cs.stanford.edu/~emmap1](https://cs.stanford.edu/~emmap1/), [5harad.com](https://5harad.com/)
@@ -244,7 +244,7 @@ A Bayesian paradigm for making drug approval decisions. Case study in the treatm
 
 Links: 
 
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=1h58m49s)
+  - Video (coming soon)
   - [Notebook, code, slides](2018/Contributed-Talks/15_vamvourellis) 
   - [github.com/bayesways/case\_studies\_R/tree/master/stancon18](https://github.com/bayesways/case_studies_R/tree/master/stancon18)
   - [personal.lse.ac.uk/vamourel/](http://personal.lse.ac.uk/vamourel/)
@@ -260,7 +260,7 @@ The potential outcomes framework often uses one or more parametric outcome model
 
 Links: 
 
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=1h58m49s)
+  - Video (coming soon)
   - [Notebook, code, slides](2018/Contributed-Talks/16_comment) 
   - [https://github.com/lcomm/stancon2018](https://github.com/lcomm/stancon2018)
   - [scholar.harvard.edu/leahcomment](https://scholar.harvard.edu/leahcomment/)
@@ -273,7 +273,7 @@ Earthquake modeling with Stan. Applied to seismic recurrence in Ecuador in 2016.
 
 Links: 
 
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=1h58m49s)
+  - Video (coming soon)
   - [Notebook, code, slides](2018/Contributed-Talks/17_crespo) 
 
 
@@ -288,8 +288,8 @@ A Stan wrapper in Scala with an embedded domain specific language for Stan.
 
 Links: 
 
+  - Video (coming soon)
   - [Slides](2018/Invited-Talks/Wingbermuehle.pdf) 
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=1h58m49s)
   - <a href="https://github.com/cibotech/ScalaStan"> github.com/cibotech/ScalaStan</a>
 
   
@@ -301,7 +301,7 @@ A fun look back at the history of Stan from one of the core developers.
 
 Links: 
 
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=1h58m49s)
+  - Video (coming soon)
   - [Slides](2018/Invited-Talks/Lee.pdf) 
   - [github.com/syclik](https://github.com/syclik)
 
@@ -315,7 +315,7 @@ Example notebooks in R using packages rstanarm, rstan, bayesplot, loo, projpred.
 
 Links: 
 
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=1h58m49s)
+  - Video (coming soon)
   - [Notebook, code, slides](https://github.com/avehtari/modelselection_tutorial) 
   - [github.com/avehtari/modelselection_tutorial](https://github.com/avehtari/modelselection_tutorial)
 
@@ -329,7 +329,7 @@ When areal data has a spatial structure such that observations from neighboring 
 
 Links: 
 
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=1h58m49s)
+  - Video (coming soon)
   - [Case study](http://mc-stan.org/users/documentation/case-studies/icar_stan.html)
   - [Slides](2018/Invited-Talks/Morris.pdf)
   - [github.com/mitzimorris](https://github.com/mitzimorris)
