@@ -11,8 +11,8 @@ StanCon’s version of conference proceedings is a collection of contributed tal
 
 #### Contents:
 
-* [StanCon 2017](/StanCon-2017)
-* [StanCon 2018](/StanCon-2018)
+* [StanCon 2017](#stancon-2017)
+* [StanCon 2018](#stancon-2018)
 
 
 ## StanCon 2017 
