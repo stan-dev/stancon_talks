@@ -200,7 +200,7 @@ Links:
 
 * Authors: Ben Bales, Brent Goodlet, Tresa Pollock, Linda Petzold (UC Santa Barbara)
 
-This is a write-up of our experience integrating a model of linear elastic mechanical resonance in Stan.
+This outlines a Bayesian approach to resonance ultrasound spectroscopy (RUS), a technique for estimating elastic constants of a material from a sample's measured resonance modes. The notebook includes an example of how to take advantage of custom automatic differentiation in specialized Stan models (either for numerical or efficiency reasons).
 
 Links: 
 
@@ -278,14 +278,14 @@ Links:
 
 
 
-#### Invited talks 
-
+### Invited talks 
 
 **_ScalaStan_** 
 
 * Joe Wingbermuehle (Cibo Technologies)
 
 A Stan wrapper in Scala with an embedded domain specific language for Stan.
+
 Links: 
 
   - [Slides](2018/Invited-Talks/Wingbermuehle.pdf) 
@@ -297,7 +297,7 @@ Links:
 
 * Authors: Daniel Lee (Generable)
 
-Item-response theory (IRT) ideal-point scaling/dimension reduction methods that incorporate additional response categories and missing/censored values, including absences and abstentions, for roll call voting data (or any other kind of binary or ordinal item-response theory data). Full and approximate Bayesian inference is done via Stan.
+A fun look back at the history of Stan from one of the core developers.
 
 Links: 
 
