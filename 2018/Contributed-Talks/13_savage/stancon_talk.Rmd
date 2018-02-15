@@ -1,0 +1,548 @@
+---
+title: "Aggregate random coefficients logit—a generative approach"
+author: "Jim Savage and Shoshana Vasserman"
+date: "17 March 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F)
+```
+
+# Aggregate random coefficients logit: Bayesian estimation using Stan
+
+This note illustrates how to fit aggregate random coefficient logit models in Stan, 
+using Bayesian techniques. It's far easier to learn and implement than the standard BLP algorithm, and has the
+benefits of being robust to mismeasurement of market shares, and giving limited-sample posterior uncertainty
+of all parameters (and demand shocks). This comes at the cost of modeling firms' price-setting process, including how unobserved product-market demand shocks affect prices. 
+
+
+## Introduction
+
+A common problem in applied economics, especially in industrial organization or marketing, is that
+a decision maker wants a good model of how individual customers make purchase decisions, 
+but has data only at the aggregate level.  
+
+Let's give examples of the sort of problem we're trying to solve. 
+
+### Example 1: Regulating a merger
+
+First is the classic merger problem: a regulator is be interested in whether a merger will 
+hurt customers, as might be the case if
+
+1. The merging firms offer similar products that appear to be in close competition, and few other options exist. And
+2. Marginal economies of scale from the merger are small. 
+
+Let's focus on the first problem. The regulator really needs to know whether the customers of the two firms' products perceive the products as being similar---that is, in genuine competition with one another. 
+This is a harder task than it might appear on the surface, as many goods might look similar to an 
+outside regulator but are really quite different. A mid-range Mercedes Benz might have similar 
+specifications to a Toyota, but is perceived by customers as being a different product. 
+
+Ideally the regulator would have sales-level data for each customer, their purchase decisions, and second choices. But this might be impossible to get. Yet it is quite straightforward to purchase aggregate sales 
+data at the product-market level from market research firms. So the regulator has to make do with that. 
+
+### Example 2: A manager considering a new product or a new market
+
+Managers ideally want to create goods and products where there is a strong latent demand but
+little competition. To do this, they need to understand the distribution of customers' preferences 
+over product characteristics, illustrated in the figure below by the blue contours. The manager
+should also understand the distribution of of competitors' (and their own) products
+on those same characteristics. These are illustrated as points in the figure below. A manager might then
+decide to enter a market by offering a product with characteristics that customers value but where few
+competing products exist. 
+
+```{r, echo = F, warning = F, message = F}
+library(ggplot2); library(dplyr)
+
+tau <- c(1, 2)
+Omega <- matrix(c(1, .5, .5, 1), 2,2 )
+
+Sigma <- diag(tau) %*% Omega %*% diag(tau)
+
+draws <- MASS::mvrnorm(5e4, c(1, .5), Sigma)
+
+products <- MASS::mvrnorm(5, c(1, .5), Sigma)
+
+ggplot(data = as.data.frame(draws), aes(V1, V2)) +
+  geom_density_2d(aes(fill = ..level..), geom = "polygon", alpha = 0.2, colour = "blue") +
+  labs(x = "Product characteristic 1",
+       y = "Product characteristic 2",
+       title = "Preference distribution and competing products") +
+  geom_point(data = as.data.frame(products)) +
+  ggthemes::theme_few() +
+  annotate("text", x = 2, y = -3, label = "Existing products") +
+  annotate("text", x = 0, y = 4.5, label = "Density of\ncustomer preferences", colour = "blue")
+  
+```
+
+Such analysis might be quite straightforward when the manager has access to customer-transaction-level
+data of their competitors, but this is not feasible in most cases. Instead, they need to make do 
+with the sorts of aggregate data available from the same research houses in the example above.
+
+## A generative model of consumer choice
+
+These examples above have the same objective: we want to perform analysis that requires knowing about 
+the distribution of customer preferences. And both problems face the same major constraint: we don't
+observe transaction-level data for all products--we only observe aggregate sales in each market. 
+Moreover, the most valuable aspects of consumer preferences are _relative_, not absolute - e.g. a 
+manager would be interested not just in whether a particular product would sell, but _how well_ it 
+would sell at different price points. How much would consumers be willing to pay for a new product, 
+and how much would that affect the prices and sales of existing products? 
+
+Even with very fine data and a few frequently purchased products, this is a difficult question to answer. 
+It requires inferring how consumers would substitute one good for another across a range of prices for 
+each good---the sheer number of combinations of possibilities that could be relevant is too high to 
+even conceive of, let alone observe in data. Of course, we don't actually have to observe every possible 
+combination of products and prices to have a predictive model of substitution patterns that performs 
+pretty well. We just need a tractable, flexible generative model that can smooth out the space of 
+possibilities in a sensible way.
+
+One extremely flexible model is the aggregate _random coefficients logit_ model. In this model, customer $i$ in 
+market $t$ has preferences over product $j$ such that their total utility is
+
+$$
+V_{ijt} = u_{ijt} + \epsilon_{ijt} \mbox{ where } \epsilon_{ij t} \sim \mbox{Gumbel}(.) 
+$$
+$$
+u_{ijt} = \alpha_{i}p_{jt} + X_{jt}\beta_{i} + \xi_{jt} 
+$$
+
+This says that each consumer receives utility, $u_{ijt}$, from good $j$ according to its price, $p_{jt}$, its characteristics, $X_{jt}$, some systematic "demand" or "quality" shock applicable to all customers in 
+market $t$, $\xi_{jt}$, and some iid shock, $\epsilon_{ijt}$. There are a couple of very important
+things to notice about this utility function:
+
+- We don't observe $u_{ijt}$ or $\xi_{jt}$. Because $\xi_{jt}$ is normally interpreted as "quality" or 
+a "demand shock", we assume that it is correlated with price. 
+- In this specification, each customer has their own preferences over price and product characteristics. The joint
+distribution of $\alpha_{i}$ and $\beta_{i}$ **is** the distribution of _structural parameters_ we care about. 
+It tells us what combinations of product characteristics and prices customers like, as well as how we expect 
+their utility from a product to vary when the product characteristics or price change. 
+- We make the assumption that $\epsilon_{ijt}$ is distributed according to a Gumbel distribution. This is 
+a convenience that allows us to use a softmax function for the probabilities of purchase. The parameterization
+of the Gumbel doesn't actually matter so long as all products, customers and markets have the same location
+and scale parameters. Once we introduce the outside good below, we assume that the non-random portion of utility
+for the outside good, $u_{i0t}$ is 0. 
+
+### Introducing an outside good
+
+In the model, a customer purchases whichever good gives them the highest utility. This means we only care about 
+_relative_ utility, not absolute utility. We could add 4 or 200 to all products' utilities, and customer
+choices would remain the same. This necessitates us introducing an "outside good" (with an expected utility of 0), 
+which serves as a reference point against which all other utilities are measured. We make the 
+assumption that it has sales equal to the potential size of the market (which we don't know) less the sales of 
+the goods for which we have data. 
+
+### From individual utilities to individual probabilities of purchase
+
+Under the above assumptions, it is possible to derive the probability that an individual will purchase good $j$. 
+This derivation is in Train (2003)---we'll spare you from it here. Individual purchase probabilities are just the 
+probability that a good's associated utility is the highest of all available good (including the outside good).
+
+$$
+p(u_{ijt}=\max(u_{it})) = \frac{\exp(\alpha_{i}p_{jt} + X_{jt}\beta_{i} + \xi_{jt})}{1 + \sum_{j}\exp(\alpha_{i}p_{jt} + X_{jt}\beta_{i} + \xi_{jt})}
+$$
+
+Where the denominator includes the expected value of the utility of the outside good $1 = \exp(u_{0})$. 
+
+### Generating aggregate sales data from the model
+
+Because this is a generative model, there is a clear mapping between our economic model (above) and the observed
+data. But first, what exactly is the observed data? We have the **inputs**, prices $p_{jt}$, and  $P$ observed product characteristics $X_{jt}$. Using these variables and the **unknowns**  $\alpha_{i}$, $\beta_{i}$, $\xi_{jt}$ fixed at
+some values, we should be able to generate the **outcomes**, $y_{jt}$---the sales of each good in each market 
+(some researchers use market shares instead of sales; we prefer sales as described below). 
+
+But how do the data come about? If a customer's probability of choosing to purchase a given object is given by a combination of the product knowns and the unknowns of the model, then the market shares of each product will, for a large number of customers, be the integral of the individual probability model over the preference space. 
+This sounds difficult, but is really quite simple: each customer has a probability of purchasing each good. If we 
+have values for the unknowns of the model $\alpha_{i},\, \beta_{i},\, \xi_{jt}$ (and the model is correct) we 
+know the probability of customer $i$ making each purchase. We can calculate market shares as the average of these
+probabilities over many customers. Note that because the probability model is non-linear, this is different to 
+the probabilities implied by the softmax function at the average values of $\alpha_{i},\, \beta_{i}$. 
+
+What have we done? We've gone from a model of individual choice making to implied market shares of heterogeneous 
+goods. This is often where researchers' models stop (in the famous BLP case, $\xi_{jt}$ is backed out to set
+implied market shares to actual market shares). But we want to be able to deal with measurement error---the fact
+that given some true market shares for each good $s_{jt}$, our data has been collected with error giving us
+estimates $\hat{s}_{jt}$. We make the assumption that true market shares $s_{jt}$ map to observed sales (which
+are observed with error) through a multinomial distribution with a given market size. 
+
+$$
+y_{jt} \sim \mbox{Multinomial}(s_{jt}, \mbox{Market size}_{t})
+$$
+
+### Modeling price
+
+A major difference between our model and other approaches is to model the demand shock $\xi_{jt}$
+as an explicit random variable, about which we want to perform inference. The approach we take is to model
+it as a latent factor, whose value is revealed partly in utilities (and market shares), and partly
+in prices or any other endogenous product characteristics (Petrin and Train (2010) propose a similar 
+control function approach and show how it can substitute for IVs). This requires that we model the 
+functional form of the true price-generating process. Here we'll make the assumption that the natural 
+log of prices is a linear function of product characteristics and the latent factor. 
+
+$$
+\log(p_{jt}) \sim \mbox{Normal}(X_{jt}\gamma + Z_{jt}\delta +  \lambda \xi_{jt}, \sigma_{p})
+$$
+$\lambda$ is known as a _factor loading_. We've used a lognormal distribution here because it places no weight on 
+negative prices. If negative prices are possible, we should not use this formulation. We could also use a less 
+skewed distribution if desired, such as a truncated normal. $Z_{jt}$ is a vector of instruments for price (not included
+in the utility model). By definition of $xi_{jt}$ as a random effect in this model implies orthogonality between 
+the instruments and the structural shock; this is the same identifying assumption that justifies using GMM in
+typical BLP.
+
+Note that this need not be the full specification for price. Another, more economically valid approach similar to that 
+in the original BLP paper would be to
+model prices as being set by profit-maximizing competitors. That way, when we make predictions for sales of a new
+product, those share predictions would be the sales _given that competitors will respond to the new product_. 
+
+This structural add on is quite simple. If each product is sold by a separate firm, then firm $j$ faces a profit function
+
+$$
+\Pi_{jt} = (p_{jt} - mc_{jt})\times\text{market size}_{t}\times \text{share}_{j}(p_{t}, X_{t}, \xi_{t}, \alpha, \beta, L)
+$$
+where $mc_{jt}$ is the marginal cost of good j in market t (so $p_{jt} - mc_{jt} is the mark-up per product). 
+Market size is the total number of goods sold (assumed to be 
+independent of pricing choice), and $\text{share}_{j}(p_{t}, X_{t}, \xi_{t}, \alpha, \beta, L)$ the market share of good $j$, 
+as a function of data and model parameters derived below. 
+
+Firm $j$ maximizes profits, implying that pricing satisfies the first order condition
+
+$$
+\frac{\partial \Pi_{jt}}{\partial p_{jt}} = \text{share}_{j}(p_{t}, X_{t}, \xi_{t}, \alpha, \beta, L) +
+(p_{jt} - mc_{jt})\times\frac{\partial \text{ share}_{j}(p_{t}, X_{t}, \xi_{t}, \alpha, \beta, L)}{\partial p_{jt}} = 0
+$$
+Which implies that in equilibrium
+
+$$
+p_{jt} = mc_{jt} -\frac{\text{share}_{j}(p_{t}, X_{t}, \xi_{t}, \alpha, \beta, L)}{\frac{\partial \text{ share}_{j}(p_{t}, X_{t}, \xi_{t}, \alpha, \beta, L)}{\partial p_{jt}}}
+
+$$
+If we assume that marginal cost of each good is modeled as a function of product attributes $X_{jt}$ and cost-shifting
+instruments $Z_{jt}$, we could use a truncated normal model. 
+
+$$
+mc_{jt} \sim \text{Normal}_{+}(X_{jt}\psi + Z_{jt}\phi, \sigma_{mc}) \text{ or } mc_{jt} = X_{jt}\psi + Z_{jt}\phi + \eta_{jt} 
+\text{ with } \eta \sim \text{Normal}_{>-(X_{jt}\psi + Z_{jt}\phi)}(0, \sigma_{mc})
+$$
+
+This implies a likelihood for price of
+
+$$
+p_{jt} = X_{jt}\psi + Z_{jt}\phi  - \frac{\text{share}_{j}(p_{t}, X_{t}, \xi_{t}, \alpha, \beta, L)}{\frac{\partial \text{ share}_{j}(p_{t}, X_{t}, \xi_{t}, \alpha, \beta, L)}{\partial p_{jt}}}+ \eta_{jt} 
+\text{ with } \eta \sim \text{Normal}_{>-(X_{jt}\psi + Z_{jt}\phi)}(0, \sigma_{mc})
+$$
+
+Note this is still a latent factor model, but the impact of $\xi$ on price is now quite non-linear. 
+
+### Estimating the model from aggregate market-level data 
+
+At a high level, the trick to estimating this model is to estimate the the distribution of 
+the individual-level coefficients, rather than the actual individual-level coefficients (which we obviously
+cannot estimate from aggregate data). We do this by reformulating the utility model in terms of fixed
+and random utility, and passing in the individual random effects $z_{i}$ as data.
+
+First, express utility in terms of a fixed and random portion: 
+
+$$
+u_{ijt} = \alpha p_{jt} + X_{jt}\beta + (p_{jt},\, X_{jt}')\, L\, z_{i}' + \xi_{jt} 
+$$
+
+$z_{i}$ is a row vector of $P+1$ independent draws from some distribution, normally a unit normal, and $L$ is the lower triangular
+Cholesky factorization of $\Sigma$, which is a $P+1 \times P+1$ covariance matrix. To be clear, $\Sigma$ is the covariance matrix of variations in $(\alpha_{i},\, \beta_{i}')$ across customers. If the element of $\Sigma$ corresponding to price and product characteristic 3 is negative, it 
+means that customers who are more less sensitive to price (assuming all are negative, those whose $\alpha_{i}$s are closer to 0) 
+tend to derive less utility from characteristic 3. Good estimates of $\Sigma$ are what give us good estimates of the 
+distribution of preferences, which is what we ultimately want.
+
+Note that if we have information about how markets differ from one another (for instance their demographics), 
+we could include that information in the random effects part of the model. 
+
+Given this structure, we can estimate the structural parameters (and demand shocks) using the following method: 
+
+1. Draw a $NS \times P+1$ matrix independent shocks $z_{t}$, for some large number $NS$. We normally use the same shocks for every market. 
+2. For a given draw of the structural parameters $\alpha,\, \beta,\, \xi_{jt}, \Sigma$, for each market for each $i\in 1:NS$ calculate $u_{ijt}$ and hence $p(u_{ijt}=\max(u_{it}))$.
+3. Aggregate individual probabilities into predicted market shares $s_{jt,\mathrm{pred}}$
+4. Model $y_{t}$ and $p_{t}$ as described above. 
+
+Steps 2 and 3 occur in every iteration (or, if you are using HMC, every leapfrog step) of your model estimation. 
+
+## Part 2: Fake data simulation
+
+Astute readers will be aware that we always recommend simulating fake data with known parameters for a model. 
+Here we do precisely that. All fake data simulation is in R. The comments should describe what's going on here. 
+
+```{r}
+set.seed(57)
+# Dimensions of the data. 
+NS <- 1000 # 1000 fake customers in each market
+J <- 10 # 10 products
+T <- 20 # 20 markets
+P <- 3 # 3 covariates
+
+# structural parameters
+alpha <- -1
+lambda <- .8
+beta <- rnorm(P)
+
+# Create a covariance matrix of the individual-level parameters
+
+scales <- seq(from = .2, to = .9, length.out = P+1)
+
+# Generate a random correlation matrix
+XX <- matrix(rnorm(4*6), 6, 4)
+Omega <- cor(XX)
+Sigma <- diag(scales) %*% Omega %*% diag(scales)
+
+
+# Product characteristics matrix
+X <- matrix(rnorm(J*P), J, P)
+
+# Easier to use if we repeat it for each market. We can have different 
+# characteristics (like advertising) in each market
+X_long <- do.call(rbind, replicate(T, X, simplify = F))
+
+# structural shocks and price
+xi <- rnorm(T*J, 0, 1)
+xi_mat <- matrix(xi, T, J, byrow = T)
+psi <- rnorm(P)
+
+# The generative model for price
+price <- exp(0 +  lambda*xi + X_long %*% psi + rnorm(T*J, 0, 0.5))
+price_mat <- matrix(price, T, J, byrow = T)
+
+# Market size
+market_size <- round(rpois(T, 30000))
+
+# Deltas (the fixed part of utility for each product)
+delta <- alpha*price + X_long %*% beta + xi
+delta_mat <- matrix(delta[,1], T, J, byrow = T)
+
+# random shocks. (alpha_shocks, beta_shocks) = z_t
+z <- matrix(rnorm(NS*(P+1)), NS, P+1)
+
+# Empty market shares. Mat is for the observed products; sales is for all goods including the outside good
+shares_mat <- matrix(NA, T, J)
+sales <-  matrix(NA, T, J+1)
+
+# Loop through each matrix and generate sales for each product
+for(i in 1:T) {
+  
+  # Latent utility matrix
+  utility <- matrix(NA, NS, J)
+  # Create the random component of the (alpha, beta) vector
+  random_effects <-  z %*% chol(Sigma)
+  
+  # monte carlo integration
+  for(n in 1:NS){
+    utility[n,] <-t( exp(delta_mat[i,] + cbind(price_mat[i,], X) %*% random_effects[n,]))
+    utility[n,] <- utility[n,]/(1 + sum(utility[n,]))
+  }
+  shares_mat[i,] <- colMeans(utility)
+  
+  # Now we're going to observe the shares with measurement error
+  # Last column is the outside good
+  sales[i,] <- rmultinom(1, market_size[i], c(shares_mat[i,], 1 - sum( shares_mat[i,])))
+}
+
+```
+
+
+It should be pointed out that here $\xi_{jt}$ and $p$ are correlated. This should introduce
+endogeneity problems in the model. 
+
+```{r, echo = F}
+qplot(xi, log(price)) + ggthemes::theme_economist() +
+  ggtitle("xi clearly related to price")
+```
+
+
+## Part 3: Writing out the model in Stan
+
+Below we implement the model described above in Stan. 
+
+A couple of things to look out for in the code: 
+
+1. We pass $z_{t}$ in as two sets of shocks, one for $\alpha$ and one for $\beta$. There's no good reason for this. 
+2. We stack $X$, a $J\times P$ characteristic matrix, $T$ times. In the DGP above, we assume that a product has
+the same characteristics in each market. In reality, we would assume that things like advertising would vary across markets. 
+3. Although we simulate the price above with instruments, below we don't use the instruments at all for estimation 
+of the model. 
+
+```
+// our Stan model, saved as vsb.stan
+// first we define the function that takes data and parameters and returns predicted market shares
+functions {
+  // calculates shares for a given market
+  row_vector shares(real alpha, vector beta, matrix bigX, matrix Sigma, row_vector xi, matrix z) {
+    matrix[rows(z), cols(xi)] utilities;
+    matrix[rows(z), cols(xi)] probs;
+    row_vector[cols(xi)] shares;
+    // 1. Rather than pass in p and x separately, we'll pass in bigX = append_col(p, X)
+    // 2. append alpha_shock, beta_shock
+    {
+      matrix[rows(z), cols(xi)] tmp;
+      
+      tmp = rep_matrix((bigX*append_row(alpha, beta) + xi')', rows(z));
+      
+      // replace the append_col wing single values (might speed things up)
+      utilities = exp(tmp + z * cholesky_decompose(Sigma)' * bigX');
+      
+      for(i in 1:rows(z)) {
+         probs[i] = utilities[i]/(1 + sum(utilities[i]));
+      }
+      
+    }
+    
+    for(j in 1:cols(probs)) {
+      shares[j] = mean(col(probs, j));
+    }
+    
+    return(shares);
+  }
+}
+// next define our data
+data {
+  int NS; // number of individuals in integration
+  int J; // number of products
+  int T; // number of markets
+  int P; // number of features
+  matrix[NS, P+1] z; // normal(0,1) draws of the shocks
+  matrix[T, J] price; // price for each unit
+  int sales[T, J+1]; // unit sales across T markets for J+1 products (inc outside good)
+  matrix[T*J, P] X_repeat; // T Xs stacked on top of each other. This format allows characteristics to vary across markets.
+  real nu;
+}
+// next join the product data together into single matrices
+transformed data {
+  matrix[T*J, P+1] bigX;
+  bigX = append_col(to_vector(price'), X_repeat);
+  
+}
+// define parameters
+parameters {
+  real alpha; 
+  vector[P] beta;
+  vector[P] gamma;
+  real gamma0;
+  real<lower = 0> price_scale;
+  matrix[T, J] xi;
+  vector<lower = 0>[P+1] scales;
+  corr_matrix[P+1] Omega;
+  real lambda;
+}
+
+transformed parameters {
+  cov_matrix[P+1] Sigma;
+  Sigma = quad_form_diag(Omega, scales);
+}
+// and the model
+model {
+  // priors
+  alpha ~ normal(0, 1);
+  beta ~ normal(0, 1);
+  gamma0 ~ normal(0, 1);
+  gamma ~ normal(0, 1);
+  price_scale ~ normal(0, 1);
+  lambda ~ normal(0, 1);
+  to_vector(xi) ~ normal(0, 1);
+  scales ~ inv_gamma(2,1);
+  Omega ~ lkj_corr(nu);
+  
+  // model of price -- this helps pin down xi
+  to_vector(price') ~ lognormal(gamma0 + X_repeat * gamma + lambda * to_vector(xi'), price_scale);
+  
+  // model of sales 
+  {
+    matrix[T, J+1] pred_shares;
+    for(t in 1:T) {
+      // predicted market shares given data and parameters
+      pred_shares[t,1:J] = shares(alpha, beta, bigX[(t*J-J+1):(t*J)], Sigma, xi[t], z);
+      pred_shares[t,J+1] = 1 - sum(pred_shares[t,1:J]);
+      // sales are measured with multinomial measurement error
+      sales[t] ~ multinomial(pred_shares[t]');
+    }
+    
+  }
+}
+```
+
+```{r, results = "hide"}
+
+# run model ---------------------------------------------------------------
+
+# Compile Stan function to check that it generates sensible shares
+
+library(rstan)
+options(mc.cores = parallel::detectCores())
+
+data_list <- list(NS = NS, 
+                  J = J, 
+                  T = T, 
+                  P = P, 
+                  z = z, 
+                  price = price_mat, 
+                  sales = sales,
+                  X_repeat = X_long,
+                  mkt_sizes = as.vector(market_size),
+                  nu = 4)
+
+# Compile the model
+compiled_model <- stan_model("vsb.stan")
+
+# For the sake of time, we estimate this using optimization
+test_optim <- optimizing(compiled_model, data = data_list)
+  
+```
+
+
+Now how did the model go at recapturing known demand shocks? 
+
+```{r, echo = F}
+library(dplyr); library(ggplot2); library(ggthemes)
+
+xi_est <- test_optim$par[grepl("xi", names(test_optim$par))]
+xi_est <- as.vector(t(matrix(xi_est, T, J)))
+
+data_frame(Estimates = xi_est, 
+           `True values` = xi) %>% 
+  ggplot(aes(x = `True values`, y = Estimates)) + 
+  geom_point() + 
+  geom_abline(aes(intercept = 0, slope = 1)) +
+  theme_economist() +
+  labs(title = "Estimates and true values of xi")
+
+```
+
+And how about the structural parameters? 
+
+```{r}
+Omegas <- test_optim$par[grepl("Omega", names(test_optim$par))]
+Scales <- test_optim$par[grepl("^scale", names(test_optim$par))]
+pars <- c(test_optim$par[1:(P+1)], Omegas, Scales)
+true_values <- c(alpha, beta, as.vector(Omega), scales)
+
+data_frame(Estimates = pars, 
+           `True values` = true_values,
+           Parameter = c("alpha", rep("beta", P), rep("Omega", (P+1)^2), rep("scale", P+1) )) %>% 
+  ggplot(aes(x = `True values`, y = Estimates)) + 
+  geom_point(aes(colour = Parameter)) + 
+  geom_abline(aes(intercept = 0, slope = 1)) +
+  theme_economist() +
+  labs(title = "Estimates and true values\nof structural parameters")
+```
+
+**_Voila!_**. That ran in about 25 seconds. 
+
+## Conclusion
+
+What we've done above is shown that it can be extremely simple to express a random coefficients logit model
+with measurement error using a latent factor approach, and importantly, without any instruments. This
+is a pretty radical departure from the most popular methods in the literature. 
+
+The other big advantage is that, given you have enough computation time, the model can be estimated using 
+Bayesian techniques. In the code above, we could do this by using `sampling()` rather than `optimizing`. 
+With the current code, this is quite slow, but does generate robust parameter estimates. If your decision
+problem requires genuine estimates of uncertainty around the structural parameters, I'd recommend experimenting
+using optimization, and then using HMC (`sampling`) for the production run of the model. In my experiments, 
+I've found they generate similar point-estimates. 
+
+If you've any comments, please get in touch. 
+

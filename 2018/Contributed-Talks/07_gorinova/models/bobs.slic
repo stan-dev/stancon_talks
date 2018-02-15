@@ -1,0 +1,9 @@
+real alpha ~ normal(0, 10);
+real beta ~ normal(0, 10);
+real sigma_sq ~ inv_gamma(1, 1);
+real tau = inv(sigma_sq);            
+data int N;
+data vector[N] x;
+vector[N] x_std = (x - mean(x)) / sd(x);  
+real sigma = sqrt(sigma_sq);  
+data vector[N] y ~ normal(alpha + beta * x_std, sigma);

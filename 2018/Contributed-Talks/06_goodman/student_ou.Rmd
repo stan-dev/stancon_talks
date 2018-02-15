@@ -1,0 +1,449 @@
+---
+title: "Fitting Ornstein-Uhlenbeck-type Student's t-processes in Stan"
+subtitle: "With Applications for Population Dynamics Data"
+author: "Aaron Goodman"
+date: "Jan 10, 2018"
+output:
+    pdf_document:
+        includes:
+            in_header: stanhl.tex
+    html_document:
+        includes:
+            in_header: stanhl.css
+header-includes:
+    - \usepackage{fancyvrb}
+    - \usepackage{color}
+    
+bibliography: library.bib
+---
+
+
+
+Introduction
+---
+
+This work is part of my ongoing research using Bayesian hierarchical models for population dynamic inference. Here I present a portion of that research that I hope will be of broad interest to the Stan community.  In this work, I present three Stan models for inferring state-space models driven by non-Gaussian Ornstein-Uhlenbeck processes and present some applications for population dynamic data. 
+
+Beyond modeling population dynamics, these non-Gaussian processes have been used to model stochastic volatility in finance, disease diffusion in epidemiology, and for Bayesian nonparametric function approximations.  However, these models are typically fit using maximum likelihood estimation. By running these models in Stan, we are able to perform full Bayesian inference.
+
+Furthermore, this work demonstrates how to implement non-Gaussian Lévy processes and the Matérn 1/2 covariance kernel in Stan. In doing so, we highlight some of the alterative formulations of this kernel and exploit them for more efficient Stan models.
+
+
+#Preliminaries
+
+Gaussian processes are statistical models over a continuous domain in which any finite set of points are jointly distributed multivariate normal. These models are often used in time-series modeling, spatial statistics, and nonparametric function approximation.
+
+One particularly useful Gaussian process is the Ornstein-Uhlenbeck process, which is a mean-reverting process. This process is a generalization of a random walk, in which the walk has a tendency to drift back towards a central location over time, and the rate at which the walk reverts is proportional to the distance from the central location.  The Ornstein-Uhlenbeck has applications in many fields, such as physics to model the dynamics of springs, financial economics to model the volatility of asset returns (Vasicek model) and biology to model population dynamics (stochastic Gompertz model).
+
+These Gaussian processes are often not observed directly, but represent some latent state of the system that is observed through some other noisy process. In the case of price volatility, the returns are observed, but the underlying variance is not. In population dynamics, the true population size is typically not measured directly, but observed through surveying a subset of the population or using a technique such as mark-recapture. Thus, we can model the dynamics using a stochastic process governing the underlying latent variable, and the measurement noise associated with observing the variable.
+
+##Ornstein-Uhlenbeck Process
+The Ornstein-Uhlenbeck process can be seen as the continuous time generalization to an auto-regressive process.  In an autoregressive model:
+
+$$x_{t} = \alpha (\mu -  x_{t-1}) + \sigma \epsilon$$
+
+Where $\epsilon \sim \mathcal N (0, 1)$. Under this formulation $\mu$ represents the mean to which the process reverts, $alpha$ represents the strength of mean reversion, and $\sigma$ represents the strength of the deviations from the mean.
+
+The autorgressive model can be generalized to continuous time, where it becomes the Ornstein-Uhlenbeck process, and is characterized by the stochastic differential equation (SDE):
+
+$$dx_t = \lambda (\mu - x_t)dt + \sqrt{2 \kappa \lambda} \, dZ_t$$
+
+Which states that the instantanous change of $x$ at time $t$ is governed by a deterministic portion and a stochastic portion. The deterministic portion is proportional to the mean reversion rate, \textit{i.e.}, $\lambda$, and the distance of $x$ at time $t$ from the mean, \textit{i.e.} $\mu$. The stochastic portion, $\sqrt{2 \kappa \lambda}  dZ_t$ represents instantaneous noise, $dZ_t$ scaled by $\sqrt{2 \kappa \lambda}$ where $\kappa$ represents the magnitude of deviations from the mean. In the case of the standard Ornstein-Uhlenbeck, the driving process $dZ_t$, is taken to be Brownian motion.
+
+This formulation is used by Fuglstad among others [@Fuglstad2017]. However the SDE can also be written as $dx_t = \lambda (\mu - x_t)dt + \sigma dZ_t$. The Fuglstad representation is advantageous since $\tfrac {\sigma^2} \lambda$ is identifiable under infill asymptotics while $\sigma$ and $\lambda$ individually are not.
+
+The half life, or expected time for a deviation from the mean to revert to half its magnitude is characterized by $\frac{\log 2}{\lambda}$.
+
+
+When $dZt$ is taken to be standard Brownian motion, and the process has reached its stationary distribution at $t_0$ then the value of $X$ at time $t$, $X_t$, conditioned on $X$ at the start of the observation, $X_0$ is normally distributed:
+
+$$X_t | X_0 \sim \mathcal N \left( \mu - (\mu - X_0) e^{- \lambda t}, \kappa (1 -  e^{-2\lambda t}) \right)$$
+
+and, 
+
+$$\mbox{Cov}[X_t, X_{t+\Delta t}] = \kappa e^{-\lambda \Delta t}.$$
+
+If we have discrete observations at times $\{t_1, t_2, \dots, t_n\}$, which need not be spaced evenly, then the probability distribution can be expressed as a multivariate normal.
+$$\vec X \sim \mathcal{N}(\mu, \Sigma)$$
+Where: $\Sigma_{ij} = \kappa e^{-\lambda |t_i - t_j|}$.
+
+This allows for a particularly efficient formulation in which $\Sigma^{-1}$ is a tridiagonal matrix [@Finley2007], with diagonal elements:
+
+$$
+\Sigma^{-1}_{ii} = 
+\begin{cases}
+1 + \frac{e^{-2\lambda (t_2 - t_1)}}{1 - e^{-2\lambda (t_2 - t_1) }} & \text{for } i = 1\\
+1 + \frac{e^{-2\lambda (t_n - t_{n-1})}}{1 - e^{-2\lambda (t_n - t_{n-1}) }} & \text{for } i = n \\
+1 + \frac{e^{-2\lambda (t_i - t_{i-1})}}{1 - e^{-2\lambda (t_i - t_{i-1})}} 
++ \frac{e^{-2\lambda (t_{i+1} - t_{i})}}{1 - e^{-2\lambda (t_{i+1} - t_{i})}} & \text{otherwise}
+\end{cases}
+$$
+
+
+super- and sub-diagonal elements:
+$$
+\Sigma^{-1}_{ij} = 
+\begin{cases}
+\frac{e^{-\lambda |t_i - t_j|}}{1 - e^{-2\lambda|t_i-t_j|}} & \text{for } |i - j| = 1\\
+0 & \text{for } |i - j| > 0
+\end{cases}
+$$
+
+
+##Measurement process
+Often the underlying data is not observed directly, but rather from some measurement process that introduces noise into the estimates. If the the measurement process introduces i.i.d. Gaussian noise with mean 0 and variance $\eta$ we have.
+
+$$\vec X \sim \mathcal{N}(\mu, \Sigma )$$
+
+$$\vec Y \sim \mathcal{N}(\vec X, \eta  \mathcal I)$$
+
+and the latent variable can be marginilized out to get
+$$\vec X \sim \mathcal{N}(\mu, \Sigma + \eta \mathcal I)$$
+
+However, if the measurement process is a counting process, such as
+
+$$ Y_i \sim \text{Poisson}(X_i)$$
+
+or if the driving process is something other than the Brownian motion, the latent varibale can not be marginilized out in this way.
+
+
+##Student's t-processes
+The Gaussian Ornstein-Uhlenbeck process is often overly smooth since it does not allow for jumps in the data. A common extension to these models is to use a Lévy process as the driver of the Ornstein-Uhlenbeck dynamics [@Barndorff-Nielsen2001]. In choosing the Lévy process for the model, it is often convenient to start with a tractable, infinitely divisible, marginal distribution rather than with the Lévy process [@Eliazar2005]. One particularly useful generalization is the Student's t-process, which has an analytically tractable marginal distribution, and background driving Lévy process described by @Heyde2005 and @Grigelionis2013. The Student's t-distribution also has the convenient mathematical property of being elliptically symmetric, a fact that we exploit later in a reparameterization of the model. In fact, the Gaussian process and Student's t-process are the only elliptically symmetric processes with closed-form solutions [@Shah2014].
+
+We say that $\vec{y} \sim \text{MVT}_n(\nu,\vec \mu,\Sigma)$ when:
+$$p(\vec y) = \frac{\Gamma(\frac{\nu + n} 2)}{((\nu - 2)\pi)^{\frac n 2} \Gamma(\frac \nu 2)} |\Sigma| ^{-\frac 1 2} \times \left(1 + \frac{(\vec y - \vec \mu)' \Sigma^{-1}(\vec y- \vec \mu)}{\nu - 2}\right)^{-\frac{\nu + n}{2}} $$
+
+So in the OU-type Student's t-process, we will define the process in terms of the residuals, which becomes convenient for modeling the process in Stan.
+$$\epsilon_1 = (X_1 - \mu)\kappa^{-{\frac 1 2}}$$
+$$\epsilon_i = (X_i - \mu  + (\mu - \epsilon_{i-1}) e^{\lambda t_i}) \kappa^{-\tfrac 1 2} \sqrt{1 - e^{-2 \lambda (t_i - t_{i-1})}}$$
+
+And thus
+
+$$\epsilon_i | \epsilon_{1< j < i} \sim \text{MVT}_1\left(\nu + i, 0,\frac{\nu -2 + \epsilon_1 + \dots + \epsilon_{j-1}}{\nu + i} \right)$$
+
+We can also model the process using the MVT specification:
+
+$$\vec{X} \sim MVT_n(\nu,\mu,\Sigma)$$
+
+Modeling
+--------
+First let us load a package that we will need later: [`rpgdd`](https://github.com/ropensci/rgpdd)  installed from github using the `install_github` function from the `devtools` package.
+
+
+```{r load libraries}
+library(rstan)
+library(knitr)
+library(stanhl)
+
+library(Matrix)
+
+library(rgpdd)
+
+library(dplyr)
+library(reshape2)
+library(ggplot2)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+theme_set(theme_light())
+
+```
+
+## Synthetic Data 
+In actual data, there is often some underlying process driving the dynamics of the quantity of interest which is measured through another process that also introduces noise.
+
+From here on, we will consider the case where the measurement process is a counting process.
+
+To simulate data from the Student's t-process, we will use the method of @Yu2007, of first simulating unit-random normal variates, scaling them by a random $\text{gamma}\left(\frac \nu 2,\frac{\nu-2} 2 \right)$ variate.
+
+```{r generate data}
+###
+### Generate data from an Student-t Ornstein-Uhlenbeck process
+### lambda: Mean reversion parameter
+### kappa: Deviation parameter = sigma^2/(2*lambda)
+### intervals: Periods at which to generate sample
+### t.df: Degrees of freedom for Student t-process, between 0 and infinity.
+###       When t.df = Inf, this reduces to the Gaussian OU Process
+###
+generateStanData <- function(kappa,
+                             lambda,
+                             mu,
+                             intervals,
+                             t.df = Inf,
+                             seed = 1){
+  set.seed(seed)
+  N <- length(intervals)
+  lv.variates <- rnorm(N)
+  dt <- outer(intervals,intervals,function(x,y) abs(x-y))
+  x <- kappa * exp(-lambda*dt)
+  L <- chol(x)
+  
+  scale <- if(is.finite(t.df)) rep(sqrt(rgamma(1,t.df/2,(t.df-2)/2)),each=N) else 1
+  out.data <- list()
+  out.data$latent_value <- as.vector(t(L) %*% (rnorm(N) * scale)) + mu
+  out.data$value <- rpois(N,exp(out.data$latent_value))
+  out.data$time <- intervals
+  out.data$replicates <- 1L
+  out.data$replicate_samples <- array(length(intervals))
+  out.data$NSMPL <- length(intervals)
+  out.data
+}
+```
+
+```{r }
+stan.data <- generateStanData(kappa=0.75, lambda=.1, mu=log(100),intervals= 1:50, t.df=7)
+plot.data <- as.data.frame(stan.data[c('time','value')])
+ggplot(plot.data,
+       aes(x=time,y=value))+geom_point()+geom_line()
+```
+
+The plotted synthetic data generated from the stochastic Gompertz model looks stylistically like population abundance data with boom and bust cycles that reverts to the stationary level of 100.
+
+We now implement the Stan model using the conditional expectation formulation. Note that this is parameterized by $\epsilon_i$ rather than the latent parameters $X_i$.
+
+```{r ts, cache=TRUE, comment=NA, warn=FALSE}
+state_space <- stan_model("state_space_noncenter.stan")
+```
+
+```{r time series, cache = TRUE, results="hide", data=stan.data, warning=FALSE }
+conditional.formulation <- sampling(state_space,stan.data,seed=123,open_progress=FALSE)
+```
+
+We can check how the model performed in terms of sampler warnings, diagnostics, and parameter recovery.
+
+```{r time series results}
+rstan:::throw_sampler_warnings(conditional.formulation)
+sapply(conditional.formulation@sim[[1]],function(x) attr(x,'elapsed_time')) %>%
+  kable(digits=1)
+summary(conditional.formulation,pars=c('kappa','mu','lambda','student_df'))[[1]] %>%
+  kable(digits=3)
+```
+
+We see that we had 5 divergent transitions, and each chain took about 40 seconds to run. Nevertheless, most of the mean values for the parameters were close to the input in the simulated data. However, the degrees of freedom of the Student t-distribution was not recovered well, and is very close to the prior distribution.
+
+To avoid the divergent transitions, we can switch to using the centered parameterization of the model. The key difference is in the centered formulation we parameterize $\epsilon_i$, use the unit t-distribution in the likelihood computation, and transform $\epsilon_i$ to $X_i$ in the transformed parameter block. The full code is presented in the appendix.
+
+```{r time_series_center, cache = TRUE, comment=NA}
+conditional.center <- stan_model("state_space_center.stan")
+```
+
+```{r timeseries center, cache = TRUE, results="hide", data=stan.data, warning=FALSE}
+conditional.center.formulation <- sampling(conditional.center,
+                                           stan.data,seed=123,
+                                           open_progress=FALSE)
+```
+
+```{r time series non center results}
+rstan:::throw_sampler_warnings(conditional.center.formulation)
+sapply(conditional.center.formulation@sim[[1]],function(x) attr(x,'elapsed_time')) %>%
+  kable(digits=1)
+summary(conditional.center.formulation,pars=c('kappa','mu','lambda','student_df'))[[1]] %>%
+  kable(digits=3)
+```
+
+This model runs in roughly 1/10th the time, has mean values as close to the true values as the previous model, and generates more effective samples.
+
+We can use the multivariate expression of the stochastic process to reparameterize the model using the centered representation. Rather than parameterizing the model in terms of bivariate Student t-distributions, we parameterize it as a single multivariate Student t-distribution. Given the tridiagonal structure of the precision matrix, we can evaluate the log probability in $O(n)$ time.
+
+```{r ns, cache = TRUE, comment=NA}
+gp.center <- stan_model("gp_center.stan")
+```
+
+```{r nc, cache = TRUE,  results="hide", data=stan.data, warning=FALSE}
+gp.center.formulation <- sampling(gp.center,stan.data,seed=123,open_progress=FALSE)
+```
+
+```{r nc results}
+rstan:::throw_sampler_warnings(gp.center.formulation)
+sapply(gp.center.formulation@sim[[1]],function(x) attr(x,'elapsed_time')) %>%
+  kable(digits=1)
+summary(gp.center.formulation,pars=c('kappa','mu','lambda','student_df'))[[1]] %>%
+  kable(digits=3)
+```
+
+This offers a further speed up over the conditional probability formulation. This is the same model as the conditional formulation, just computed in a more efficient manner. We can confirm that the models are the same by seeing that the log likelihoods are the same given the same parameter values, up to some floating point issues.
+
+```{r comparison of model, cache = TRUE}
+set.seed(3456)
+x <- rnorm(get_num_upars(gp.center.formulation));
+log_prob(gp.center.formulation,x);
+log_prob(conditional.center.formulation,x);
+```
+
+
+For completeness, we can also formulate the model where we use the noncentered parameterization in terms of $\mu$ and $\kappa$, but use the Gram matrix induced induced by the afformentioned kernel and parameterized by $\lambda$. Code for this model is in the appendix.
+
+```{r pr,  cache = TRUE, results='markup', comment=NA}
+gp <- stan_model("gp_noncenter.stan")
+```
+
+```{r prec, cache = TRUE,  results="hide", data=stan.data, warning=FALSE}
+prec.formulation <- sampling(gp,stan.data,seed=123,open_progress=FALSE)
+```
+
+```{r prec results}
+rstan:::throw_sampler_warnings(prec.formulation)
+sapply(prec.formulation@sim[[1]],function(x) attr(x,'elapsed_time')) %>%
+  kable(digits=1)
+summary(prec.formulation,pars=c('kappa','mu','lambda','student_df'))[[1]] %>%
+  kable(digits=3)
+```
+
+This model is less sample efficient than any of the previous models, but unlike the noncentered precision matrix parameterization, using the noncentered conditional formulation does not lead to divergent transitions.
+
+
+Population Dynamic Models
+---
+
+We can apply the Ornstein-Uhlenbeck model to population dynamics to predict population sizes in the future and infer the carrying capacity of an ecosystem.. The stochastic Gompertz model of density-limited population growth is equivalent to an OU process in log space [@Dennis2014]. To test the model, we will fit it to the population dynamics of the North American badger from the Global Poplution Dynamics Database [@GPDD2010].
+
+```{r }
+###
+### Create a dataset for our stan models from the gpdd
+### dataest.
+### id: sample id in gppdd
+### n: Take the first n data points from the dataset, and hold out the remainder.
+###
+buildStanDataGPDD <- function(id,n=Inf){
+  x <- dplyr::filter(gpdd_data,MainID == id) %>% head(n)
+  time <- x$SeriesStep
+  value <- x$PopulationUntransformed
+  list(time = time,
+       value = value,
+       replicates = 1L,
+       NSMPL = length(time),
+       replicate_samples = array(length(time)))  
+}
+```
+
+```{r , cache=TRUE}
+taxa.id <- 70
+train <- 30
+pop.data <- buildStanDataGPDD(taxa.id,train)
+pop.data.all <- buildStanDataGPDD(taxa.id)
+pop.params <- sampling(gp.center,pop.data,seed=123,open_progress=FALSE)
+```
+
+```{r}
+summary(pop.params,pars=c('kappa','mu','lambda','student_df'))[[1]] %>% kable(digits=3)
+```
+
+Thus we expect the carrying capacity of the population to be around $e^\mu \approx 12$ individuals, and the population to have a recovery half time of around $\log(2) / \lambda \approx 1$ year, consistent with the yearly reproductive cycle of the badger population. 
+
+```{r }
+###
+###
+generateStanDataConditional <- function(kappa,
+                             lambda,
+                             mu,
+                             x0,
+                             intervals,
+                             t.df = Inf,
+                             seed = 1){
+  set.seed(seed)
+  N <- length(intervals)
+  lv.variates <- rnorm(N)
+  dt <- outer(intervals,intervals,function(x,y) abs(x-y))
+  min.t <- outer(intervals,intervals,function(x,y) pmin(x,y))
+  mu_ <- mu - (mu - x0) * exp(-lambda*intervals)
+  x <- kappa * exp(-lambda*dt) * (1-exp(-2*lambda*min.t))
+  L <- chol(x)
+  scale <- if(is.finite(t.df)) rep(sqrt(rgamma(1,t.df/2,(t.df-2)/2)),each=N) else 1
+  out.data <- list()
+  out.data$latent_value <- as.vector(t(L) %*% (rnorm(N) * scale)) + mu_
+  out.data$value <- suppressWarnings(rpois(N,exp(out.data$latent_value)))
+  out.data$time <- intervals
+  out.data$replicates <- 1L
+  out.data$replicate_samples <- array(length(intervals))
+  out.data$NSMPL <- length(intervals)
+  out.data
+  }
+  
+```
+
+```{r}
+train.name <- paste0('latent_value[',train,']')
+pars <- extract(pop.params,c("lambda","mu","kappa",train.name,"student_df"))
+simulated <- matrix(ncol=length(pars$lambda),
+                    nrow=pop.data.all$NSMPL-train)
+for(i in 1:length(pars$lambda)){
+  simulated[,i] <- generateStanDataConditional(pars$kappa[i],
+                              pars$lambda[i],
+                              pars$mu[i],
+                              pars[[train.name]][i],
+                              tail(pop.data.all$time,-train) - pop.data.all$time[train],
+                              t.df = pars$student_df[i],
+                              seed = sample.int(.Machine$integer.max, 1))$value
+}
+
+df <- data.frame(t = pop.data.all$t,
+                 y = pop.data.all$value)
+df.2 <- cbind(t= tail(pop.data.all$time,-train), as.data.frame(t(apply(simulated,1,function(x) quantile(x,c(0.01,.025,0.5,0.975,0.99),na.rm=TRUE))))) %>% melt(id.vars='t',value.name='y',variable.name='quantile')
+
+```
+
+We can plot the population dynamics of the (log) of the badger population counts. We are fitting the data on the first 30 years of data, and then simulating data from the parameters for the remaining 33 years of observations to generate a posterior predictive distribution.
+
+```{r}
+ggplot(df,aes(x=t,y=log(y)))+geom_point()  +geom_line()+ theme_light() +
+  geom_line(aes(color=quantile),data=df.2)
+```
+
+We see that the observed badger counts fall within the the 95\% posterior range for the remaning time. Even though the badger population appears to go extinct at year 56, this is within the range predicted by our model.
+
+
+Conclusion
+---
+
+In this work I have presented several methods to of estimating Ornstein-Uhlenbeck-type Student's t-processes using Stan, and shown a potential application in modeling population dynamics. I have presented three different ways to parameterize the model, one of which has two Stan implementations. These efficient implementations of OU-type Student's t-processes could have uses beyond biology, such as in Bayesian nonparametric function approximations and in financial time-series modeling.
+
+
+Acknowledgements
+---
+
+I would like to thank Elhanan Borenstein and the Borenstein lab for helpful discussions and insights into microbial population dynamics modeling. I would also like to thank Bob Carpenter, Michael Betancourt and the members of the Stan Discourse forum for all the advice they have given me on this project.
+
+\newpage
+Appendix
+---
+```{r echo=FALSE,results='hide'}
+if(opts_knit$get("rmarkdown.pandoc.to") == "html"){
+  stanhl_html()
+}else{
+  .header.hi.html=""
+  stanhl_latex()
+}
+```
+
+## Conditional formulation, noncentered parameterization
+```{r comment=NA, results='asis'}
+invisible(gsub("@","\\@",stanhl(state_space@model_code[1])))
+```
+
+## Conditional formulation, centered parameterization
+```{r comment=NA, results='asis'}
+invisible(gsub("@","\\@",stanhl(conditional.center@model_code[1])))
+```
+
+## Precision formulation, noncentered parameterization
+```{r comment=NA, results='asis'}
+invisible(gsub("@","\\@",stanhl(gp@model_code[1])))
+```
+
+## Precision formulation, centered parameterization
+```{r comment=NA, results='asis'}
+invisible(gsub("@","\\@",stanhl(gp.center@model_code[1])))
+```
+
+## Original Computing Environment
+```{r}
+devtools::session_info("rstan")
+```
+## Licenses
+Code © 2018, Aaron Goodman, licensed under GPL 3.
+
+Text © 2018, Aaron Goodman, licensed under CC-BY-NC 4.0.
+
+\newpage
+Bibliography
+---
+

@@ -1,0 +1,7 @@
+def non_centred_normal(real m, real s) {
+    real x_raw ~ normal(0, 1);
+    return s * x_raw + m;
+}
+
+real y = non_centred_normal(0, 3);
+real x = non_centred_normal(0, exp(y/2));
