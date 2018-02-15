@@ -11,13 +11,13 @@ StanCon’s version of conference proceedings is a collection of contributed tal
 
 ### Contents:
 
-* [StanCon 2017](/StanCon-2017) (January 2017, Columbia University, New York)
-* [StanCon 2018](/StanCon-2018) (January 2018, Asilomar, California)
+* [StanCon 2017](#stancon-2017) (January 2017, Columbia University, New York)
+* [StanCon 2018](#stancon-2018) (January 2018, Asilomar, California)
 
 
 <br>
 
-## StanCon 2017 
+## StanCon 2017
 
 ### Peer reviewed contributed talks
 
