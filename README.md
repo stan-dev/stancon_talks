@@ -2,24 +2,24 @@
 <img src="https://raw.githubusercontent.com/stan-dev/logos/master/logo.png" width=200 alt="Stan Logo"/>
 </a>
 
-# StanCon Contributed Talks
+# Materials from StanCon
 
 StanCon’s version of conference proceedings is a collection of contributed talks based on interactive notebooks. Every submission is peer reviewed by at least two members of the Stan Conference Organizing Committee. This repository contains all of the accepted notebooks as well as any supplementary materials required for building the notebooks. The slides presented at the conference are also included.
 
 **License**: unless otherwise noted, the text in this repository is distributed under the [CC BY 4.0 License](https://creativecommons.org/licenses/by/4.0/legalcode) and code is distributed under the [New BSD License](https://opensource.org/licenses/BSD-3-Clause). Copyright to the authors.
 
 
-#### Contents:
+### Contents:
 
-* [StanCon 2017](/StanCon-2017)
-* [StanCon 2018](/StanCon-2018)
+* [StanCon 2017](/StanCon-2017) (January 2017, Columbia University, New York)
+* [StanCon 2018](/StanCon-2018) (January 2018, Asilomar, California)
 
+
+<br>
 
 ## StanCon 2017 
 
-* January 21st, 2017 __/__ Columbia University __/__ New York
-
-#### Contributed talks (in order of presenting)
+### Peer reviewed contributed talks
 
 * Jonathan Auerbach, Rob Trangucci: **_Twelve Cities: Does lowering speed limits save pedestrian lives?_** 
   - Presenter: <a href="https://github.com/jauerbach"> **Jonathan Auerbach**</a> is a PhD candidate in the Department of Statistics at Columbia University.
@@ -82,10 +82,7 @@ StanCon’s version of conference proceedings is a collection of contributed tal
   
 ## StanCon 2018
 
-* January 10th-12th, 2018 __/__ Asilomar __/__ California
-
-
-#### Peer reviewed Contributed talks (in order of presenting)
+### Peer reviewed contributed talks
 
 **_Does the New York City Police Department rely on quotas?_** 
 
