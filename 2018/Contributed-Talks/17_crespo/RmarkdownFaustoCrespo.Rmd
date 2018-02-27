@@ -1,0 +1,1318 @@
+---
+title: "StanETAS"
+author: "Fausto Crespo"
+date: "12/01/2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:##
+
+Visualizing the afterschocks
+```{r, echo=FALSE}
+library(rworldmap)
+newmap <- getMap(resolution = "low")
+
+#SISMOS <- read.table("C:/Users/GOETHE/textfiles/SMOKE.raw", quote="\"")
+x <- c("ggmap", "rgdal", "rgeos", "maptools", "dplyr", "tidyr")
+lapply(x, library, character.only = TRUE) # load the required packages
+
+sismos <- read.csv("/Users/patricioburchard/Downloads/Rcode/sismos5.csv", header=T, stringsAsFactors=FALSE, fileEncoding="latin1")
+#View(sismos)
+length(which(sismos$Magnitud>3.5))#583
+length(which(sismos$Magnitud>3.0))#876
+length(which(sismos$Magnitud>=3.0))#904
+nrow(sismos)#908
+length(which(sismos$ProvinciaMasCercana %in% c("Manabi","Esmeraldas","Guayas","Santa Elena")))
+sismosManabiEsmeraldas=sismos[sismos$ProvinciaMasCercana %in% c("Manabi","Esmeraldas"),]
+#View(sismosManabiEsmeraldas)#585 antes
+#nrow(sismosManabiEsmeraldas)#810
+length(which(sismosManabiEsmeraldas$Magnitud>3.5))#516
+length(which(sismosManabiEsmeraldas$Magnitud>3.5))#516
+df <- data.frame(x = sismos$LongitudValor, y = sismos$LatitudValor)
+df
+mat <- as.matrix(df) # create matrix object with as.matrix
+sp1 <- SpatialPoints(coords = mat)
+sp1
+
+spdf <- SpatialPointsDataFrame(sp1, data = sismos)
+#View(spdf)
+proj4string(spdf) <- NA_character_ # remove CRS information from lnd
+proj4string(spdf) <- CRS("+init=epsg:27700") # assign a new CRS
+library(rgdal)
+EPSG <- make_EPSG() # create data frame of available EPSG codes
+EPSG[grepl("WGS 84$", EPSG$note), ] # search for WGS 84 code
+sismos.ecuador <- spTransform(spdf, CRS("+init=epsg:4326")) # reproject
+plot(newmap,  xlim = c(-85, -77), ylim = c(-6,2), asp = 1)
+points(sismos.ecuador@data$LongitudValor,sismos.ecuador@data$LatitudValor,cex = .6, pch=19)
+title(main="Earthquakes Ecuador 18/03/2016-16/07/2016")
+( hemis.lab <- factor(sismos.ecuador$LatitudH, labels=c("red", "green")) )
+plot(newmap,  xlim = c(-85, -77), ylim = c(-6,2), asp = 1)
+points(sismos.ecuador@data$LongitudValor,sismos.ecuador@data$LatitudValor,col=hemis.lab,cex = .6, pch=19)
+title(main="Earthquakes Ecuador 18/03/2016-16/07/2016(North-south)")
+```
+Before using Rstan we run some tests with the  ETAS  package
+
+```{r}
+
+sismoscompleto <- read.csv("/Users/patricioburchard/Downloads/Rcode/sismos5.csv", header=T, stringsAsFactors=FALSE, fileEncoding="latin1")
+
+
+
+sismosManabiEsmeraldas=sismoscompleto[sismoscompleto$ProvinciaMasCercana %in% c("Manabi","Esmeraldas"),]
+sismos1=sismosManabiEsmeraldas[,c("fila","Mes","dia","hora","minuto","LongitudValor","LatitudValor","Magnitud")]
+
+
+
+sismos1$time<-paste(sprintf("%02d", sismos1$hora),":",sprintf("%02d", sismos1$minuto),":",
+                    sprintf("%02d",sample(1:59, 1, replace=T)),".00",sep="")
+sismos1$date<-paste(sprintf("%04d", 2016),"-",sprintf("%02d", sismos1$Mes),"-",
+                    sprintf("%02d",sismos1$dia),sep="")
+sismos1$tiempodesdeAhora<-difftime(Sys.time(),
+                                  as.POSIXct(paste(sismos1$date," ",sismos1$time),"%Y-%m-%d %H:%M:%S",tz=Sys.timezone(location = TRUE))
+                                  ,units="mins")
+
+
+indice.sismo.mas.antiguo=which(sismos1$tiempodesdeAhora==max(sismos1$tiempodesdeAhora))
+fechaMasantiguo=paste(sismos1[indice.sismo.mas.antiguo,]$date, " ",sismos1[indice.sismo.mas.antiguo,]$time)
+sismos1$tiempo.dias=difftime(as.POSIXct(paste(sismos1$date," ",sismos1$time),"%Y-%m-%d %H:%M:%S",tz=Sys.timezone(location = TRUE))
+                            ,as.POSIXct(paste(sismos1[indice.sismo.mas.antiguo,]$date," ",sismos1[indice.sismo.mas.antiguo,]$time),"%Y-%m-%d %H:%M:%S",tz=Sys.timezone(location = TRUE))
+                            ,units="days")
+sismos1<-sismos1[with(sismos1, order(-tiempodesdeAhora)), ]
+
+sismos2<-sismos1[,c("fila","date","time","LongitudValor","LatitudValor","Magnitud")]
+colnames(sismos2) =c("row.names","date","time","long","lat","mag")
+sismos2$date <- as.factor(sismos2$date)
+sismos2$time <- as.factor(sismos2$time)
+
+
+#str(sismos2) 
+#View(sismos1)
+
+
+# sismos1<-sismos1[with(sismos1, order(date, time)), ]
+# simultaneos<-c(13, 39, 88, 89, 126, 167, 720, 795, 797,
+# 799, 801, 803, 805, 807, 809, 811, 813, 815, 817, 819, 821, 
+# 823, 825, 827, 829, 831, 833)
+#simultaneos<-c(41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 
+#               59, 60, 135, 688, 729, 766, 767, 816, 842)
+
+#simultaneos=c(98, 656, 691, 692, 738, 761)
+#7, 30, 76, 77, 112, 670 en tiempo mas antiguo amas reciente
+#temp<-factor(paste(substr(as.character(sismos1[simultaneos,]$date),1,9),"30",sep = ""))
+#sismos1[simultaneos,]$time<-temp
+#dfrepetidos<-sismos2[simultaneos,]
+```
+Before using Rstan we run some tests with the  ETAS  package
+```{r}
+library(ETAS)
+sismos3<-sismos2[-c(3, 5, 10, 33, 79, 80, 115, 686, 694, 766),]
+#sismos3=sismos2
+ecuador.cat <- catalog(sismos3, time.begin="2016/03/17",
+                       study.start="2016/03/18", study.end="2016/07/16",lat.range=c(min(sismos3$lat), max(sismos3$lat)), long.range=c(min(sismos3$long), max(sismos3$long)), mag.threshold=3)
+plot(ecuador.cat)
+param01 <- c(0.46, 0.23, 0.022, 2.8, 1.12, 0.012, 2.4, 0.35)
+
+## Not run:
+#ecuador.fit <- etas(iran.cat, param0=param01, no.itr=5)
+ecuador.fit <- etas(ecuador.cat, param0=param01, plot.it = FALSE,no.itr=3)
+matrixeventos=ecuador.cat$revents
+matrixeventos=cbind(matrixeventos,ecuador.fit$bk)
+matrixeventos=cbind(matrixeventos,ecuador.fit$pb)
+write.csv(matrixeventos, "resultETASultimo.csv")
+
+
+rates(ecuador.fit, dimyx=NULL, plot.it=TRUE)
+
+plot.new()
+plot(matrixeventos[,1]-min(matrixeventos[,1]),1-matrixeventos[,10],type="l",xlab="Time(days)", ylab="Probability",main="Probability of being induced earthquake \n 18/03/2016-16/07/2016")
+v=matrixeventos[which((1-matrixeventos[,10])>0.95),1]-min(matrixeventos[,1])
+abline(v=v,col="red")
+
+plot(matrixeventos[,1]-min(matrixeventos[,1]),matrixeventos[,10],type="l",xlab="Time(days)", ylab="Probability",main="Probability of being background earthquake \n 18/03/2016-16/07/2016")
+v=matrixeventos[which((matrixeventos[,10])>0.95),1]-min(matrixeventos[,1])
+abline(v=v,col="red")
+```
+
+```{r}
+
+library(ETAS)
+sismosnuevos <- read.csv("/Users/patricioburchard/Downloads/Rcode/sismos4.csv",  header=T, stringsAsFactors=FALSE, fileEncoding="latin1")
+sismosManabiEsmeraldasNuevo=sismosnuevos[sismosnuevos$ProvinciaMasCercana %in% c("Manabi","Esmeraldas"),]
+sismos6=sismosManabiEsmeraldasNuevo[,c("Mes","dia","hora","minuto","LongitudValor","LatitudValor","Magnitud")]
+
+sismos6$time<-paste(sprintf("%02d", sismos6$hora),":",sprintf("%02d", sismos6$minuto),":",
+                    sprintf("%02d",sample(1:59, 1, replace=T)),".00",sep="")
+sismos6$date<-paste(sprintf("%04d", 2016),"-",sprintf("%02d", sismos6$Mes),"-",
+                    sprintf("%02d",sismos6$dia),sep="")
+sismos6$tiempodesdeAhora<-difftime(Sys.time(),
+                                   as.POSIXct(paste(sismos6$date," ",sismos6$time),"%Y-%m-%d %H:%M:%S",tz=Sys.timezone(location = TRUE))
+                                   ,units="mins")
+sismos6<-sismos6[with(sismos6, order(-tiempodesdeAhora)), ]
+
+
+sismos7<-sismos6[,c("date","time","LongitudValor","LatitudValor","Magnitud")]
+colnames(sismos7) =c("date","time","long","lat","mag")
+sismos7$date <- as.factor(sismos7$date)
+sismos7$time <- as.factor(sismos7$time)
+ecuador.cat2 <- catalog(sismos7,lat.range=c(min(sismos7$lat), max(sismos7$lat)), long.range=c(min(sismos7$long), max(sismos7$long)), mag.threshold=3)
+sismos7$tiempo.dias=difftime(as.POSIXct(paste(sismos7$date," ",sismos7$time),"%Y-%m-%d %H:%M:%S",tz=Sys.timezone(location = TRUE))
+                            ,as.POSIXct(fechaMasantiguo,"%Y-%m-%d %H:%M:%S",tz=Sys.timezone(location = TRUE))
+                            ,units="days")
+
+
+tasaInducida=lambda(as.numeric(sismos7$tiempo.dias), as.numeric(sismos7$long), as.numeric(sismos7$lat), ecuador.fit$param, ecuador.cat )#lambda(t, x, y, param, object)
+plot(as.numeric(sismos7$tiempo.dias)-max(sismos1$tiempo.dias),tasaInducida,type="l",xlab="Time(days)", ylab="Induced seismic rate",main="Induced seismic rate \n 16/07/2016-11/09/2016")
+
+sismos7$tasaInducida=tasaInducida
+write.csv(sismos7, "nuevossismos.csv")
+View(sismos7)
+```
+
+```{r}
+
+
+library(rstan)
+library(BH)
+library(StanHeaders)
+library(Rcpp)  
+library(inline) 
+rtools <- "C:\\Rtools\\bin"
+gcc <- "C:\\Rtools\\gcc-4.6.3\\bin"
+path <- strsplit(Sys.getenv("PATH"), ";")[[1]]
+new_path <- c(rtools, gcc, path)
+new_path <- new_path[!duplicated(tolower(new_path))]
+Sys.setenv(PATH = paste(new_path, collapse = ";"))
+
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+ #PATH <- textConnection(sub("\xb0", "degrees", readLines(PATH))) 
+ sismoscompleto <- read.csv("/Users/patricioburchard/Downloads/Rcode/sismos5.csv", header=T, stringsAsFactors=FALSE, fileEncoding="latin1")
+#sismoscompleto <- read.csv("/Users/patricioburchard/Downloads/Rcode/sismos3.xlsx")
+#sismoscompleto=sismoscompleto[!duplicated(sismoscompleto[c("LongitudValor","LatitudValor","Magnitud","Prof2","HoraLocal")]),]
+
+library(varhandle)
+#sismoscompleto$Profundidad2<-as.numeric(levels(sismoscompleto$Profundidad))[sismoscompleto$Profundidad]
+#sismoscompleto$Profundidad2<-as.numeric(as.character(sismoscompleto$Profundidad))
+sismoscompleto$Profundidad2<-suppressWarnings(as.numeric(sismoscompleto$Profundidad))
+#sismoscompleto$Profundidad2<-unfactor(sismoscompleto$Profundidad)
+max(sismoscompleto$Profundidad2)
+summary(sismoscompleto$Profundidad2)
+#Min. 1st Qu.  Median    Mean 3rd Qu.    Max.    NA's 
+#  0.00    5.00    8.00   10.29   10.00  195.00       7 
+which(is.na(sismoscompleto$Profundidad2) )
+sismoscompleto[which(is.na(sismoscompleto$Profundidad2) ),]
+sismoscompleto[which(is.na(sismoscompleto$Profundidad2) ),]$Profundidad
+
+
+sismos1<-sismoscompleto[,c("Magnitud","LongitudValor","LatitudValor","Profundidad","Mes","DiasDesde16abril" )]
+
+sismosManabiEsmeraldas=sismoscompleto[sismoscompleto$ProvinciaMasCercana %in% c("Manabi","Esmeraldas"),]
+sismosManabi=sismoscompleto[sismoscompleto$ProvinciaMasCercana %in% c("Manabi"),]
+sismosEsmeraldas=sismoscompleto[sismoscompleto$ProvinciaMasCercana %in% c("Esmeraldas"),]
+sismosMas5=sismosManabiEsmeraldas[sismosManabiEsmeraldas$Magnitud>5,]
+sismos1=sismosMas5[,c("LongitudValor","LatitudValor","Profundidad","Magnitud","SegundosDesdeTerr16abril")]
+colnames(sismos1) =c("long","lat","z","magn1","time")
+sismos3=sismoscompleto[,c("LongitudValor","LatitudValor","Profundidad")]
+colnames(sismos3) =c("long","lat","z")
+sismos=sismosManabiEsmeraldas
+
+
+sismosProfundidadCompleta<-sismos[complete.cases(sismos[,grep("Profundidad2", colnames(sismos))]),]
+``` 
+
+For model taking into account depths
+```{r}
+sismos<-sismosProfundidadCompleta
+```
+Magnitude Based Cluster MBC
+```{r}
+cluster.vector.indices=c()
+sismos.temp=NULL
+sismos$escogido=FALSE
+sismos$cluster=0
+sismos$EsCentroide=0
+sismos$time<-paste(sprintf("%02d", sismos$hora),":",sprintf("%02d", sismos$minuto),":","00.00",sep="")
+sismos$date<-paste(sprintf("%04d", 2016),"-",sprintf("%02d", sismos$Mes),"-",
+                    sprintf("%02d",sismos$dia),sep="")
+sismos$tiempodesdeAhora<-difftime(Sys.time(),
+         as.POSIXct(paste(sismos$date," ",sismos$time),"%Y-%m-%d %H:%M:%S",tz=Sys.timezone(location = TRUE))
+         ,units="mins")
+sismos.temp=sismos[sismos$escogido==FALSE,] 
+num.cluster.actual=0
+sismos$diflatitud=0
+sismos$diflongitud=0
+sismos$latmediacluster=0
+sismos$longmediacluster=0
+sismos$diflatitudmediacluster=0
+sismos$diflongitudmediacluster=0
+while(nrow(sismos[sismos$escogido == FALSE,]) > 0)
+{
+  num.cluster.actual=num.cluster.actual+1
+  sismos.temp=sismos[sismos$escogido==FALSE,]
+  max.mag=max(sismos.temp$Magnitud,na.rm = TRUE)
+  sismos.temp=sismos[sismos$escogido==FALSE & sismos$Magnitud==max.mag,] 
+  
+  indice.mayor.sismo=which(sismos$Magnitud==max.mag & sismos$escogido == FALSE 
+                           & sismos$tiempodesdeAhora==max(sismos.temp$tiempodesdeAhora))
+  
+  sismos[indice.mayor.sismo,]$escogido=TRUE
+  sismos[indice.mayor.sismo,]$EsCentroide=1
+  sismos[indice.mayor.sismo,]$diflatitud=0
+  sismos[indice.mayor.sismo,]$diflongitud=0
+ ventana.tiempo.dias.adelante=max(100,10^(0.5*max.mag-1))
+ #ventana.tiempo.dias.adelante=10^(0.5*max.mag-1)
+ ventana.espacio=2 * (0.015 * 10^(0.5*max.mag-2) + 0.3)
+ #ventana.espacio=(3.33 * 10^(0.5*max.mag-2) )
+ sismos[indice.mayor.sismo,]$cluster=num.cluster.actual
+ tiempo.sismo.max.mag=as.POSIXct(paste(sismos[indice.mayor.sismo,]$date," ",sismos[indice.mayor.sismo,]$time),"%Y-%m-%d %H:%M:%S",tz=Sys.timezone(location = TRUE))
+ lat.sismo.max.mag=sismos[indice.mayor.sismo,]$LatitudValor
+ long.sismo.max.mag=sismos[indice.mayor.sismo,]$LongitudValor
+ indices=which(sismos$escogido==FALSE &  
+                 difftime(as.POSIXct(paste(sismos$date," ",sismos$time),"%Y-%m-%d %H:%M:%S",tz=Sys.timezone(location = TRUE))
+                          ,tiempo.sismo.max.mag
+                          ,units="days") <=ventana.tiempo.dias.adelante
+              # & difftime(tiempo.sismo.max.mag
+               #           ,as.POSIXct(paste(sismos$fecha3," ",sismos$hora.1),"%Y-%m-%d %H:%M:%S",tz=Sys.timezone(location = TRUE))
+                 #         ,units="days") <=30
+               & abs(lat.sismo.max.mag - sismos$LatitudValor)<=ventana.espacio
+               & abs(long.sismo.max.mag - sismos$LongitudValor)<=ventana.espacio
+            )
+ if (length(indices)>0){
+   sismos[indices,]$cluster = num.cluster.actual
+   
+   sismos[indices,]$escogido=TRUE
+   sismos[indices,]$EsCentroide=0
+   sismos[indices,]$diflatitud=sismos[indices,]$LatitudValor-lat.sismo.max.mag 
+   sismos[indices,]$diflongitud=sismos[indices,]$LongitudValor-long.sismo.max.mag
+   
+   sismos[sismos$cluster == num.cluster.actual,]$latmediacluster=mean(sismos[indices,]$LatitudValor)
+   sismos[sismos$cluster==num.cluster.actual,]$longmediacluster=mean(sismos[indices,]$LongitudValor)
+   sismos[indices,]$diflatitudmediacluster=sismos[indices,]$LatitudValor-sismos[indices,]$latmediacluster 
+   sismos[indices,]$diflongitudmediacluster=sismos[indices,]$LongitudValor-sismos[indices,]$longmediacluster 
+   
+   sismos[indice.mayor.sismo,]$diflatitudmediacluster=sismos[indice.mayor.sismo,]$LatitudValor-sismos[indice.mayor.sismo,]$latmediacluster 
+   sismos[indice.mayor.sismo,]$diflongitudmediacluster=sismos[indice.mayor.sismo,]$LongitudValor-sismos[indice.mayor.sismo,]$longmediacluster 
+ }
+ else{
+
+   
+   sismos[indice.mayor.sismo,]$latmediacluster=lat.sismo.max.mag 
+   sismos[indice.mayor.sismo,]$longmediacluster=long.sismo.max.mag
+   sismos[indice.mayor.sismo,]$diflatitudmediacluster=0
+   sismos[indice.mayor.sismo,]$diflongitudmediacluster=0
+ }
+}
+ print("Summary of cluster variable:")
+ summary(sismos$cluster)
+ print("Number of earthquakes in cluster 1(associated with the earthquake on April 16th)")
+length(which(sismos$cluster==1))#804
+ print("Number  of clusters:")
+n=max(sismos$cluster)#6
+summary(sismos$EsCentroide)
+principales.sismos=sismos[sismos$EsCentroide==1,]
+```
+Ordering earthquakes by time(most recent first)
+```{r}
+sismos<-sismos[with(sismos, order(tiempodesdeAhora)), ]
+indice.sismo.mas.antiguo=which(sismos$tiempodesdeAhora==max(sismos$tiempodesdeAhora))
+
+sismos$tiempo.minutos=difftime(as.POSIXct(paste(sismos$date," ",sismos$time),"%Y-%m-%d %H:%M:%S",tz=Sys.timezone(location = TRUE))
+                                 ,as.POSIXct(paste(sismos[indice.sismo.mas.antiguo,]$date," ",sismos[indice.sismo.mas.antiguo,]$time),"%Y-%m-%d %H:%M:%S",tz=Sys.timezone(location = TRUE))
+                                 ,units="mins")
+sismos$tiempo.dias=difftime(as.POSIXct(paste(sismos$date," ",sismos$time),"%Y-%m-%d %H:%M:%S",tz=Sys.timezone(location = TRUE))
+                               ,as.POSIXct(paste(sismos[indice.sismo.mas.antiguo,]$date," ",sismos[indice.sismo.mas.antiguo,]$time),"%Y-%m-%d %H:%M:%S",tz=Sys.timezone(location = TRUE))
+                               ,units="days")
+
+
+```
+Calculation of Times differences between each earthquake and the previous ones
+```{r}
+combos<-combn(sismos$tiempo.minutos,2)
+
+diftiempo<-combn(sismos$tiempo.minutos,2,FUN=function(x) abs(x[1]-x[2]))
+dfdiftiempos=data.frame(tiempo1=combos[1,],tiempo2=combos[2,],diftiempo,stringsAsFactors=FALSE)
+#View(dfdiftiempos)
+
+combos<-combn(sismos$tiempo.dias,2)
+
+diftiempodias<-combn(sismos$tiempo.dias,2,FUN=function(x) abs(x[1]-x[2]))
+dfdiftiemposdias=data.frame(tiempo1=combos[1,],tiempo2=combos[2,],diftiempodias,stringsAsFactors=FALSE)
+
+View(dfdiftiempos)
+
+```
+Anisotropic clustering
+```{r}
+library(vardiag)
+library(geoR)
+coords=as.matrix(sismos[,c("LongitudValor","LatitudValor")])
+locations=coords
+data=as.vector(sismos$Magnitud)
+result=diffpairs(coords, data)
+distpairs=result$dist
+cov.matern=cov.spatial(distpairs, cov.model= "matern",cov.pars=c(1, .2))
+
+#varobj(sismos3, iter = 5, tolerance = 2e-04, trace = 1, loo = FALSE)
+library(sn)
+library(mclust)
+producto1 <- function(x,m){ 
+  
+  diflong <- x[grep( "^diflongitud$", names(x) )][[1]] ;
+  
+  diflat <- x[grep( "^diflatitud$", names(x) )][[1]];
+  p=as.numeric(c((diflong),(diflat)))
+  p=as.vector(p)
+  
+  temp=t(p)%*%m%*%p
+  
+  return(temp[1,1])
+}
+```
+anisotropic clustering
+```{r}
+K=c(1,3,3,5)
+sismos$factor.stan=0
+matrices.cov.normalizadas=replicate(n, diag(2), simplify=F)
+matrices.cov=replicate(n, diag(2), simplify=F)
+for( i in 1:n){
+  sismos.cluster=sismos[sismos$cluster==i,]
+  n1=nrow(sismos.cluster)
+  if (n1 > 1){
+    sigma.hat2=(sum(sismos.cluster$diflatitud^2)+sum(sismos.cluster$diflongitud^2))/(2*n1)
+    mat.cov1=diag(2)*sigma.hat2
+    sigma.techo2=(sum(sismos.cluster$diflatitudmediacluster^2)+sum(sismos.cluster$diflongitudmediacluster^2))/(2*n1)
+    mat.cov2=diag(2)*sigma.techo2
+    sigma1.2=sum(sismos.cluster$diflongitud^2)/n1
+    sigma2.2=sum(sismos.cluster$diflatitud^2)/n1
+    rho=sum(sismos.cluster$diflatitud *sismos.cluster$diflongitud)/(n1*sqrt(sigma1.2)*sqrt(sigma2.2))
+    sigma.techo1.2=sum(sismos.cluster$diflongitudmediacluster^2)/n1
+    sigma.techo2.2=sum(sismos.cluster$diflatitudmediacluster^2)/n1
+    rho.techo=sum(sismos.cluster$diflatitudmediacluster * sismos.cluster$diflongitudmediacluster)/(n1*sqrt(sigma.techo1.2)*sqrt(sigma.techo2.2))
+    mat.cov3=matrix(c(sigma1.2,rho*sqrt(sigma1.2)*sqrt(sigma2.2),rho*sqrt(sigma1.2)*sqrt(sigma2.2)
+                      ,sigma2.2),nrow=2)
+    mat.cov4=matrix(c(sigma.techo1.2,rho.techo*sqrt(sigma.techo1.2)*sqrt(sigma.techo2.2)
+                      ,rho.techo*sqrt(sigma.techo1.2)*sqrt(sigma.techo2.2)
+                      ,sigma.techo2.2),nrow=2)
+    
+    mat.cov=list(mat.cov1,mat.cov2,mat.cov3,mat.cov4)
+    #fit=mvn(modelName="Ellipsoidal", data=sismos.cluster[,c("LongitudValor","LatitudValor")])
+    #S=fit$parameters$variance$sigma
+    AIC=unlist(lapply(mat.cov,function(x) n1*log(det(x))))+2*K
+    AIC2<-AIC[!is.na(AIC)]
+    imin=which(AIC==min(AIC2))
+    print(imin)
+    m=mat.cov[[imin]]
+    sigma1=sqrt(m[1,1])
+    sigma2=sqrt(m[2,2])
+    m1=(1/(sigma1*sigma2))*m
+    m1=(1/(sqrt(1-m[2,1]^2)))*m1
+    m1=matrix(c(m1[2,2],-m1[2,1],-m1[2,1],m1[1,1]),nrow=2,ncol=2)
+    #m1=(1/(1-m[2,1]^2))*m1
+    if (n1>=6){
+      
+      
+      indices=which(sismos$cluster==i)
+      matrices.cov[[i]]<-m
+      matrices.cov.normalizadas[[i]]<-m1
+      v=apply( sismos[indices,],1,function(x,m) producto1(x,m),m=m1)
+      sismos[indices,]$factor.stan=v
+      
+    }
+    else{
+      imin=which(AIC[1:2]==min(AIC[1:2]))
+      m=mat.cov[[imin]]
+      sigma1=sqrt(m[1,1])
+      sigma2=sqrt(m[2,2])
+      m1=(1/(sigma1*sigma2))*m
+      m1=(1/(sqrt(1-m[2,1]^2)))*m1
+      indices=which(sismos$cluster==i)
+      matrices.cov[[i]]<-m
+      matrices.cov.normalizadas[[i]]<-m1
+      v=apply( sismos[indices,],1,function(x,m) producto1(x,m),m=m1)
+      sismos[indices,]$factor.stan=v
+      
+    }
+    
+    
+  }
+  else{
+   
+    indices=which(sismos$cluster==i)
+    matrices.cov[[i]]<-matrix(rep(0,4),nrow = 2,ncol=2)
+    matrices.cov.normalizadas[[i]]<-matrix(rep(0,4),nrow = 2,ncol=2)
+
+    sismos[indices,]$factor.stan=0
+  }
+}
+```
+
+```{r}
+#data(sismos1)
+
+#ts=sismos1$time
+ts=as.numeric(sismos$tiempo.dias)
+#length(which(duplicated(ts)==TRUE))
+#sismos$factor_cuadraticoIso<-sismos$diflatitud^2+sismos$diflongitud^2
+sismos$factor_cuadraticoIso<-0
+#sismos7<-sismos[with(sismos, order(-tiempodesdeAhora)), ]#solo para codigo antiguo
+sismos7<-sismos[with(sismos, order(tiempodesdeAhora)), ]
+sismos7<-sismos7[,c("Magnitud","tiempo.dias")]
+sismos7<-sismos7[!duplicated(sismos7),]
+sismos7[duplicated(sismos7$tiempo.dias), ]$tiempo.dias<-sismos7[duplicated(sismos7$tiempo.dias), ]$tiempo.dias+0.000694444
+#write.csv(sismos7, "data4.csv", row.names=FALSE)
+ts=as.numeric(sismos7$tiempo.dias)
+tmax=max(ts)
+#ts<-ts[!duplicated(ts)]##solo para temporales################
+```
+
+```{r}
+combos<-combn(ts,2)
+
+diftiempodias<-combn(ts,2,FUN=function(x) abs(x[1]-x[2]))
+dfdiftiemposdias=data.frame(tiempo1=combos[1,],tiempo2=combos[2,],diftiempodias,stringsAsFactors=FALSE)
+#View(dfdiftiemposdias)
+```
+This line is just for temporal models with the old code
+```{r}
+ts<-sort(ts)#solo para temporales con codigo antiguo
+```
+
+#ts=list(ts)
+Function to build the data with the differences of times in days, differences of latitudes, 
+differences of longitudes, differences of depths, and the calculation of quadratic factors:
+isotropic and anisotropic
+
+```{r}
+contruir.datos<-function(sismos,matrices.cov.normalizadas){
+  ts=as.numeric(sismos$tiempo.dias)
+  tmax=max(ts)
+  combos<-combn(ts,2)
+  
+  diftiempodias<-combn(ts,2,FUN=function(x) abs(x[1]-x[2]))
+  dfdiftiemposdias=data.frame(tiempo1=combos[1,],tiempo2=combos[2,],diftiempodias,stringsAsFactors=FALSE)
+  #View(dfdiftiemposdias)
+  
+  latitudes=as.numeric(sismos$LatitudValor)
+  combos<-combn(latitudes,2)
+  diflatitud<-combn(latitudes,2,FUN=function(x) abs(x[1]-x[2]))
+  #diflatitud<-combn(latitudes,2,FUN=function(x) (x[1]-x[2]))
+  dfdiflatitud=data.frame(lat1=combos[1,],lat2=combos[2,],diflatitud,stringsAsFactors=FALSE)
+  #View(dfdiflatitud)
+  
+  
+  longitudes=as.numeric(sismos$LongitudValor)
+  combos<-combn(longitudes,2)
+  diflongitud<-combn(longitudes,2,FUN=function(x) abs(x[1]-x[2]))
+  #diflongitud<-combn(longitudes,2,FUN=function(x) (x[1]-x[2]))
+  dfdiflongitud=data.frame(long1=combos[1,],long2=combos[2,],diflongitud,stringsAsFactors=FALSE)
+  #View(dfdiflongitud)
+  
+  profundidades=as.numeric(sismos$Profundidad2)
+  combos<-combn(as.numeric(sismos$Profundidad2),2)
+  difprofundidad<-combn(profundidades,2,FUN=function(x) abs(x[1]-x[2]))
+  dfdifprofundidad=data.frame(profund1=combos[1,],profund2=combos[2,],difprofundidad,stringsAsFactors=FALSE)
+  
+  
+  factor_cuadraticoIso=numeric(length(dfdiflatitud$diflatitud))
+  factor_cuadraticoAni=numeric(length(dfdiflatitud$diflatitud))
+  
+  m=matrices.cov.normalizadas[[1]]
+  m1=m[1,1]
+  m2=m[2,1]
+  m3=m[2,2]
+  mc=matrices.cov[[1]]
+  factor_cuadraticoIso=dfdiflatitud$diflatitud^2+dfdiflongitud$diflongitud^2
+  factor_cuadraticoAni=m1*dfdiflongitud$diflongitud^2+2*m2*dfdiflatitud$diflatitud*dfdiflongitud$diflongitud+m3*dfdiflatitud$diflatitud^2
+ return(list[dfdiftiemposdias,dfdiflatitud,dfdiflongitud,factor_cuadraticoIso,factor_cuadraticoAni])
+  }
+```
+```{r}
+profundidad_capa=30
+sismos<-sismos[sismos$cluster==1,]#798 con pf completa y 804
+sismos<-sismos[sismos$Profundidad2 <= profundidad_capa,]#789 aparecen NA 
+ts=as.numeric(sismos$tiempo.dias)
+tmax=max(ts)
+combos<-combn(ts,2)
+
+diftiempodias<-combn(ts,2,FUN=function(x) abs(x[1]-x[2]))
+dfdiftiemposdias=data.frame(tiempo1=combos[1,],tiempo2=combos[2,],diftiempodias,stringsAsFactors=FALSE)
+#View(dfdiftiemposdias)
+
+latitudes=as.numeric(sismos$LatitudValor)
+combos<-combn(latitudes,2)
+diflatitud<-combn(latitudes,2,FUN=function(x) abs(x[1]-x[2]))
+#diflatitud<-combn(latitudes,2,FUN=function(x) (x[1]-x[2]))
+dfdiflatitud=data.frame(lat1=combos[1,],lat2=combos[2,],diflatitud,stringsAsFactors=FALSE)
+#View(dfdiflatitud)
+
+
+longitudes=as.numeric(sismos$LongitudValor)
+combos<-combn(longitudes,2)
+diflongitud<-combn(longitudes,2,FUN=function(x) abs(x[1]-x[2]))
+#diflongitud<-combn(longitudes,2,FUN=function(x) (x[1]-x[2]))
+dfdiflongitud=data.frame(long1=combos[1,],long2=combos[2,],diflongitud,stringsAsFactors=FALSE)
+#View(dfdiflongitud)
+
+profundidades=as.numeric(sismos$Profundidad2)
+combos<-combn(as.numeric(sismos$Profundidad2),2)
+difprofundidad<-combn(profundidades,2,FUN=function(x) abs(x[1]-x[2]))
+dfdifprofundidad=data.frame(profund1=combos[1,],profund2=combos[2,],difprofundidad,stringsAsFactors=FALSE)
+
+
+factor_cuadraticoIso=numeric(length(dfdiflatitud$diflatitud))
+factor_cuadraticoAni=numeric(length(dfdiflatitud$diflatitud))
+
+m=matrices.cov.normalizadas[[1]]
+  m1=m[1,1]
+  m2=m[2,1]
+  m3=m[2,2]
+mc=matrices.cov[[1]]
+```
+Graph of the anisotropic cluster
+```{r}
+  library(rworldmap)
+library(ggmap)
+library(rgdal)
+library(rgeos)
+library(maptools)
+library(dplyr)
+library(tidyr)
+#library(tmap)
+#library(RCurl)
+  newmap <- getMap(resolution = "low")
+  
+  #SISMOS <- read.table("C:/Users/GOETHE/textfiles/SMOKE.raw", quote="\"")
+  x <- c("ggmap", "rgdal", "rgeos", "maptools", "dplyr", "tidyr")
+  lapply(x, library, character.only = TRUE) # load the required packages
+  
+  
+  
+  
+  df <- data.frame(x = sismos$LongitudValor, y = sismos$LatitudValor)
+  df
+  mat <- as.matrix(df) 
+  sp1 <- SpatialPoints(coords = mat)
+  sp1
+  
+  spdf <- SpatialPointsDataFrame(sp1, data = sismos)
+  #View(spdf)
+  proj4string(spdf) <- NA_character_ 
+  proj4string(spdf) <- CRS("+init=epsg:27700") 
+  library(rgdal)
+  EPSG <- make_EPSG() 
+  EPSG[grepl("WGS 84$", EPSG$note), ] 
+  sismos.ecuador <- spTransform(spdf, CRS("+init=epsg:4326")) 
+  theta <- seq(from=0, 2*3.141592, length=1000)
+ # x0=centro[1]
+ # y0=centro[2]
+  #x <- x0 + m1 * cos(theta)
+  #y <- y0 + m2 * sin(theta)
+  #alpha =arctan(m1/m2)
+  #plot(x, y, type = "l")
+  library(ellipse)
+  library(car)
+  centro=c(sismos[sismos$EsCentroide==1,]$LongitudValor,sismos[sismos$EsCentroide==1,]$LatitudValor)
+   
+  par(pty= "s")
+ 
+  plot(newmap,  xlim = c(-85, -77), ylim = c(-6,2), asp = 1)
+  
+  points(ellipse::ellipse(mc,centre=centro, npoints = 1000,level = 0.985),type = 'l',col="red")
+  points(sismos.ecuador@data$LongitudValor,sismos.ecuador@data$LatitudValor,cex = .6, pch=19)
+  points(centro[1],centro[2], cex = .6, pch=19,col="red")
+  title(main="Cluster Manabi-Esmeraldas")
+  
+  #ellipse::ellipse(mc,scale = c(1, 1),center = c(0, 0))
+  #par(pty= "s")
+  #plot(ellipse::ellipse(mc),type = 'l',add=TRUE)
+  
+  dataEllipse(cbind(sismos$LongitudValor,  sismos$LatitudValor), levels=0.985)
+  points(centro[1],centro[2], cex = .6, pch=19,col="green")
+  title(main="Earthquakes Manabi and Esmeraldas 9/04/2016-16/07/2016",xlab="longitude",ylab="latitude")
+```
+  
+```{r}
+  factor_cuadraticoIso=dfdiflatitud$diflatitud^2+dfdiflongitud$diflongitud^2
+  factor_cuadraticoAni=m1*dfdiflongitud$diflongitud^2+2*m2*dfdiflatitud$diflatitud*dfdiflongitud$diflongitud+m3*dfdiflatitud$diflatitud^2
+
+  # sismos8<-sismos[,c("tiempo.dias","LongitudValor","LatitudValor")]
+  # list=""
+  # for( i in 1:nrow(sismos8))
+  #   {
+  #   list=paste(list,",","(",sismos8[i,]$LongitudValor,",",sismos8[i,]$LatitudValor,")",sep="")
+  # 
+  #  }
+  # circulo minimo Manabi y Esmeraldas(-81.88499999999999, 0.010000000000000009, 2.6839755960142395)
+  # circulo minimo Cluster 1(-80.53564281024288, -0.19364970453058666, 1.619367679582717)
+  # circulo con 775 (-80.53564281024288, -0.19364970453051203, 1.619367679582579)
+  # 765 con prof menor de 30 km (-80.53564281024282, -0.1936497045305118, 1.6193676795825376)
+  #ultimo 789 con (-80.42846340477185, -0.14624342903363596, 1.704791211927978)
+  r=2.6839755960142395
+  r=1.619367679582717
+  r=1.619367679582579
+  r=1.6193676795825376
+  r=1.704791211927978
+dat=list(N=length(ts),tiempo=ts,tiempo_max=tmax,
+         magnitudes= sismos$Magnitud,factor_cuadraticoAni=factor_cuadraticoAni,
+         factor_cuadraticoIso=factor_cuadraticoIso,
+         dif_tiempos=dfdiftiemposdias$diftiempodias,
+         magnitud_corte=3,  
+         latitudes=sismos$LatitudValor,
+         longitudes=sismos$LongitudValor,
+         lat_min=min(sismos$LatitudValor),
+         lat_max=max(sismos$LatitudValor),
+         long_min=min(sismos$LongitudValor),
+         long_max=max(sismos$LongitudValor),
+         radio=r
+         )
+dat=list(N=length(ts),tiempo_max=tmax,dif_tiempos=dfdiftiemposdias$diftiempodias)#para temporales
+dat=list(N=length(ts),tiempo=ts,tiempo_max=tmax,
+         magnitudes= sismos7$Magnitud,
+         dif_tiempos=dfdiftiemposdias$diftiempodias,magnitud_corte=3)#para tiempo y magnitud
+
+mu=0.25*length(ts)/(tmax*pi*r^2)
+#dat=list(N=length(ts),t=ts,tmax=tmax)#este funciona
+#fit = stan(model_code=stan_etas, data=dat, iter=100,  chains=1,refresh=1)
+#fit = stan(file="spETAS1.stan", data=dat, iter=100,  chains=4,refresh=1,control = list(adapt_delta = 0.9999))
+#fit = stan(file="spETAS4.stan", data=dat, iter=50,  chains=4,refresh=1,control = list(adapt_delta = 0.9999))
+#fit = stan(file="C:\\Users\\GOETHE\\spETAS6.stan", data=dat, iter=50,  chains=4,refresh=1,control = list(adapt_delta = 0.9999))
+#fit = stan(file="C:\\Users\\GOETHE\\spETAStiempoMagnitud.stan", data=dat, init=c(0.025,.040,1.100, .003,1.005),iter=50,  chains=4,refresh=1,control = list(adapt_delta = 0.9999))
+#fit = stan(file="C:\\Users\\GOETHE\\spETAStiempos.stan", data=dat, iter=50,  chains=4,refresh=1,control = list(adapt_delta = 0.9999))#este funciona
+fit = stan(file="C:\\Users\\GOETHE\\spETAStiempos2.stan", data=dat, iter=100,  chains=4,refresh=1,control = list(adapt_delta = 0.9999))#este tambien
+sismos.sim=rstan::extract(object=fit,inc_warmup = FALSE)
+write.csv(sismos.sim, "resultEtasTemporal.csv")
+dat=list(N=length(ts),tiempo_max=tmax,dif_tiempos=dfdiftiemposdias$diftiempodias,)#para temporales
+###############################################
+sismos$xx=sismos$LongitudValor
+sismos$mm=sismos$Magnitud
+sismos$yy=sismos$LatitudValor
+
+sismicidad.fondo <- read.csv("C:\\Users\\GOETHE\\Documents\\resultETASultimo.csv")
+sismicidad.fondo<-sismicidad.fondo[with(sismicidad.fondo, order(-tt)), ]#798
+sismicidad.fondo$mm=sismicidad.fondo$mm+3
+sismicidad.fondo$xx=round(sismicidad.fondo$xx, digits = 2)
+sismos=sismos[!duplicated(sismos[c("LongitudValor","LatitudValor","Magnitud")]),]
+
+sismos.mezclado=merge(sismicidad.fondo, sismos, by=c("xx","yy","mm"))
+sismos.mezclado<-sismos.mezclado[with(sismos.mezclado, order(-tiempo.dias)), ]
+
+sismos<-sismos.mezclado
+ts=as.numeric(sismos$tiempo.dias)-min(as.numeric(sismos$tiempo.dias))
+tmax=max(ts)
+combos<-combn(ts,2)
+
+diftiempodias<-combn(ts,2,FUN=function(x) abs(x[1]-x[2]))
+dfdiftiemposdias=data.frame(tiempo1=combos[1,],tiempo2=combos[2,],diftiempodias,stringsAsFactors=FALSE)
+#View(dfdiftiemposdias)
+
+dat=list(N=length(ts),tiempo_max=tmax,dif_tiempos=dfdiftiemposdias$diftiempodias,tasas_sismicidad_fondo=sismos$bk)
+###############################################
+fit = stan(file="C:\\Users\\GOETHE\\spETAStiempos2SismicFondo.stan", data=dat, iter=100,  chains=4,refresh=1,control = list(adapt_delta = 0.9999))
+sismos.sim=rstan::extract(object=fit,inc_warmup = FALSE)
+write.csv(sismos.sim, "resultEtasTemporalSismicFondo.csv")
+fit = stan(file="C:\\Users\\GOETHE\\spETAStiempoMagnitud.stan", data=dat, iter=100,  chains=4,refresh=1,control = list(adapt_delta = 0.9999))#este tambien
+sismos.sim=rstan::extract(object=fit,inc_warmup = FALSE)
+write.csv(sismos.sim, "resultEtasTemporalMagnitud.csv")
+fit = stan(file="C:\\Users\\GOETHE\\spETAStiempoMagnitud2.stan", data=dat, iter=100,  chains=4,refresh=1,control = list(adapt_delta = 0.9999))#sinA
+sismos.sim=rstan::extract(object=fit,inc_warmup = FALSE)
+write.csv(sismos.sim, "resultEtasTemporalMagnitudSinA3.csv")
+##########################################
+sismos$xx=sismos$LongitudValor
+sismos$mm=sismos$Magnitud
+sismos$yy=sismos$LatitudValor
+
+sismicidad.fondo <- read.csv("C:\\Users\\GOETHE\\Documents\\resultETASultimo.csv")
+sismicidad.fondo<-sismicidad.fondo[with(sismicidad.fondo, order(-tt)), ]#798
+sismicidad.fondo$mm=sismicidad.fondo$mm+3
+sismicidad.fondo$xx=round(sismicidad.fondo$xx, digits = 2)
+sismos=sismos[!duplicated(sismos[c("LongitudValor","LatitudValor","Magnitud")]),]
+
+sismos.mezclado=merge(sismicidad.fondo, sismos, by=c("xx","yy","mm"))
+sismos.mezclado<-sismos.mezclado[with(sismos.mezclado, order(-tiempo.dias)), ]
+
+sismos<-sismos.mezclado
+ts=as.numeric(sismos$tiempo.dias)-min(as.numeric(sismos$tiempo.dias))
+tmax=max(ts)
+combos<-combn(ts,2)
+
+diftiempodias<-combn(ts,2,FUN=function(x) abs(x[1]-x[2]))
+dfdiftiemposdias=data.frame(tiempo1=combos[1,],tiempo2=combos[2,],diftiempodias,stringsAsFactors=FALSE)
+#View(dfdiftiemposdias)
+dat=list(N=length(ts),tiempo=ts,tiempo_max=tmax,
+         magnitudes= sismos$Magnitud,
+         dif_tiempos=dfdiftiemposdias$diftiempodias,magnitud_corte=3,tasas_sismicidad_fondo=sismos$bk)
+
+
+fit = stan(file="C:\\Users\\GOETHE\\spETAStiempoMagnitudSismicFondo.stan", data=dat, iter=100,  chains=4,refresh=1,control = list(adapt_delta = 0.9999))
+sismos.sim=rstan::extract(object=fit,inc_warmup = FALSE)
+write.csv(sismos.sim, "resultEtasTemporalMagnitudSismicFondo.csv")
+###############################################
+######################################
+
+#fit = stan(file="C:\\Users\\GOETHE\\spETASespaciotemporal.stan", data=dat, iter=20,  chains=4,refresh=1,control = list(adapt_delta = 0.9999))
+
+mu=0.25*length(ts)/(tmax*pi*r^2)
+initf <- function() list(mu=mu, k=0.3,p=1.3, c=0.01,d=0.01,q=1.7,alpha=1.005, gamma=0.9)
+
+fit = stan(file="C:\\Users\\GOETHE\\spETASespaciotemporalIso.stan", data=dat, iter=100, init=initf, chains=4,refresh=1,control = list(adapt_delta = 0.9999))
+sismos.sim=rstan::extract(object=fit,inc_warmup = FALSE)
+write.csv(sismos.sim, "resultEtasEspacioTempIsoSismicFondoCte.csv")
+fit = stan(file="C:\\Users\\GOETHE\\spETASespaciotemporalAni.stan", data=dat, iter=100, init=initf, chains=4,refresh=1,control = list(adapt_delta = 0.9999))
+sismos.sim=rstan::extract(object=fit,inc_warmup = FALSE)
+write.csv(sismos.sim, "resultEtasEspacioTempAniSismicFondoCte.csv")
+######################################
+sismos$xx=sismos$LongitudValor
+sismos$mm=sismos$Magnitud
+sismos$yy=sismos$LatitudValor
+
+sismicidad.fondo <- read.csv("C:\\Users\\GOETHE\\Documents\\resultETASultimo.csv")
+sismicidad.fondo<-sismicidad.fondo[with(sismicidad.fondo, order(-tt)), ]#798
+sismicidad.fondo$mm=sismicidad.fondo$mm+3
+sismicidad.fondo$xx=round(sismicidad.fondo$xx, digits = 2)
+sismos=sismos[!duplicated(sismos[c("LongitudValor","LatitudValor","Magnitud")]),]
+
+sismos.mezclado=merge(sismicidad.fondo, sismos, by=c("xx","yy","mm"))
+sismos.mezclado<-sismos.mezclado[with(sismos.mezclado, order(-tiempo.dias)), ]
+#list[dfdiftiemposdias,dfdiflatitud,dfdiflongitud,factor_cuadraticoIso,factor_cuadraticoAni]=contruir.datos(sismos.mezclado,matrices.cov.normalizadas )
+###############
+sismos<-sismos.mezclado#792
+ts=as.numeric(sismos$tiempo.dias)
+tmax=max(ts)
+combos<-combn(ts,2)
+
+diftiempodias<-combn(ts,2,FUN=function(x) abs(x[1]-x[2]))
+dfdiftiemposdias=data.frame(tiempo1=combos[1,],tiempo2=combos[2,],diftiempodias,stringsAsFactors=FALSE)
+#View(dfdiftiemposdias)
+
+latitudes=as.numeric(sismos$LatitudValor)
+combos<-combn(latitudes,2)
+diflatitud<-combn(latitudes,2,FUN=function(x) abs(x[1]-x[2]))
+#diflatitud<-combn(latitudes,2,FUN=function(x) (x[1]-x[2]))
+dfdiflatitud=data.frame(lat1=combos[1,],lat2=combos[2,],diflatitud,stringsAsFactors=FALSE)
+#View(dfdiflatitud)
+
+
+longitudes=as.numeric(sismos$LongitudValor)
+combos<-combn(longitudes,2)
+diflongitud<-combn(longitudes,2,FUN=function(x) abs(x[1]-x[2]))
+#diflongitud<-combn(longitudes,2,FUN=function(x) (x[1]-x[2]))
+dfdiflongitud=data.frame(long1=combos[1,],long2=combos[2,],diflongitud,stringsAsFactors=FALSE)
+#View(dfdiflongitud)
+
+profundidades=as.numeric(sismos$Profundidad2)
+combos<-combn(as.numeric(sismos$Profundidad2),2)
+difprofundidad<-combn(profundidades,2,FUN=function(x) abs(x[1]-x[2]))
+dfdifprofundidad=data.frame(profund1=combos[1,],profund2=combos[2,],difprofundidad,stringsAsFactors=FALSE)
+
+
+factor_cuadraticoIso=numeric(length(dfdiflatitud$diflatitud))
+factor_cuadraticoAni=numeric(length(dfdiflatitud$diflatitud))
+
+m=matrices.cov.normalizadas[[1]]
+m1=m[1,1]
+m2=m[2,1]
+m3=m[2,2]
+mc=matrices.cov[[1]]
+factor_cuadraticoIso=dfdiflatitud$diflatitud^2+dfdiflongitud$diflongitud^2
+factor_cuadraticoAni=m1*dfdiflongitud$diflongitud^2+2*m2*dfdiflatitud$diflatitud*dfdiflongitud$diflongitud+m3*dfdiflatitud$diflatitud^2
+#############
+
+ts=as.numeric(sismos$tiempo.dias)
+
+mu=0.25*length(ts)/(tmax*pi*r^2)
+# sismos8<-sismos[,c("tiempo.dias","LongitudValor","LatitudValor")]
+# list=""
+# for( i in 1:nrow(sismos8))
+#   {
+#   list=paste(list,",","(",sismos8[i,]$LongitudValor,",",sismos8[i,]$LatitudValor,")",sep="")
+# 
+#  }
+#792 (-80.42846340477132, -0.14624342903363527, 1.7047912119277824)
+r=1.7047912119277824
+#777
+#(-80.42846340477159, -0.1462434290336356, 1.7047912119278579)
+r=1.7047912119278579
+
+initf <- function() list(mu=mu, k=0.3,p=1.3, c=0.01,d=0.01,q=1.7,alpha=1.005, gamma=0.9,eta=0.7)
+dat=list(N=length(ts),tiempo=ts,tiempo_max=tmax,
+         magnitudes= sismos$Magnitud,factor_cuadraticoAni=factor_cuadraticoAni,
+         factor_cuadraticoIso=factor_cuadraticoIso,
+         dif_tiempos=dfdiftiemposdias$diftiempodias,
+         magnitud_corte=3,  
+         latitudes=sismos$LatitudValor,
+         longitudes=sismos$LongitudValor,
+         tasas_sismicidad_fondo=sismos$bk,
+         lat_min=min(sismos$LatitudValor),
+         lat_max=max(sismos$LatitudValor),
+         long_min=min(sismos$LongitudValor),
+         long_max=max(sismos$LongitudValor),
+         radio=r
+)
+fit = stan(file="C:\\Users\\GOETHE\\spETASespaciotemporalAniSismicidadFondo.stan", data=dat, iter=100, init=initf, chains=4,refresh=1,control = list(adapt_delta = 0.9999))
+sismos.sim=rstan::extract(object=fit,inc_warmup = FALSE)
+write.csv(sismos.sim, "resultEtasEspacioTempAniSismicFondoVariable.csv")
+initf <- function() list(mu=mu, k=0.3,p=1.3, c=0.01,d=0.01,q=1.7,alpha=1.005, gamma=0.9,eta=0.7)
+dat=list(N=length(ts),tiempo=ts,tiempo_max=tmax,
+         magnitudes= sismos$Magnitud,factor_cuadraticoAni=factor_cuadraticoAni,
+         factor_cuadraticoIso=factor_cuadraticoIso,
+         dif_tiempos=dfdiftiemposdias$diftiempodias,
+         dif_profundidades=dfdifprofundidad$difprofundidad,
+         magnitud_corte=3,  
+         latitudes=sismos$LatitudValor,
+         longitudes=sismos$LongitudValor,
+         profundidades=sismos$Profundidad2,
+         lat_min=min(sismos$LatitudValor),
+         lat_max=max(sismos$LatitudValor),
+         long_min=min(sismos$LongitudValor),
+         long_max=max(sismos$LongitudValor),
+         radio=r,
+         profundidad_capa=profundidad_capa
+)
+initf <- function() list(mu=mu, k=0.3,p=1.3, c=0.01,d=0.01,q=1.7,alpha=1.005, gamma=0.9,eta=0.7)
+fit = stan(file="C:\\Users\\GOETHE\\spETASespaciotemporalAniProfundidad.stan", data=dat, iter=100, init=initf, chains=3,refresh=1,control = list(adapt_delta = 0.9999))
+sismos.sim=rstan::extract(object=fit,inc_warmup = FALSE)
+write.csv(sismos.sim, "resultEtasEspacioTempAniProfSismicFondoCte.csv")
+##################################################
+sismos$xx=sismos$LongitudValor
+sismos$mm=sismos$Magnitud
+sismos$yy=sismos$LatitudValor
+
+sismicidad.fondo <- read.csv("C:\\Users\\GOETHE\\Documents\\resultETASultimo.csv")
+sismicidad.fondo<-sismicidad.fondo[with(sismicidad.fondo, order(-tt)), ]#798
+sismicidad.fondo$mm=sismicidad.fondo$mm+3
+sismicidad.fondo$xx=round(sismicidad.fondo$xx, digits = 2)
+sismos=sismos[!duplicated(sismos[c("LongitudValor","LatitudValor","Magnitud")]),]
+
+sismos.mezclado=merge(sismicidad.fondo, sismos, by=c("xx","yy","mm"))
+sismos.mezclado<-sismos.mezclado[with(sismos.mezclado, order(-tiempo.dias)), ]
+
+sismos<-sismos.mezclado
+ts=as.numeric(sismos$tiempo.dias)-min(as.numeric(sismos$tiempo.dias))
+tmax=max(ts)
+combos<-combn(ts,2)
+
+diftiempodias<-combn(ts,2,FUN=function(x) abs(x[1]-x[2]))
+dfdiftiemposdias=data.frame(tiempo1=combos[1,],tiempo2=combos[2,],diftiempodias,stringsAsFactors=FALSE)
+#View(dfdiftiemposdias)
+latitudes=as.numeric(sismos$LatitudValor)
+combos<-combn(latitudes,2)
+diflatitud<-combn(latitudes,2,FUN=function(x) abs(x[1]-x[2]))
+#diflatitud<-combn(latitudes,2,FUN=function(x) (x[1]-x[2]))
+dfdiflatitud=data.frame(lat1=combos[1,],lat2=combos[2,],diflatitud,stringsAsFactors=FALSE)
+#View(dfdiflatitud)
+
+
+longitudes=as.numeric(sismos$LongitudValor)
+combos<-combn(longitudes,2)
+diflongitud<-combn(longitudes,2,FUN=function(x) abs(x[1]-x[2]))
+#diflongitud<-combn(longitudes,2,FUN=function(x) (x[1]-x[2]))
+dfdiflongitud=data.frame(long1=combos[1,],long2=combos[2,],diflongitud,stringsAsFactors=FALSE)
+#View(dfdiflongitud)
+
+profundidades=as.numeric(sismos$Profundidad2)
+combos<-combn(as.numeric(sismos$Profundidad2),2)
+difprofundidad<-combn(profundidades,2,FUN=function(x) abs(x[1]-x[2]))
+dfdifprofundidad=data.frame(profund1=combos[1,],profund2=combos[2,],difprofundidad,stringsAsFactors=FALSE)
+
+
+factor_cuadraticoIso=numeric(length(dfdiflatitud$diflatitud))
+factor_cuadraticoAni=numeric(length(dfdiflatitud$diflatitud))
+
+m=matrices.cov.normalizadas[[1]]
+m1=m[1,1]
+m2=m[2,1]
+m3=m[2,2]
+mc=matrices.cov[[1]]
+factor_cuadraticoIso=dfdiflatitud$diflatitud^2+dfdiflongitud$diflongitud^2
+factor_cuadraticoAni=m1*dfdiflongitud$diflongitud^2+2*m2*dfdiflatitud$diflatitud*dfdiflongitud$diflongitud+m3*dfdiflatitud$diflatitud^2
+
+
+dat=list(N=length(ts),tiempo=ts,tiempo_max=tmax,
+         magnitudes= sismos$Magnitud,factor_cuadraticoAni=factor_cuadraticoAni,
+         factor_cuadraticoIso=factor_cuadraticoIso,
+         dif_tiempos=dfdiftiemposdias$diftiempodias,
+         dif_profundidades=dfdifprofundidad$difprofundidad,
+         tasas_sismicidad_fondo=sismos$bk,
+         magnitud_corte=3,  
+         latitudes=sismos$LatitudValor,
+         longitudes=sismos$LongitudValor,
+         profundidades=sismos$Profundidad2,
+         lat_min=min(sismos$LatitudValor),
+         lat_max=max(sismos$LatitudValor),
+         long_min=min(sismos$LongitudValor),
+         long_max=max(sismos$LongitudValor),
+         radio=r,
+         profundidad_capa=profundidad_capa
+)
+#############
+fit = stan(file="C:\\Users\\GOETHE\\spETASespaciotemporalAniProfundidadSismicFondo.stan", data=dat, iter=100, init=initf, chains=3,refresh=1,control = list(adapt_delta = 0.9999))
+sismos.sim=rstan::extract(object=fit,inc_warmup = FALSE)
+write.csv(sismos.sim, "resultEtasEspacioTempAniProfSismicFondoVariable.csv")
+#############################################
+#test
+N=length(ts)
+tiempo=ts
+tiempo_max=tmax
+magnitudes= sismos$Magnitud
+factor_cuadraticoAni=factor_cuadraticoAni
+factor_cuadraticoIso=factor_cuadraticoIso
+dif_tiempos=dfdiftiemposdias$diftiempodias
+dif_profundidades=dfdifprofundidad$difprofundidad
+magnitud_corte=3  
+latitudes=sismos$LatitudValor
+longitudes=sismos$LongitudValor
+profundidades=sismos$Profundidad2
+lat_min=min(sismos$LatitudValor)
+lat_max=max(sismos$LatitudValor)
+long_min=min(sismos$LongitudValor)
+long_max=max(sismos$LongitudValor)
+radio=r
+
+mu=mu
+k=0.3
+p=1.3
+c=0.01
+d=0.01
+q=1.7
+alpha=1.005 
+gamma=0.9
+eta=0.7
+for(j in 1:(N-1)){
+  inicio =N*(j-1)-(j*(j-1))/2 + 1;
+  fin =j*N-(j*(j+1))/2;
+  z=(1/profundidad_capa) * dif_profundidades[inicio:fin];
+  y=profundidades[(j+1):N]
+  for(i in 1:(N-j)){
+    print(y[i])
+    print("#####")
+    print(z[i])
+    
+  }
+  
+  
+}
+
+
+
+############################################
+saveRDS(fit, "fitAni.rds")
+saveRDS(fit, "fitAniSismicidadFondo.rds")
+
+
+saveRDS(fit, "fitTemporal.rds")
+saveRDS(fit, "fitProfundidad.rds")
+#fit = stan(file="C:\\Users\\GOETHE\\spETASespaciotemporal4.stan", data=dat, iter=20,  chains=4,refresh=1,control = list(adapt_delta = 0.9999))
+summary(fit)
+stan_diag(fit,
+          information = c("sample","stepsize", "treedepth","divergence"),
+          chain = 0)
+stan_par(fit, par="mu", chain = 0)
+stan_rhat(fit, pars=c("mu","k","p","c"))
+stan_rhat(fit, pars=c("mu","k","p","c","alpha","A"))
+stan_rhat(fit, pars=c("mu","k","p","c","q","d","alpha","gamma"))
+stan_ess(fit, pars=c("mu","k","p","c"))
+stan_ess(fit, pars=c("mu","k","p","c","q","d","alpha","gamma"))
+stan_mcse(fit, pars=c("mu","k","p","c","q","d","alpha","gamma"))
+stan_mcse(fit, pars=c("mu","k","p","c"))
+post_par<-As.mcmc.list(fit,pars=c("mu","k","p","c","q","d","alpha","gamma"))
+post_par<-As.mcmc.list(fit,pars=c("mu","k","p","c"))
+plot(post_par)
+
+pairs(fit,pars=c("mu","k","p","c","q","d","alpha","gamma"))
+pairs(fit,pars=c("mu","k","p","c"))
+pairs(fit,pars=c("mu","k","p","c","alpha","A"))
+pairs(fit,pars=c("mu","k","p","c","alpha"))
+pairs(fit,pars=c("mu","k","p","c","d","q","alpha","gamma"))
+pairs(fit,pars=c("mu","k","p","c","d","q","alpha","gamma","eta"))
+e <- extract(fit, permuted = TRUE) # return a list of arrays
+mu <- e$mu
+e<-extract(fit, permuted = FALSE) 
+mu <- e$mu
+mu <- unlist(mu, use.names=FALSE)
+plot.ts(mu)
+library(ggmcmc) 
+library(coda)
+stan2coda <- function(fit) {
+  mcmc.list(lapply(1:ncol(fit), function(x) mcmc(as.array(fit)[,x,])))
+}
+#s <- mcmc.list(lapply(1:ncol(fit), function(x) mcmc(as.array(fit)[,x,])))
+mcmc.list2array <- 
+  function(x) {
+    stopifnot(class(x)[1] != "mcmc.list")
+    arr <- array(NA_real_, 
+                 dim = c(nrow(x[[1]]), length(x), ncol(x[[1]])))
+    dimnames(arr)[[3]] <- colnames(x[[1]])
+    for(i in seq_along(x)) arr[,i,] <- as.matrix(x[[i]])
+    return(arr)
+  }
+s <- stan2coda(fit)
+summary(s)
+#plot(s)
+s <- rstan::extract(fit,inc_warmup=FALSE) 
+s.mu <- mcmc.list(mcmc(s$mu[1:50]), mcmc(s$mu[51:100]), mcmc(s$mu[101:150]), 
+               mcmc(s$mu[151:200])
+               ) 
+s.mu1 <- do.call(mcmc.list, alply(s[,,-4], 2, mcmc))
+S <- ggs(s) 
+ggs_traceplot(S)
+
+ggs_histogram(S)
+ggs_density(S)
+ggs_running(S)
+ggs_compare_partial(S)
+#ggs_compare_partial(S)
+ggs_autocorrelation(S)
+ggs_crosscorrelation(S)
+
+ggs_rocplot(S.binary, outcome=y.binary)
+
+ggs_pairs(S, lower = list(continuous = "density"))
+library(gridExtra)
+library(ggthemes)
+  
+
+#apply(extract(fit,pars="beta")$beta,2,function(x) length(which(x>0))/4000)
+
+print(fit)
+rstan::traceplot(fit)
+plot(fit,pars=c("mu","k","p","c","q","d","alpha","gamma","eta"))
+plot(fit,pars=c("mu","k","p","c","q","d","alpha","gamma"))
+plot(fit,pars=c("mu","k","p","c"))
+monitor(extract(fit, permuted = FALSE, inc_warmup = TRUE))
+model<- stan_model(model_code = 'parameters {real y;} model {y ~ normal(0,1);}')
+model<- stan(file="C:\\Users\\GOETHE\\spETAStiempos.stan", data=dat, chains = 0, iter = 0)
+################################################
+#calculo de probabilidades de ser espontaneo, de que sismo i sea padre de sismo j y 
+#numero esperado de replicas
+N.sim=1000
+# mu<-7.919e-03
+# k<-1.005e+00
+# p<-1.215e+00
+# c<-2.083e-02
+# d<- 1.947e-03
+# q<-1.688e+00
+# alpha<-6.473e-01
+# gamma<- 2.262e-01 
+sismos.sim=rstan::extract(object=fit,inc_warmup = FALSE)
+write.csv(sismos.sim, "resultEtasAsiSismicFondo.csv")
+tiempo=ts
+tiempo_max=tmax
+magnitudes= sismos$Magnitud
+factor_cuadraticoAni=factor_cuadraticoAni
+factor_cuadraticoIso=factor_cuadraticoIso
+dif_tiempos=dfdiftiemposdias$diftiempodias
+magnitud0=3
+latitudes=sismos$LatitudValor
+longitudes=sismos$LongitudValor
+lat_min=min(sismos$LatitudValor)
+lat_max=max(sismos$LatitudValor)
+long_min=min(sismos$LongitudValor)
+long_max=max(sismos$LongitudValor)
+radio=r
+sismicidad.fondo=sismos$bk
+N=nrow(sismos)
+
+
+prob.padres.mas.probables<-array (NA, c(N.sim, N))
+num.esperado.replicas<-array (NA, c(N.sim, N))
+intensidades<-array (NA, c(N.sim, N))
+log_intensidades<-array (NA, c(N.sim, N))
+probabilidades<- array (NA, c(N.sim, N))
+sismos.padres.mas.probables<- array (NA, c(N.sim, N))
+for (i in 1:N.sim ){
+  mu<-sample(sismos.sim$mu,1,replace=FALSE)
+  k<-sample(sismos.sim$k,1,replace=FALSE)
+  p<-sample(sismos.sim$p,1,replace=FALSE)
+  c<-sample(sismos.sim$c,1,replace=FALSE)
+  d<- sample(sismos.sim$d,1,replace=FALSE)
+  q<-sample(sismos.sim$q,1,replace=FALSE)
+  alpha<-sample(sismos.sim$alpha,1,replace=FALSE)
+  gamma<- sample(sismos.sim$gamma,1,replace=FALSE)
+  
+  
+  for(j in 1:(N-1)){
+    
+    
+    inicio <-N*(j-1)-(j*(j-1))/2 + 1;
+    fin <-j*N-(j*(j+1))/2;
+    
+    
+    y<-dif_tiempos[inicio:fin];
+    z<-(factor_cuadraticoAni[inicio:fin]/(exp(gamma*(magnitudes[(j+1):length(magnitudes)]-rep(magnitud0,N-j))))+rep(d,N-j))^(-q)
+    y<-(k*alpha*(p-1)*c^(p-1)*(q-1)*d^(q-1)*(1/pi))*exp((alpha-gamma)*(magnitudes[(j+1):length(magnitudes)]-rep(magnitud0,N-j)))*(y+rep(c,N-j))^(-p)
+    y<-y * z;
+   # rho<-y/(mu+sum(y))
+    rho<-y/(mu*sismicidad.fondo[j+1]+sum(y))
+    #probabilidades[i,j]<-mu/(mu+sum(y))
+    probabilidades[i,j]<-mu*sismicidad.fondo[j+1]/(mu*sismicidad.fondo[j+1]+sum(y))
+    temp<-j+min(which(rho==max(rho)))
+    
+    sismos.padres.mas.probables[i,j]<-temp
+    prob.padres.mas.probables[i,j]<-max(rho)
+    num.esperado.replicas[i,j]<-sum(rho)
+   # intensidades[i,j]<-mu+sum(y)
+    intensidades[i,j]<-mu*sismicidad.fondo[j+1]+sum(y)
+    #log_intensidades[i,j]<-log(mu+sum(y))
+    log_intensidades[i,j]<-log(mu*sismicidad.fondo[j+1]+sum(y))
+    
+  }
+  print(i)
+  
+}
+library(matrixStats)
+
+max.mag=max(sismos$Magnitud,na.rm = TRUE)
+indice.mayor.sismo=which(sismos$Magnitud==max.mag )
+
+padres<-apply(sismos.padres.mas.probables,2,median)
+quant<-colQuantiles(sismos.padres.mas.probables,probs=c(0.025,0.975))
+intervalos<-cbind(quant,padres,(seq.int(nrow(sismos))))
+#intervalos[780,]<-c(780,780,780,780)
+intervalos[792,]<-c(792,792,792,792)
+dif<-intervalos[,2]-intervalos[,1]
+intervalos<-cbind(intervalos,dif)
+antecesor.seguro<-intervalos[intervalos[, 5] == 0 , ]
+dim(antecesor.seguro)
+#540 5
+#537 5
+dim(antecesor.seguro[antecesor.seguro[, 1] == indice.mayor.sismo,])
+# 5 5
+# 7 5
+inducidos.mayor.sismo<-antecesor.seguro[antecesor.seguro[, 1] == indice.mayor.sismo,]
+inducidos.mayor.sismo[,4]
+sismos[inducidos.mayor.sismo[,4],]
+View(sismos[inducidos.mayor.sismo[,4],])
+write.csv(sismos[inducidos.mayor.sismo[,4],], "sismosinducidos7-4.csv")
+quant[inducidos.mayor.sismo[,4],]
+
+
+x = 1:780*2-1
+x = 1:792*2-1
+names=intervalos[,4]
+CI.up = as.numeric(intervalos[,2])
+CI.dn = as.numeric(intervalos[,1])
+plot(as.numeric(intervalos[,3])~x,xaxt='n',ylim=c(1,nrow(sismos)), xlab='Indice sismo(de reciente a  antiguo)',ylab='Indice sismo precursor m?s probable e intervalo', main='Int confianza  sismos antecesores m?s probables',col='blue',pch=20)
+axis(1, at=x, labels=names)
+arrows(x,CI.dn,x,CI.up,code=3,length=0.01,angle=90,col='red')
+abline(h=indice.mayor.sismo,col="green")
+
+x = 1:dim(antecesor.seguro)[1]*2-1
+names=antecesor.seguro[,4]
+CI.up = as.numeric(antecesor.seguro[,2])
+CI.dn = as.numeric(antecesor.seguro[,1])
+plot(round(as.numeric(antecesor.seguro[,3]))~x,xaxt='n',ylim=c(1,nrow(sismos)), xlab='Indice sismo(de reciente a  antiguo)',ylab='Indice sismo precursor m?s probable', main='Sismos antecesores m?s probables',col='blue',pch=20)
+axis(1, at=x, labels=names)
+arrows(x,CI.dn,x,CI.up,code=3,length=0.2,angle=90,col='red')
+abline(h=indice.mayor.sismo,col="green")
+
+
+prob.espontaneo<-apply(probabilidades,2,median)
+quant<-colQuantiles(probabilidades,probs=c(0.025,0.975))
+plot(sismos$tiempo.dias,prob.espontaneo,type="l",xlab="Tiempo(dias)", ylab="Probabilidad de ser sismo esp?ntaneo",main="Probabilidad de ser sismo esp?ntaneo")
+ind=which(prob.espontaneo==max(prob.espontaneo[prob.espontaneo<0.5 ],na.rm=TRUE))
+sismos[ind,]
+quant[ind,]
+# par(mfrow=c(2,6)) 
+# apply(intensidades[,1:6],2,hist) 
+# myf=function(x){ qqnorm(x);qqline(x) } 
+# apply(intensidades[,1:6],2,myf)
+par(mfrow=c(1,1))
+plot.new()
+intensidades[,nrow(sismos)]=mu
+intensidades[,nrow(sismos)]=mu*sismicidad.fondo[nrow(sismos)]
+intensidades.medias<-apply(intensidades,2,median)
+hist(intensidades.medias)
+plot(density(intensidades.medias),add=TRUE,col="red",xlab="",ylab="densidad" ,main="Densidad de la intensidad s?smica mediana")
+
+
+max(probabilidades)
+plot(sort(sismos$tiempo.dias),rev(intensidades),type="l",xlab="Tiempo(en dias)",ylab="Intensidad sismica")
+#0.9215907
+sismos[which(probabilidades>0.5),]# son espontaneos 
+#solo 2
+probabilidades[which(probabilidades>0.5)]
+#[1] 0.9215907 0.7610379
+which(probabilidades>0.5)
+#778 779
+probabilidades[which(probabilidades>0.25)]
+#[1] 0.3207924 0.9215907 0.7610379
+which(probabilidades>0.25)
+#[1]  79 778 779
+which(probabilidades>0.05)
+#[1]   6  66  79  83  86 158 236 778 779
+View(sismos[which(probabilidades>0.05),])
+
+max.mag=max(sismos$Magnitud,na.rm = TRUE)
+indice.mayor.sismo=which(sismos$Magnitud==max.mag )
+
+p<-as.data.frame(table(sismos.padres.mas.probables))
+
+p1<-p[with(p, order(-Freq)), ]
+
+
+f<-p1[which(p1$Freq>3),]$sismos.padres.mas.probables
+p2<-as.numeric(levels(f))[f]
+View(sismos[p2,])
+prob.padres.mas.probables[which(sismos.padres.mas.probables==indice.mayor.sismo)]
+sismos.padres.mas.probables[N]=0
+prob.padres.mas.probables[N]=0
+num.esperado.replicas[N]=0
+sismos$indice.padre=sismos.padres.mas.probables
+sismos$prob.padre=prob.padres.mas.probables
+sismos$no.esperado.replicas=num.esperado.replicas
+sismos777<-sismos[sismos$indice.padre==indice.mayor.sismo,]
+View(sismos777)
+plot(sort(sismos$tiempo.dias),rev(num.esperado.replicas),type="l",
+     ylim=c(0.6,max(num.esperado.replicas)))
+#############################################
+f <- optimizing(model, hessian = TRUE)
+fit <- optimizing(object=get_stanmodel(model), as_vector = FALSE,
+                  data=dat, hessian = TRUE)
+theta_hat <- unlist(fit$par)
+upars <- unconstrain_pars(linear, relist(theta_hat, fit$par))
+Hessian <- fit$hessian
+sqrt(abs(diag(solve(fit$hessian))))
+# 4: Extract the Cholesky decomposition of the (negative) Hessian and invert
+R <- chol(-Hessian)
+V <- chol2inv(R)
+rownames(V) <- colnames(V) <- colnames(Hessian)
+
+# 5: Produce a matrix with some specified number of simulation draws from a multinormal
+SIMS <- 1000
+len <- length(theta_hat)
+unconstrained <- upars + t(chol(V)) %*% 
+  matrix(rnorm(SIMS * len), nrow = len, ncol = SIMS)
+theta_sims <- t(apply(unconstrained, 2, FUN = function(upars) {
+  unlist(constrain_pars(linear, upars))
+}))
+
+#########################
+
+plot(fit)
+plot(fit, show_density = TRUE, ci_level = 0.5, fill_color = "purple")
+plot(fit, plotfun = "hist", pars = c("mu","k","p","c","q","d","alpha","gamma"), include =TRUE)
+plot(fit, plotfun = "hist", pars = c("mu","k","p","c"), include =TRUE)
+plot(fit, plotfun = "trace", pars = c("mu","k","p","c","q","d","alpha","gamma"), inc_warmup = TRUE)
+
+plot(fit, plotfun = "trace", pars = c("mu","k","p","c","q","d","alpha","gamma","eta"), inc_warmup = TRUE)
+plot(fit, plotfun = "trace", pars = c("mu","k","p","c"), inc_warmup = TRUE)
+plot(fit, plotfun = "rhat") + ggtitle("Example of adding title to plot")
+
+stan_plot(fit)
+stan_plot(fit, point_est = "mean", show_density = TRUE, fill_color = "maroon")
+``` 
+###################################
+
+
+
+

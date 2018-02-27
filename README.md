@@ -12,14 +12,13 @@ StanCon’s version of conference proceedings is a collection of contributed tal
 ### Contents:
 
 * [StanCon 2017](#stancon-2017) (January 2017, Columbia University, New York)
-* [StanCon 2018](#stancon-2018) (January 2018, Asilomar, California)
-
+* [StanCon 2018](#stancon-2018) (January 2018, Asilomar, California)   
 
 <br>
 
 ## StanCon 2017
 
-### Peer reviewed contributed talks
+### 2017 Peer reviewed contributed talks
 
 * Jonathan Auerbach, Rob Trangucci: **_Twelve Cities: Does lowering speed limits save pedestrian lives?_** 
   - Presenter: <a href="https://github.com/jauerbach"> **Jonathan Auerbach**</a> is a PhD candidate in the Department of Statistics at Columbia University.
@@ -78,7 +77,8 @@ StanCon’s version of conference proceedings is a collection of contributed tal
 
   
   
-  
+
+<br>
   
 ## StanCon 2018
 
@@ -97,7 +97,7 @@ Links:
   - <a href="https://github.com/jauerbach"> github.com/jauerbach</a>
 
   
-  
+<br>  
 **_Diagnosing Alzheimer’s the Bayesian way_** 
 
 * Authors: Arya A. Pourzanjani, Benjamin B. Bales, Linda R. Petzold, Michael Harrington (UC Santa Barbara)
@@ -111,7 +111,7 @@ Links:
   - [https://github.com/pourzanj/Stancon2018\_Alzheimers](https://github.com/pourzanj/Stancon2018_Alzheimers)
   - <a href="https://aryastats.com/"> aryastats.com</a>
 
-  
+<br>  
 **_Joint longitudinal and time-to-event models via Stan_** 
 
 * Authors: Sam Brilleman, Michael Crowther, Margarita Moreno-Betancur, Jacqueline Buros Novik, Rory Wolfe (Monash University, Columbia University)
@@ -127,6 +127,7 @@ Links:
   - <a href="http://www.sambrilleman.com/"> sambrilleman.com</a>
 
 
+<br>
 **_A tutorial on Hidden Markov Models using Stan_** 
 
 * Authors: Luis Damiano, Brian Peterson, Michael Weylandt 
@@ -140,6 +141,7 @@ Links:
   - <a href="https://github.com/luisdamiano/stancon18"> github.com/luisdamiano/stancon18</a>
 
   
+<br>
 **_Student Ornstein-Uhlenbeck models served three ways (with applications for population dynamics data)_** 
 
 * Authors: Aaron Goodman (Stanford University)
@@ -154,7 +156,7 @@ Links:
   - <a href="https://web.stanford.edu/~aaronjg/"> web.stanford.edu/~aaronjg</a>
 
   
-  
+<br>  
 **_SlicStan: a blockless Stan-like language_** 
 
 * Authors: Maria I. Gorinova, Andrew D. Gordon, Charles Sutton (University of Edinburgh) 
@@ -169,6 +171,7 @@ Links:
   - <a href="http://homepages.inf.ed.ac.uk/s1207807/"> homepages.inf.ed.ac.uk/s1207807</a>, <a href="https://www.microsoft.com/en-us/research/people/adg/"> microsoft.com/en-us/research/people/adg</a>, <a href="http://homepages.inf.ed.ac.uk/csutton/"> http://homepages.inf.ed.ac.uk/csutton</a> 
 
 
+<br>
 **_Introducing idealstan, an R package for ideal point modeling with Stan_** 
 
 * Authors: Robert Kubinec (University of Virginia)
@@ -181,7 +184,8 @@ Links:
   - [Notebook, code, slides](2018/Contributed-Talks/08_kubinec) 
   - [https://CRAN.R-project.org/package=idealstan](https://CRAN.R-project.org/package=idealstan)
 
-  
+
+<br>  
 **_Computing steady states with Stan’s nonlinear algebraic solver_** 
 
 * Authors: Charles C. Margossian (Metrum, Columbia University)
@@ -195,7 +199,7 @@ Links:
   - [github.com/charlesm93](https://github.com/charlesm93)
 
 
-
+<br>
 **_Bayesian estimation of mechanical elastic constants_** 
 
 * Authors: Ben Bales, Brent Goodlet, Tresa Pollock, Linda Petzold (UC Santa Barbara)
@@ -209,6 +213,7 @@ Links:
   - [github.com/bbbales2/stancon_2018](https://github.com/bbbales2/stancon_2018)
 
 
+<br>
 **_Aggregate random coefficients logit — a generative approach_** 
 
 * Authors: Jim Savage (Lendable Marketplace), Shoshana Vasserman (Harvard University).
@@ -222,6 +227,7 @@ Links:
   - [github.com/khakieconomics](https://github.com/khakieconomics), [github.com/shoshievass](https://github.com/shoshievass)
 
 
+<br>
 **_The threshold test: Testing for racial bias in vehicle searches by police_** 
 
 * Authors: Camelia Simoiu, Sam Corbett-Davies, Sharad Goel, Emma Pierson (Stanford University)
@@ -236,6 +242,7 @@ Links:
   - [web.stanford.edu/~csimoiu](http://web.stanford.edu/~csimoiu/), [samcorbettdavies.com](https://samcorbettdavies.com/), [cs.stanford.edu/~emmap1](https://cs.stanford.edu/~emmap1/), [5harad.com](https://5harad.com/)
 
 
+<br>
 **_Assessing the safety of Rosiglitazone for the treatment of type II diabetes_** 
 
 * Authors: Konstantinos Vamvourellis, K. Kalogeropoulos, L. Phillips (London School of Economics and Political Science) 
@@ -250,7 +257,7 @@ Links:
   - [personal.lse.ac.uk/vamourel/](http://personal.lse.ac.uk/vamourel/)
 
 
-
+<br>
 **_Causal inference with the g-formula in Stan_** 
 
 
@@ -265,6 +272,7 @@ Links:
   - [https://github.com/lcomm/stancon2018](https://github.com/lcomm/stancon2018)
   - [scholar.harvard.edu/leahcomment](https://scholar.harvard.edu/leahcomment/)
 
+<br>
 **_Bayesian estimation of ETAS models with Rstan_** 
 
 * Authors: Fausto Fabian Crespo Fernandez (Universidad San Francisco de Quito)
@@ -275,61 +283,70 @@ Links:
 
   - Video (coming soon)
   - [Notebook, code, slides](2018/Contributed-Talks/17_crespo) 
+  - [linkedin.com/in/phd-student-fausto-fabian-crespo-fernandez](https://www.linkedin.com/in/phd-student-fausto-fabian-crespo-fernandez-2b457a71/)
 
 
+<br>
 
 ### Invited talks 
 
+**_Predictive information criteria in hierarchical Bayesian models for clustered data_**
+    
+* Presenters: Sophia Rabe-Hesketh, Daniel Furr (UC Berkeley)
+* Video (coming soon)
+* [Slides and code](2018/Invited-Talks/RabeHesketh_Furr) 
+* [gse.berkeley.edu/people/sophia-rabe-hesketh](https://gse.berkeley.edu/people/sophia-rabe-hesketh), [github.com/danielcfurr](https://github.com/danielcfurr)
+
 **_ScalaStan_** 
 
-* Joe Wingbermuehle (Cibo Technologies)
+* Presenter: Joe Wingbermuehle (Cibo Technologies)
+* [Slides](2018/Invited-Talks/Wingbermuehle.pdf) 
+* <a href="https://github.com/cibotech/ScalaStan"> github.com/cibotech/ScalaStan</a>
 
-A Stan wrapper in Scala with an embedded domain specific language for Stan.
+**_Stan applications in physics: Testing quantum mechanics and modeling neutrino masses_**
 
-Links: 
+* Presenter: Talia Weiss (MIT)
+* [Slides](2018/Invited-Talks/Weiss.pdf) 
+* [https://www.linkedin.com/in/talia-weiss-184753139](https://www.linkedin.com/in/talia-weiss-184753139/)
 
-  - Video (coming soon)
-  - [Slides](2018/Invited-Talks/Wingbermuehle.pdf) 
-  - <a href="https://github.com/cibotech/ScalaStan"> github.com/cibotech/ScalaStan</a>
+
+**_Forecasting at scale: How and why we developed Prophet for forecasting at Facebook_**
+
+* Presenters: Sean Taylor, Ben Letham (Facebook)
+* [research.fb.com/facebook-at-stancon-2018](https://research.fb.com/facebook-at-stancon-2018/)
+* [facebook.github.io/prophet](https://facebook.github.io/prophet/)
+
+
+**_Stan applications in human genetics: Prioritizing genetic mutations that protect individuals from human disease_**
+
+* Presenter: Manuel Rivas (Stanford University)
+* [Slides](Invited-Talks/Rivas.pdf)
+* [med.stanford.edu/rivaslab](http://med.stanford.edu/rivaslab.html)
+
+**_Statistics using geometry to show uncertainties and integrate graph information_**
+
+* Presenter: Susan Holmes (Stanford University)
+* [Slides](Invited-Talks/Holmes.pdf)
+* [statweb.stanford.edu/~susan](http://statweb.stanford.edu/~susan/)
 
   
 **_A brief history of Stan_** 
 
-* Authors: Daniel Lee (Generable)
-
-A fun look back at the history of Stan from one of the core developers.
-
-Links: 
-
-  - Video (coming soon)
-  - [Slides](2018/Invited-Talks/Lee.pdf) 
-  - [github.com/syclik](https://github.com/syclik)
+* Presenter: Daniel Lee (Generable)
+* [Slides](2018/Invited-Talks/Lee.pdf)
+* [github.com/syclik](https://github.com/syclik)
 
 
 **_Model assessment, model selection and inference after model selection_** 
 
-* Authors: Aki Vehtari (Aalto University)
-
-Tutorial on model assesment, selection and inference after selection with
-Example notebooks in R using packages rstanarm, rstan, bayesplot, loo, projpred.
-
-Links: 
-
-  - Video (coming soon)
-  - [Notebook, code, slides](https://github.com/avehtari/modelselection_tutorial) 
-  - [github.com/avehtari/modelselection_tutorial](https://github.com/avehtari/modelselection_tutorial)
-
+* Presenter: Aki Vehtari (Aalto University)
+* [Notebook, code, slides](https://github.com/avehtari/modelselection_tutorial) 
+* [users.aalto.fi/~ave/](https://users.aalto.fi/~ave/)
   
   
 **_Spatial models in Stan: intrinsic auto-regressive models for areal data_** 
 
 * Authors: Mitzi Morris (Columbia University)
-
-When areal data has a spatial structure such that observations from neighboring regions exhibit higher correlation than distant regions, this correlation can be accounted for using the class of spatial models called “CAR” models (Conditional Auto-Regressive) introduced by Besag. Intrinsic Conditional Auto-Regressive (ICAR) models are a subclass of CAR models. The Besag York Mollié (BYM) model is a lognormal Poisson model which includes both an ICAR component for spatial smoothing and an ordinary random-effects component for non-spatial heterogeneity. This case study covers how to efficiently code these models in Stan.
-
-Links: 
-
-  - Video (coming soon)
-  - [Case study](http://mc-stan.org/users/documentation/case-studies/icar_stan.html)
-  - [Slides](2018/Invited-Talks/Morris.pdf)
-  - [github.com/mitzimorris](https://github.com/mitzimorris)
+* [Slides](2018/Invited-Talks/Morris.pdf)
+* [Case study](http://mc-stan.org/users/documentation/case-studies/icar_stan.html)
+* [github.com/mitzimorris](https://github.com/mitzimorris)
