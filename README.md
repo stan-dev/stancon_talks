@@ -98,6 +98,7 @@ Links:
 
   
 <br>  
+
 **_Diagnosing Alzheimer’s the Bayesian way_** 
 
 * Authors: Arya A. Pourzanjani, Benjamin B. Bales, Linda R. Petzold, Michael Harrington (UC Santa Barbara)
@@ -112,6 +113,7 @@ Links:
   - <a href="https://aryastats.com/"> aryastats.com</a>
 
 <br>  
+
 **_Joint longitudinal and time-to-event models via Stan_** 
 
 * Authors: Sam Brilleman, Michael Crowther, Margarita Moreno-Betancur, Jacqueline Buros Novik, Rory Wolfe (Monash University, Columbia University)
@@ -128,6 +130,7 @@ Links:
 
 
 <br>
+
 **_A tutorial on Hidden Markov Models using Stan_** 
 
 * Authors: Luis Damiano, Brian Peterson, Michael Weylandt 
@@ -142,6 +145,7 @@ Links:
 
   
 <br>
+
 **_Student Ornstein-Uhlenbeck models served three ways (with applications for population dynamics data)_** 
 
 * Authors: Aaron Goodman (Stanford University)
@@ -157,6 +161,7 @@ Links:
 
   
 <br>  
+
 **_SlicStan: a blockless Stan-like language_** 
 
 * Authors: Maria I. Gorinova, Andrew D. Gordon, Charles Sutton (University of Edinburgh) 
@@ -172,6 +177,7 @@ Links:
 
 
 <br>
+
 **_Introducing idealstan, an R package for ideal point modeling with Stan_** 
 
 * Authors: Robert Kubinec (University of Virginia)
@@ -186,6 +192,7 @@ Links:
 
 
 <br>  
+
 **_Computing steady states with Stan’s nonlinear algebraic solver_** 
 
 * Authors: Charles C. Margossian (Metrum, Columbia University)
@@ -200,6 +207,7 @@ Links:
 
 
 <br>
+
 **_Bayesian estimation of mechanical elastic constants_** 
 
 * Authors: Ben Bales, Brent Goodlet, Tresa Pollock, Linda Petzold (UC Santa Barbara)
@@ -214,6 +222,7 @@ Links:
 
 
 <br>
+
 **_Aggregate random coefficients logit — a generative approach_** 
 
 * Authors: Jim Savage (Lendable Marketplace), Shoshana Vasserman (Harvard University).
@@ -228,6 +237,7 @@ Links:
 
 
 <br>
+
 **_The threshold test: Testing for racial bias in vehicle searches by police_** 
 
 * Authors: Camelia Simoiu, Sam Corbett-Davies, Sharad Goel, Emma Pierson (Stanford University)
@@ -243,6 +253,7 @@ Links:
 
 
 <br>
+
 **_Assessing the safety of Rosiglitazone for the treatment of type II diabetes_** 
 
 * Authors: Konstantinos Vamvourellis, K. Kalogeropoulos, L. Phillips (London School of Economics and Political Science) 
@@ -258,6 +269,7 @@ Links:
 
 
 <br>
+
 **_Causal inference with the g-formula in Stan_** 
 
 * Authors: Leah Comment (Harvard University)
@@ -272,6 +284,7 @@ Links:
   - [scholar.harvard.edu/leahcomment](https://scholar.harvard.edu/leahcomment/)
 
 <br>
+
 **_Bayesian estimation of ETAS models with Rstan_** 
 
 * Authors: Fausto Fabian Crespo Fernandez (Universidad San Francisco de Quito)
