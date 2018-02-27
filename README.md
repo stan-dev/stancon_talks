@@ -11,12 +11,13 @@ StanCon’s version of conference proceedings is a collection of contributed tal
 
 ### Contents:
 
-* [StanCon 2017](#stancon-2017) (January 2017, Columbia University, New York)
-* [StanCon 2018](#stancon-2018) (January 2018, Asilomar, California)   
+* [StanCon 2017 contributed talks](#2017-peer-reviewed-contributed-talks) 
+* [StanCon 2018 contributed talks](#2018-peer-reviewed-contributed-talks)
+* [StanCon 2018 invited talks](#2018-invited-talks) 
 
 <br>
 
-## StanCon 2017
+## StanCon 2017 | January 21, Columbia University, New York
 
 ### 2017 Peer reviewed contributed talks
 
@@ -80,9 +81,9 @@ StanCon’s version of conference proceedings is a collection of contributed tal
 
 <br>
   
-## StanCon 2018
+## StanCon 2018 | January 10-12, Asilomar, California  
 
-### Peer reviewed contributed talks
+### 2018 Peer reviewed contributed talks
 
 **_Does the New York City Police Department rely on quotas?_** 
 
@@ -300,7 +301,7 @@ Links:
 
 <br>
 
-### Invited talks 
+### 2018 Invited talks 
 
 **_Predictive information criteria in hierarchical Bayesian models for clustered data_**
     
