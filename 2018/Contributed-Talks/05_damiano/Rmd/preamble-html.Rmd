@@ -1,0 +1,16 @@
+\(
+% Math operators
+\newcommand{\argmax}{\arg\!\max}
+\newcommand{\argmin}{\arg\!\min}
+\newcommand\ev[1]{E\left\langle#1\right\rangle}
+\newcommand\vv[1]{V\left\langle#1\right\rangle}
+
+% Math commands
+\newcommand{\mat}[1]{\mathbf{#1}}
+
+% Math symbols
+\renewcommand{\NN}{\mathcal{N}}
+\renewcommand{\UU}{\mathcal{U}}
+\renewcommand{\LL}{\mathcal{L}}
+\renewcommand{\RR}{\mathbb{R}}
+\)

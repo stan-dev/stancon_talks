@@ -1,0 +1,7 @@
+base
+ggplot2
+StanHeaders
+rstan
+bayesplot
+gtools
+MASS

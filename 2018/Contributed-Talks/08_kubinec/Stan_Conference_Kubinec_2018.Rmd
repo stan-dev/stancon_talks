@@ -1,0 +1,447 @@
+---
+title: 'idealstan: an R Package for Ideal Point Modeling with Stan'
+author: "Robert Kubinec"
+date: "February 12, 2018"
+output:
+  html_document: default
+  html_notebook: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning=FALSE)
+
+# please install this version of idealstan on github to ensure compatibility with this document
+
+# devtools::install_github('saudiwin/idealstan',
+#                           ref='cf3cb51fb620fa48d49fb602ad6a747782e964af')
+
+require(idealstan)
+require(dplyr)
+require(ggplot2)
+require(readr)
+require(tidyr)
+require(RefManageR)
+require(googledrive)
+require(RSQLite)
+require(forcats)
+require(stringr)
+
+bib <- readRDS('bib.rds')
+
+myopts <- BibOptions(check.entries = FALSE, style = "markdown", cite.style = "authoryear")
+```
+
+## Introduction
+
+This notebook introduces [`idealstan`](https://cran.r-project.org/package=idealstan), a new R package front-end to [`Stan`](http://www.mc-stan.org) that allows for flexible modeling of a class of latent variable models known as ideal point models. Ideal point modeling is a form of dimension reduction, and shares similarities with multi-dimensional scaling, factor analysis and item-response theory. While the parameterization employed by `idealstan` is a derivation based on item-response theory, it is important to note that several other parameterizations are possible `r AutoCite(bib, c('carroll2013','armstrong2014'))`.
+
+What distinguishes ideal point modeling from other latent space models is that the latent factor is bi-directional: in other words, the unobserved latent construct that underlies the data could increase or decrease as the observed stimuli either increase or decrease. This type of latent variable is very useful when the aim is to cluster units around a polarizing dimension, such as the left-right axis in politics or the $p$-value debate in statistics. While many of the applications of ideal point models are in political science and economics, it certainly can be applied more broadly, especially as the approach is related to latent space models more generally, such as in `r Citet(bib, c("hoff2002"))`.
+
+There are well-established frequentist ([`emIRT`](https://cran.r-project.org/web/packages/emIRT/index.html)) and Bayesian ([`pscl`](https://cran.r-project.org/web/packages/pscl/pscl.pdf) and [`MCMCpack`](https://cran.r-project.org/web/packages/MCMCpack/index.html)) packages for ideal point inference with R. However, these packages offer standard models that are limited in scope to particular problems, especially when it comes to including predictors in the latent space. The R package `idealstan` has three features that set it apart from existing approaches:
+
+1. Stan offers significant flexibility compared to existing approaches in using non-conjugate priors and a clearer programming interface. This flexibility allows for more options for end users in ideal point modeling that can be used to test new theories and hypotheses instead of being limited in the range and type of models available. In particular, Stan makes it easier to add hierarchical and time-series priors on to parameters, which opens the door to further analysis of dynamic and time-varying social phenomena.
+2. Stan scales well with the number of parameters, which is an attribute of most dimension reduction methods. Advances in Hamiltonian Monte Carlo estimation, including the use of variational inference and soon parallel computing within chains, promise to make full Bayesian inference of these models practical even with very large datasets.
+3. Increasingly, Stan is being married to helpful and powerful diagnostic packages, including [`bayesplot`](https://cran.r-project.org/web/packages/bayesplot/index.html), [`shinystan`](https://cran.r-project.org/web/packages/shinystan/index.html) and [`loo`](https://cran.r-project.org/web/packages/loo/index.html), which extends the ability of `idealstan` to provide not only cutting-edge Bayesian inference but also increasingly sophisticated tools for graphical analysis of resulting estimates. Given the complex nature of latent variable models, diagonistics are extremely important for determining when the model is behaving as it should (and what the model should be doing in the first place).
+
+[`idealstan`](https://github.com/saudiwin/idealstan) is an effort to build on prior efforts but also to offer new models that satisfy the increasing variety of applications to which ideal point models are being put. Both `pscl` and `MCMCpack` were designed for ideal point modeling of binary (logit) data from legislatures in which the outcome is made up of yes and no votes cast by legislators `r AutoCite(bib, c('jackman2004','quinn2002'))`. More recently scholars have begun applying ideal point models to Twitter data `r AutoCite(bib,'barbera2015')`, massive campaign finance datasets `r AutoCite(bib,'bonica2014')` and party campaign manifestos `r AutoCite(bib,'slapin2008')`. This package offers both the traditional forms of ideal point models along with new extensions, including a version of ideal points that can take into account certain forms of missing data.
+
+In this notebook I first introduce ideal-point models and contrast them with "traditional" item response theory (IRT), and then I demonstrate the `idealstan` package through simulations. I then perform two empirical analyses, the first of coffee product ratings from Amazon and the second with voting data taken from the 114th Senate. In the second example, I also show how `idealstan` enables new estimation of strategic legislator absence, a type of data that is usually coded as missing in vote datasets.
+
+## Ideal Point Models as a Subset of Statistical Measurement
+
+Measurement error models have a long history in applied statistics and are increasingly in demand as the amount of noisy observational data grows with the digital revolution. Canonical statistical models, particularly linear regression, assume that the predictors are measured without error, but in many situations in social science, the variable of interest cannot in fact be measured. Rather, proxies or indicators are used to stand in for the latent construct. Measurement models offer a way to match the indicators with the latent construct while making appropriate assumptions about the relationship. 
+
+In other words, we suppose that the regression predictor matrix $X$ is itself a function of certain indicators $I_c \in \{1 ... C\}$:
+
+$$ 
+X = f(\forall I_c \in \{1 ... C\})
+$$
+
+Different latent variable, latent space and measurement models can be distinguished in terms of the function $f(\cdot)$. Fundamentally, $f(\cdot)$ has to stipulate how $X$ will change as the indicators change. It is possible to make very precise conditions for this relationship, which is the method applied in confirmatory factor analysis and structural equation modeling. It is also possible to let $f(\cdot)$ make only minimal assumptions about this relationship, which is the method adopted by exploratory factor analysis and item-response theory (IRT), in addition to the other latent space models in the literature. It is also possible, of course, to have models that fall somewhere in between truly exploratory and truly confirmatory models.
+
+While much has been written about the different kids of $f(\cdot)$ that can be used in measurement models, in this paper I focus on a metric relevant to ideal point models: as the values of $I_c$ increase, does $X$ also increase so that $f(\cdot)$ must be always non-decreasing? If that is the case, then the model can be thought of as falling into the domain of item-response theory and traditional factor analysis (in fact, IRT is itself a non-linear version of factor analysis per `r Citet(bib,'takane1986')`). By contrast, ideal point models are based on a different set of assumptions in which $X$ could increase or decrease as the indicators $I_c$ increase or decrease; in other words, the relationship is bi-polar instead of uni-polar. 
+
+Ideal point modeling originated from analysis of a common situation in policy research in which different legislators select from among competing policy alternatives based on the utility offered by each policy `r AutoCite(bib,c('enelow198','poole2008'))`. Supposing that the policies are evaluated on a uni-dimensional space, if the utility of the "Yes" position on the policy is greater than the utility of the "No" position to a particular legislator, then that legislator will choose that policy. While very simple, this model has a requirement that is different from much of traditional IRT estimation: the policy outcomes can have different meanings based on their position relative to the legislator in the policy space. For example, if a legislator is very liberal (has a high value on the latent construct), then that legislator is likely to vote yes on bills that are also liberal, such as single-payer health care. But if the bill is conservative, such as national defense, then that legislator is more likely to vote no. In other words, the meaning of the positions of the bills in the latent space depends on the ideal point of the legislator, and thus the mapping to the latent space $f(\cdot)$ cannot be always non-decreasing. For some votes, a yes position may mean a high value of the latent space, while for others it may mean a lower value.
+
+By comparison, in traditional IRT, responses to stimuli (the indicators $I_c$) reflect correct or incorrect answers, such as a student taking a test. Correct answers, which in the legislative context mean yes votes, always equal greater ability, while incorrect answers, which would be no votes, are always a sign of less ability. In this situation, $f(\cdot)$ is always non-decreasing. Thus while ideal point models share much in common with IRT, they require different assumptions.
+
+A brief review of the mathematical notation will make the difference clear. The 2-PL IRT model takes the following form:
+
+$$
+Y_{ij} = \alpha_j x_i - \beta_j
+$$
+
+where $Y_{ij}$ can be an outcome of any type (binary, ordinal, Poisson, etc.) that includes the correct or incorrect responses of $I$ test takers to $J$ test items, $\alpha_j$ are the discrimination parameters that control the narrowness, hence discrimination, of each item $j$ on the test in the latent space, $x_i$ are the test-taker ability parameters that reflect the ability of a person to answer an item correctly, and $\beta_j$ are the difficulty or average probability/value of a correct response (the intercept). In the traditional IRT format, the $\alpha_j$ discrimination parameters are always positive because a higher value (a correct answer) is always associated with higher ability $x_i$, while a lower value (an incorrect answer) is associated with less ability.
+
+However, if the requirement that the discrimination parameters $\alpha_j$ are positive is removed, then this model can also be used for ideal point modeling. For most applications, ideal-point modeling using IRT is built on the standard 2-PL model `r AutoCite(bib,c('jackman2004','gelman2005'))`, with one notable exception: the discrimination parameters must be un-constrained, while in traditional IRT the discrimination parameters are constrained to all be either positive or negative. Constraining discrimination parameters to be positive is also the approach taken in the [`edstan`](https://cran.r-project.org/web/packages/edstan/vignettes/briefmanual.html) package, which offers the full range of standard IRT models using Stan. 
+
+Leaving the discrimination parameters un-consrained ensures that a higher or lower value of $Y_{ij}$ could be associated with either a "correct" or "incorrect" answer as is necessary in an ideal point model. This happens because the latent space in an ideal point model is fundamentally a Euclidean distance that is rotation-invariant. The following figure makes this clear by showing a version of an ideal point model in which the ideal point (ability parameter) $x_i$ is represented by a Normal distribution while the Yes and No points of a proposed policy are vertical lines.
+
+```{r, echo=F}
+data_frame(x=c(-5,5)) %>% 
+  ggplot(aes(x=x)) +
+  theme_minimal() +
+  theme(panel.grid=element_blank(),
+        text=element_text(family='Times')) +
+  ylab('Utility') +
+  xlab('Ideal Points') +
+  stat_function(fun=dnorm,args=list(mean=1),linetype=1,size=1) +
+  geom_vline(xintercept = 3,linetype=3) +
+    geom_vline(xintercept = -3,linetype=3) +
+  geom_vline(xintercept=0,linetype=4) +
+  annotate('text',x=c(-3.5,-.8,1,3.5),
+           y=c(0.2,0.3,0.05,0.2),
+           label=c('No',
+                   'Indifference',
+                   'italic(x_i)',
+                   'Yes'),
+           family='Times',
+           parse=T)
+```
+
+If $x_i$ is to the right of the Indifference line, the legislator will vote Yes on the proposal, whereas if she is to the left, she will vote No. However, a different policy (item) could have the Yes and No positions switched so that a Yes vote would correspond to -2.5 and vice versa for the No vote. Thus the binary outcomes do not have the same interpretation as the standard IRT model because the relationship between the outcomes and the ability points is contingent.
+
+If the discrimination parameters are unconstrained, `r Citet(bib,'jackman2004')` showed that the midpoint of the policy/item parameter, which is labeled on the plot as the indifference line, is identified as $-\frac{\alpha_j}{\beta_j}$ in the original IRT model. This midpoint is important because it represents the point in the latent space in which an actor is indifferent, or has a 50% chance of voting yes or no. Unfortunately, the IRT paramerization of the ideal point model does not return the actual Yes or No positions of a bill/item, but these midpoints are sufficient to characterize the position of the items in the latent space.
+
+While this difference between ideal point models and standard IRT may seem trivial, it has serious consequences for modeling. The basic issue is the non-identifiability of the IRT model, which the switching polarity of the discrimination parameters only makes more difficult. Ultimately, it becomes necessary to constrain the polarity of some of the ability or discrimination parameters to identify the model. However, it is necessary to choose parameters which would avoid "splitting the likelihood", such as constraining a legislator whose true ideal point is near zero `r AutoCite(bib,'gelman2005')`. 
+
+`idealstan` exploits variational Bayesian (VB) inference `r AutoCite(bib,'NIPS2015_5758')` to assist with finding parameters for identification. `idealstan` first estimates an IRT model with rotation-unidentified parameters, which is not a problem for a single VB run. Then `idealstan` can select those parameters which show the highest or lowest values, and these parameters are then constrained in terms of their polarity. This approach can quickly speed up the sometimes painful process of identifying a particular IRT ideal point model, although it is also possible to constrain parameters before estimation based on prior information.
+
+## Missing Data in Ideal Point Models
+
+Because of the flexibility of Stan,`idealstan` is not limited to implementing the standard IRT ideal point model. One of the modifications it offers is a model that can account for one-way censoring in the data, or what is called an absence-inflated ideal point model `r AutoCite(bib,'kubinec2017')`. This model was motivated by the application of ideal point models to legislatures in which legislator actions are more diverse than simply Yes or No votes. Legislators can also be absent on votes and in parliamentary systems as in Europe, abstentions are also common. Abstentions occur when a legislator votes on a policy but refuses to either vote Yes or No, resulting in a vote record of abstention that conventional models will treat as missing data. However, if these two additional vote outcomes--absent and abstention--are removed from the estimation by encoding them as missing data, then the additional information about legislator behavior present in this data is lost. 
+
+As a solution for abstentions, I proposed in `r Citet(bib,'kubinec2017')` to model abstentions as a middle category between yes and no votes by treating $Y_{ij}$ as an ordered logistic outcome $Y_{ijk}$ for $k$ in three possible vote choices: $\{1,2,3\}$ (no, abstain, yes). 
+
+While switching from a logit to an ordered logistic model is straightforward, modeling the censoring implied by legislator absences requires the estimation of additional parameters. To do so, I model absence as a binary outcome in a separate equation as a hurdle model. Intuitively, legislators only show up to vote if they are able to overcome the hurdle of being present. Because in an ideal point model we only want to estimate a single set of person parameters (ideal points), I include an additional set of item (bill) parameters in the hurdle component that signify the way in which being absent on a policy proposal is related to the ideological value of the legislation.
+
+The result is a two-stage model that inflates the ideal points by the probability that a legislator is absent on a particular bill. To create this model, I first start again with the essential 2-PL IRT model except that it now allows for cutpoints $c_k$ for the $K-1$ vote outcomes (yes, abstain, no) with $\zeta(\cdot)$ representing the logit function:
+
+$$
+	L(\beta,\alpha,x|Y_{ijk}) = \prod_{i-1}^{I} \prod_{j=1}^{J}
+	\begin{cases} 
+	1 -  \zeta(x_{i}'\beta_j - \alpha_j - c_1) & \text{if } K = 0 \\
+	\zeta(x_{i}'\beta_j - \alpha_j - c_{k-1}) - \zeta(x_{i}'\beta_j - \alpha_j - c_{k})       & \text{if } 0 < k < K, \text{ and} \\
+	\zeta(x_{i}'\beta_j - \alpha_j - c_{k-1}) - 0 & \text{if } k=K
+	\end{cases}
+$$
+
+Except for the addition of the vote cutpoints, this model is identical to the standard 2-PL IRT form, with ability parameters $x_i$, discriminations $\beta_j$, and difficulties $a_j$. The cutpoints carve up the latent space so that as ability rises or falls, the legislator becomes more likely to vote yes or no with abstention falling in between these two categories.
+
+This ordered logit has to be embedded in the hurdle model to account for one-way censoring. Suppose that each legislator has a choice $r \in \{0,1\}$ in which $r=1$ if a legislator is absent and $r=0$ otherwise. With this notation, the likelihood of the hurdle model takes the following form:
+
+$$
+	L(\beta,\alpha,X,Q,\gamma,\omega|Y_{k},Y_{r}) = 
+	\prod_{I}^{i=1} \prod_{J}^{j=1}
+	\begin{cases}
+	\zeta(x_{i}'\gamma_j - \omega_j ) & \text{if } r=0, \text{ and} \\
+	(1-\zeta({x_{i}'\gamma_j - \omega_j}))L(\beta,\alpha,X|Y_{k1}) & \text{if } r=1
+	\end{cases}
+$$
+
+For the hurdle model to be able to affect the legislator ideal points, a separate IRT 2-PL model is included to predict the binary outcome of absence or presence. In this secondary model, the $\gamma_j$ discrimination and $\omega_j$ difficulty parameters represent the salience of a particular piece of legislation to an individual legislator $x_i$. Only if a bill clears the hurdle of salience will the legislator choose to vote on the legislation, i.e., reach the vote outcome model $L(\beta,\alpha,X)$. This device allows for the ideal points $x_i$ to adjust for the fact that the decision of a legislator to show up to vote on a particular bill may be strategic instead of random. In addition, this model is more widely applicable to situations in which an ideal point model is employed and missing data may be a function of the persons' ideal points.
+
+## Model Simulation
+
+To identify the model, I placed $N(0,1)$ parameters on the $x_i$ ideal points and additional polarity constraints on either the ideal points $x_i$ or the discrimination parameters $\gamma_j$ and $\alpha_j$. As a further restriction, I constrain one of the $\beta_j$ to equal zero. These are the standard set of restrictions included in `idealstan`, although the scales of parameters can be  modified. The full set of priors is as follows:
+
+$$
+		c_k - c_{k-1} \sim N(0,5)\\
+		\gamma_j \sim N(0,2)\\
+		\omega_j \sim N(0,5)\\
+		\beta_j \sim N(0,2)\\
+		\alpha_j \sim N(0,5)\\
+		x_i \sim N(0,1)
+$$
+
+The $c_k$ parameters are the cutpoints for the $K-1$ ordinal outcomes. They are given a weakly informative prior on the differences between the cutpoints (see the prior help file in the Stan Development Github site). The rest of the priors are arbitrary as the scale of the latent variables is fixed only in the priors themselves. 
+
+To demonstrate the package, I first generate data from this data-generating process using a function `id_sim_gen()` built into `idealstan`:
+
+```{r sim_data, echo=F}
+
+ord_ideal_sim <- id_sim_gen()
+DT::datatable(as_data_frame(head(ord_ideal_sim@score_matrix[,1:10])))
+```
+
+In this matrix, the legislators (persons) are represented by the rows and the bills (items) by the columns. The ordinal vote outcomes are numbered 1 to 3 (1=No,2=Abstain,3=Yes) and 4 represents absence. 
+
+I can then take this simulated data and put it into the `id_estimate` function. I also use the true values of the legislator ideal points $x_i$ for polarity constraints in order to be able to return the "true" latent variables. The `id_estimate` function loads pre-compiled stan code a la [`rstantools`](https://cran.r-project.org/web/packages/rstantools/index.html) and then returns an R object containing a compiled stan model. 
+
+```{r constrain_sim}
+true_legis <- ord_ideal_sim@simul_data$true_person
+high_leg <- sort(true_legis,decreasing = T,index.return=T)
+low_leg <- sort(true_legis,index.return=T)
+
+ord_ideal_est <- id_estimate(idealdata=ord_ideal_sim,
+                             model_type=4,
+                             fixtype='constrained',
+                             restrict_type='constrain_twoway',
+                             restrict_ind_high = high_leg$ix[1:2],
+                             restrict_ind_low=low_leg$ix[1:2],
+                             refresh=500)
+```
+
+For testing simulation results, the package contains a residual plot for looking at differences between true and estimated values which are stored in the R object:
+
+```{r check_true, echo=F}
+id_plot_sims(ord_ideal_est,type='Residuals')
+```
+
+The recovery of the true parameters is not perfect, but generally the errors sum to zero across the parameters. Recovering the true parameters is not usually of great interest in a latent variable model as the scale and rotation of the true values is rather arbitrary. However, this exercise is a basic test of the Stan model's correspondence with the simulated data. 
+
+## Empirical Example: The Polarization of Coffee
+
+To demonstrate the model's functionality, I first use a dataset of ordinal rankings draw from Amazon food product reviews. `r Citet(bib,'mcauley2013')` collected over 500,000 Amazon food reviews from 1999 to 2012 which are all coded on the 1 to 5 ranking scale that users can post on each product. I focus on a subset of this data by collecting all the reviews that mention the word "coffee" at least a handful of times. 
+
+```{r load_coffee}
+just_coffee <- readRDS('just_coffee.rds')
+```
+
+Ideal point models use variation between products and users in reviews to identify the latent space. For these reasons, little information is contributed by products and/or users that have very few reviews, and we can remove them from the data first to reduce the dimensionality of the data. Because `idealstan` is a full Bayesian model, these users and products do not cause any statistical problems, but they will slow estimation considerably as a large number of users only review one or two products.
+
+
+```{r filter_coffee}
+coffee_count_prod <- group_by(just_coffee,ProductId) %>% summarize(tot_unique=length(unique(UserId))) %>% 
+  filter(tot_unique<30)
+coffee_count_user <- group_by(just_coffee,UserId) %>% summarize(tot_unique=length(unique(ProductId))) %>% 
+  filter(tot_unique<3)
+just_coffee <- anti_join(just_coffee,coffee_count_prod,by='ProductId') %>% 
+  anti_join(coffee_count_user,by='UserId')
+```
+
+The data is currently in long format. To bring the data into `idealstan`, it first must be translated to wide format in which each item (product) is a column and each person (user) is a row. For this model, we will drop missing data as we will focus solely on the model's ordinal rankings without accounting for the fact that users do not have reviews for all products.
+
+```{r heat_coffee,echo=F}
+
+coffee_matrix <- select(just_coffee,
+                        ProductId,
+                        UserId,
+                        Score) %>% 
+  group_by(ProductId,UserId) %>% 
+  summarize(mean_score=round(mean(Score))) %>% 
+  ungroup %>% 
+  mutate(ProductId=fct_relevel(factor(ProductId),'B003GTR8IO'),
+         UserId=as.numeric(factor(UserId))) %>% 
+  spread(key = ProductId,value = mean_score)
+
+coffee_matrix_ready <- as.matrix(select(coffee_matrix,-UserId))
+
+row.names(coffee_matrix_ready) <- coffee_matrix$UserId 
+coffee_data <- idealstan::id_make(score_data=coffee_matrix_ready,
+                       person_data=data_frame(person.names=1:nrow(coffee_matrix),
+                                             group=rep("O",nrow(coffee_matrix))),
+                        ordinal=T,
+                       inflate=F,
+                       low_val=1,
+                       high_val=5,
+                       middle_val=c(2,3,4),
+                       outcome_label_type='none')
+
+```
+
+Even with inactive users removed from the data, this model is quite large with `r nrow(coffee_matrix_ready)` users and `r ncol(coffee_matrix_ready)` products. However, we can take advantage of variational inference in Stan to obtain approximate posterior estimates in a reasonable amount of time. We will also take advantage of `idealstan`'s use of variational inference for automatic model identification by running a non-identified (i.e., no constraints) model first, determining which of the users has a very high ideal point, and then constraining that ideal point in the final fitted model. 
+
+```{r make_coffee}
+
+coffee_model <- id_estimate(idealdata=coffee_data,
+                            model_type=3,
+                            fixtype='vb',
+                            restrict_ind_high = 1,
+                            restrict_params='person',
+                            auto_id = F,
+                            use_vb=T)
+
+```
+
+What is of primary interest in this model are the discrimination parameters for the products. The discriminations will tell us which coffee products tend to divide the users most strongly into two poles as the model is one-dimensional. We can first look at the distribution of discriminations via a histogram:
+
+```{r plot_discrim}
+id_plot_all_hist(coffee_model,params = 'regular_discrim')
+```
+
+To gain a sense of how polarizing these products, we can plot the product mid-point, or the point at which a user is indifferent between one rating score and a higher rating score, over the ideal point distribution. I color the user points by their actual ratings:
+
+```{r high_pos_discrim}
+id_plot_legis(coffee_model,group_color=F,group_overlap = T,
+              person_labels=F,person_ci_alpha = .05,
+              item_plot=429,
+              group_labels=F,
+              point_size=2,
+              show_score = c('1','2','3','4','5'),
+              text_size_group = 4)
+```
+
+As can be seen, the product midpoints nearly perfectly segment the user base. We also a large number of 1s and 5s in the observed ratings. This distribution shows that users tend to be very divided on this product, and also that their disagreement over the product is itself a reflection of an underlying dimension, their ideal points.
+
+Finally, I include here the top 10 most polarizing (highly discriminative) products from each end of the ideal point spectrum.
+
+First, the top 10 most positive discrimination:
+
+```{r pos_discrim,message=F,echo=F,warning=F}
+read_csv('high_coffee_discrim_coded.csv') %>% 
+  mutate(Discrimination=value) %>% 
+  select(`Product Description`=Description, Discrimination) %>% 
+  distinct %>% 
+  DT::datatable()
+```
+
+Second, the top 10 least positive negative discrimination:
+
+
+```{r neg_discrim,echo=F,message=F,warning=F}
+read_csv('low_coffee_discrim_coded.csv') %>% 
+  mutate(Discrimination=value) %>% 
+  select(`Product Description`=Description, Discrimination) %>% 
+  distinct %>% 
+  DT::datatable()
+```
+
+While a full interpretation of these results would require significant work at examining the full range of products and their relevant discrimination scores, what is clear is that positive discrimination tends to have more large brands of coffee, including Starbucks and Illy, while the negative discrimination products tend to b esmaller brands, such as Melitta Cafe and Equal Exchange Organic Coffee. The most interesting finding in this analysis is that Ghirardelli products are at both ends of the scale: one type of Ghirardelli powdered drink, Ghirardelli Chocolate, has high positive discrimination, while Ghirardelli White Mocha has high negative discrimination. Intuitivelly, these products are appealing to different reviewers with very diverging preferences.
+
+In the next section, I apply the ideal point model to a more traditional domain--the U.S. Congress--and also examine the role of including missing data via inflation.
+
+## Empirical Example: 114th Senate
+
+
+As an empirical example of the model, I use data from the http://www.voteview.com website on the voting record of the 114th US Senate. This dataset comes with the `idealstan` package, and I then recode the data to correspond to a standard R matrix. However, because abstentions rarely happen in the US Congress, I do not include abstentions in this model and instead estimate a standard binary IRT 2-PL with inflation for missing data (absences). I then pass the matrix of vote records to the `id_make` function to create an object suitable for running the model.
+
+```{r use_senate,echo=F}
+
+data('senate114')
+to_use <- senate114$votes
+to_use <- apply(to_use, 2, function(x) {
+  y <- recode(
+    x,
+    `1` = 2L,
+    `6` = 1L,
+    `9` = 3L
+  )
+  return(y)
+})
+
+person_data <- slice(senate114$legis.data,-1) %>% 
+  mutate(group=party)
+
+rownames(to_use) <- rownames(senate114$legis.data)
+# Need to drop Obama
+senate_data <-
+  id_make(
+    senate114,
+    ordinal = F
+  )
+
+data_frame(votes=c(senate_data@score_matrix)) %>% 
+  mutate(votes=factor(votes,labels=c('No','Yes','Absent'))) %>%
+  filter(!is.na(votes)) %>% 
+  ggplot(aes(x=votes)) + 
+  geom_bar(width=.5) + 
+  theme_minimal() +
+  xlab('') + 
+  ylab('Count of Votes')
+```
+
+Given a suitable object from `id_make`, the `id_estimate` function can estimate a variety of IRT ideal point models, including 2-PL, ordinal, hierarchical and dynamic IRT (using random-walk priors). For this run we set the `model_type` parameter to `2`, which represents a 2-PL model with absence inflation. Because this dataset is of a significant size, I use variational inference instead of the full sampler to demonstrate its use. I do not, however, use the automatic identification option `auto_id` because it is relatively easy to constrain particular legislator ideal points for the Senate. In this case, I constrain Ben Sasse, Marco Rubio, Berni Sanders, Ted Cruz, Harry Reid and Elizabeth Warren, all senators with pronounced ideological views.
+
+After estimating the model, I can look at a graphical display of the ideal points with the `id_plot` function.  The `id_plot` function produces a `ggplot2` object which can be further modified. The legislators are given colors based on their party affiliation. The general shape of the ideal point distribution reflects the nature of polarization in the US Congress, with relatively few moderates near the center of the distribution. 
+
+```{r run_114_model,echo=F}
+sen_est <- id_estimate(senate_data,
+                model_type = 2,
+                 use_vb = T,
+                 ncores=4,
+                 nfix=2,
+                 restrict_type='constrain_twoway',
+                 restrict_params='person',
+                 restrict_ind_high = c(which(row.names(to_use)=='SASSE (R NE)'),
+                                       which(row.names(to_use)=='CRUZ (R TX)'),
+                                       which(row.names(to_use)=='RUBIO (R FL)')),
+                 restrict_ind_low=c(which(row.names(to_use)=='SANDERS (Indep VT)'),
+                                    which(row.names(to_use)=='REID (D NV)'),
+                                    which(row.names(to_use)=='WARREN (D MA)')),
+                 auto_id=F,
+                 fixtype='constrained',
+            seed=84520,
+            refresh=500)
+id_plot_legis(sen_est,person_ci_alpha=.1,group_labels=T) + scale_colour_brewer(type='qual')
+```
+
+We can also plot the bill (item) midpoints as a line of indifference that we overlay on top of the ideal points.
+
+```{r bill_plot}
+id_plot(sen_est,person_ci_alpha=.1,item_plot=205,
+        group_labels=T,
+        abs_and_reg='Vote Points') + scale_colour_brewer(type='qual')
+```
+
+For this particular piece of legislation, the midpoint is right in the middle of the ideal point distribution, showing that the bill has very high discrimination. Also, the rug lines at the bottom of the plot, which show the HPD for the midpoint, indicate that the model is uncertain about the votes of only a handful of Senators on this bill.
+
+We can similarly examine the absence midpoint for the same bill, which signifies the place on the ideal point spectrum at which a legislator is indifferent from showing up to vote. In this case, only very conservative Republicans chose not to show up to vote.
+
+```{r abs_bill_plot,echo=F}
+
+id_plot(sen_est,person_ci_alpha=.1,item_plot=205,
+        group_labels=T,
+        abs_and_reg='Absence Points') + scale_colour_brewer(type='qual')
+```
+
+We can use the bill absence parameters to also see which bills showed the highest discrimination in terms of absences, or in other words, for which bills did the absence of legislators signify that they intentionally did not show up? To do this, I sort the discrimination parameters from the underlying Stan object and then merge them with the bill labels from voteview.org.
+
+First we can look at the top 10 bills with liberal/Democrat absence discrimination:
+
+```{r,echo=F,message=F,warning=F}
+output <- rstan::extract(sen_est@stan_samples)
+
+bills_data <- read_csv('rollcall_senate_114.csv') %>% 
+  mutate(vote_id=paste0('Vote_',1:n()),bill_num=1:n())
+bills <- as_data_frame(output$sigma_abs_full)
+names(bills) <- paste0('Vote_',1:ncol(bills))
+
+bills <- mutate(bills,iter=1:n()) %>% gather(bill_name,estimate,-iter) %>% 
+  left_join(bills_data,by=c('bill_name'='vote_id')) %>% 
+  group_by(bill_name) %>% 
+  mutate(abs_ideal=median(estimate),
+         high_ideal=quantile(estimate,.95),
+         low_ideal=quantile(estimate,.05),
+         high_nom=mid.dim1 + 1.96*spread.dim1,
+         low_nom=mid.dim1 - 1.96*spread.dim2) 
+
+bills <-   group_by(bills,bill_num) %>% 
+  summarize(m_abs_ideal=mean(abs_ideal),date=first(date),description=first(description))
+
+bills %>% 
+  arrange(desc(m_abs_ideal)) %>% 
+  dplyr::select(`Bill Description`=description,`Absence Discrimination`=m_abs_ideal) %>% 
+  slice(1:10) %>% 
+  DT::datatable()
+
+
+```
+
+Interestingly, Democrats appeared to be strategically absent most often on bills about climate change and the Keystone XL pipeline.
+
+For conseratives the bills are as follows:
+
+```{r bill_table,echo=F,message=F,warning=F}
+bills %>% 
+  arrange(m_abs_ideal) %>% 
+  dplyr::select(`Bill Description`=description,`Absence Discrimination`=m_abs_ideal) %>% 
+  slice(1:10) %>% 
+  DT::datatable()
+```
+
+For Republicans, on the other hand, it appears that cybersecurity and inter-departmental information sharing were the laws in which they chose not to show up for ideological (or political) reasons. This could be due to concerns among the conservative base regarding government over-reach and collecting information.
+
+## Conclusion
+
+`idealstan` is an effort to put state-of-the-art ideal point models along with the power of full Bayesian analysis in the hands of applied researchers in the social sciences. While the empirical examples presented were from the US Congress, the model can be used in any situation in which the assumptions of the ideal point model (unconstrained ideal point space) apply, i.e., situations in which the latent space is fundamentally polarizing between people. While similar in function and form to the `edstan` package, the `idealstan` package has to use more complicated forms of identification because of the difficulty of leaving discrimination parameters unconstrained.
+
+Moving forward, I intend to add in more functionality to smoothly operate with `shinystan` and `bayesplot`, as well as add further types of explanatory IRT models. The intention is to have a package on which applied researchers can run different ideal point models and then examine how different modeling choices affect the results. In addition, I will continue to build more visualization options so that the results are easily digestable and publishable.
+
+## References
+'
+```{r bib, results='asis',echo=F}
+PrintBibliography(bib, .opts = list(check.entries = FALSE, sorting = "ynt"))
+```
+

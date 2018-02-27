@@ -1,0 +1,13 @@
+data real mu_mu;
+data real sigma_mu;
+real mu_y ~ normal(mu_mu, sigma_mu);
+
+real alpha = 0.1;
+real beta = 0.1;
+real tau_y ~ gamma(alpha, beta);
+real sigma_y = inv(sqrt(tau_y));
+
+data int N;
+data vector[N] y ~ normal(mu_y, sigma_y);
+
+real variance_y = pow(sigma_y, 2);

@@ -1,0 +1,27 @@
+\usepackage{amsmath}
+\usepackage{hyperref} % links
+\usepackage{booktabs}
+
+% Math operators
+\newcommand{\argmax}{\arg\!\max}
+\newcommand{\argmin}{\arg\!\min}
+\newcommand\ev[1]{E\left\langle#1\right\rangle}
+\newcommand\vv[1]{V\left\langle#1\right\rangle}
+
+% Math commands
+\newcommand{\mat}[1]{\mathbf{#1}}
+
+% Math symbols
+\newcommand{\NN}{\mathcal{N}}
+\newcommand{\UU}{\mathcal{U}}
+\newcommand{\LL}{\mathcal{L}}
+\newcommand{\RR}{\mathbb{R}}
+
+% Links and colours
+\hypersetup{hidelinks} % no box around links
+\hypersetup{ % links with pretty colours
+  colorlinks   = true, % Colours links instead of ugly boxes
+  urlcolor     = blue, % Colour for external hyperlinks
+  linkcolor    = blue, % Colour of internal links
+  citecolor   = red % Colour of citations
+}

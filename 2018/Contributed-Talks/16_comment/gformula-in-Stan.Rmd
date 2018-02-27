@@ -1,0 +1,428 @@
+---
+title: 'StanCon 2018: Causal inference with the g-formula in Stan'
+author: "Leah Comment"
+date: "January 12, 2018"
+output:
+  pdf_document: default
+header-includes:
+  - \usepackage{tikz}
+  - \usetikzlibrary{positioning}
+  - \usetikzlibrary{arrows}
+bibliography: bibliography.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Causal inference 
+
+## Introduction and the frequentist g-formula
+
+In the Rubin Causal Model, causal inference relies on contrasts of counterfactuals, also called potential outcomes [@imbens2015causal]. Say we have an outcome of interest $Y$, and changing the distribution of some treatment or exposure $A$ causally affects the distribution of $Y$. The directed acyclic graph depicting this scenario is shown in Figure \ref{fig:aydag}.
+
+\begin{figure}[h!]
+\begin{center}
+\caption{The simplest causal model}
+\label{fig:aydag}
+\begin{tikzpicture}[node distance = 1cm]
+\node (A) {$A$};
+\node[right=of A] (Y) {$Y$};
+\draw[->] (A) -- (Y);
+\end{tikzpicture}
+\end{center}
+\end{figure}
+
+We call the value that $Y_a$ would take the *potential outcome* under the regime $A = a$. If $A$ is binary, $\mathbb{E}\left[ Y_1 - Y_0 \right]$ is the population average treatment effect (ATE) of changing $A$ from 0 to 1 for every individual in the population. From a data set of size $n$, we might choose to model this with a logistic regression:
+$$
+\mathrm{logit}\left( P(Y_{i}=1|A_i) \right) = \alpha_0 + \alpha_A A_i
+$$
+This corresponds to a model for the potential outcomes $Y_a$ for $a \in \{0,1\}$:
+$$
+\mathbb{E}\left[ Y_a \right] = \mathrm{logit}^{-1} \left( \alpha_0 + \alpha_A a \right)
+$$
+Then
+$$
+\widehat{ATE} = \widehat{\mathbb{E}}\left[Y_1 - Y_0 \right] 
+=
+\mathrm{logit}^{-1}\left( \hat{\alpha}_0 + \hat{\alpha}_A \right) - 
+\mathrm{logit}^{-1}\left( \hat{\alpha}_0 \right)
+$$
+
+Suppose we have measured counfounders $\mathbf{Z}$ and the true causal diagram looks like the one in Figure \ref{fig:azydag} below.
+
+\begin{figure}[h!]
+\begin{center}
+\caption{A simple causal model with exposure-outcome confounders}
+\label{fig:azydag}
+\begin{tikzpicture}[node distance = 1cm]
+\node (A) {$A$};
+\node[above left=of A] (Z) {$\mathbf{Z}$};
+\node[right=of A] (y) {$Y$};
+\draw[->] (Z) to (A);
+\draw[->] (Z) to [out=10, in=120] (Y);
+\draw[->] (A) to (Y);
+\end{tikzpicture}
+\end{center}
+\end{figure}
+
+In the case of confounding by a vector of covariates $\mathbf{Z}$, we can add the confounders to the regression model, in which case the estimated average treatment effect depends on the distribution of $\mathbf{Z}$.
+
+$$
+\widehat{ATE} = \widehat{\mathbb{E}}\left[Y_1 - Y_0 \right] 
+=
+\frac1n \sum_{i=1}^n \left[ 
+\mathrm{logit}^{-1}\left( \hat{\alpha}_0 + \hat{\alpha}_A + \hat{\boldsymbol{\alpha}}_Z' \mathbf{Z}_i \right) - 
+\mathrm{logit}^{-1}\left( \hat{\alpha}_0 + \hat{\boldsymbol{\alpha}}_Z' \mathbf{Z}_i \right)
+\right]
+$$
+
+Written another way, we can view this as a standardization over the distribution of $\mathbf{Z}$. In epidemiology, this standardization procedure is known as the g-formula. For discrete $\mathbf{Z}$, this formula can be written as a 
+$$
+\widehat{ATE} = \sum_{z} 
+\left( \hat{P}(Y = 1 | A = 1, \mathbf{Z} = \mathbf{z}) -\hat{P}(Y = 0 | A = 1, \mathbf{Z} = \mathbf{z})  \right)
+\hat{P}(\mathbf{Z} = \mathbf{z})
+$$
+
+## The Bayesian g-formula
+
+The Bayesian analog to the g-formula formulates the distribution of the counterfactual $Y_a$ as a posterior predictive value, integrating over the parameters $\boldsymbol{\theta}$ as well as the confounder distribution. A more complete explanation of the Bayesian g-formula can be found in Keil et al [@keil2015bayesian].
+
+\[ p(\tilde{y}_a| o)
+= \int \int p(\tilde{y} | a, \tilde{\mathbf{z}}, \theta) p(\tilde{\mathbf{z}} | \boldsymbol{\theta}) p(\boldsymbol{\theta} | o) 
+d\boldsymbol{\theta} d\tilde{\mathbf{z}} \]
+
+A Bayesian estimate of the average treatment effect for a binary treatement $A$ would be
+\[ \widehat{ATE} = \int \int \tilde{y} 
+\left[ p(\tilde{y} | a=1, \tilde{\mathbf{z}}, \theta) - 
+p(\tilde{y} | a=0, \tilde{\mathbf{z}}, \theta) \right] 
+p(\tilde{\mathbf{z}} | \boldsymbol{\theta}) p(\boldsymbol{\theta} | o) 
+d\boldsymbol{\theta} d\tilde{\mathbf{z}}\]
+
+To perform the integration for $\boldsymbol{\theta}$, posterior draws of $\alpha_0$, $\alpha_A$, and $\boldsymbol{\alpha}_Z$ may be substituted for frequentist point estimates. To account for uncertainty regarding the distribution of the confounders, one could use a classical or Bayesian bootstrap. Using the classical bootstrap, $n$ new values of $\mathbf{Z}$ would be sampled with replacement from the observed $\mathbf{Z}$ distribution during iteration $b$ of the Markov Chain Monte Carlo. Denoting these resampled values as $\mathbf{Z}^{(1,b)}, \dots, \mathbf{Z}^{(n,b)}$ and the parameter draws as $\alpha_0^{(b)}$, $\alpha_A^{(b)}$, and $\boldsymbol{\alpha}_0^{(b)}$, we can obtain a posterior draw of the ATE as
+$$
+ATE^{(b)} =
+\frac1n \sum_{i=1}^n \left[ 
+\mathrm{logit}^{-1}\left( \alpha_0^{(b)} + \alpha_A^{(b)} + \boldsymbol{\alpha}^{(b)\prime} \mathbf{Z}^{(i,b)} \right) 
+-
+\mathrm{logit}^{-1}\left( \alpha_0^{(b)} + \boldsymbol{\alpha}^{(b)\prime} \mathbf{Z}^{(i,b)} \right) 
+\right]
+$$
+Posterior summaries of the $ATE$ can be obtained by taking the mean or quantiles of the $ATE^{(b)}$.
+
+# Simulating some data
+```{r}
+# Simulate simple binary data with confounders situation
+simulate_simple <- function(n) {
+  Z1 <- rbinom(n = n, size = 1, prob = 0.3)
+  Z2 <- rbinom(n = n, size = 1, prob = plogis(0 + 0.2*Z1))
+  A  <- rbinom(n = n, size = 1, prob = plogis(-1 + 0.7*Z1 + 0.8*Z2))
+  Y  <- rbinom(n = n, size = 1, prob = plogis(-0.5 + 1*Z1 + 0.7*Z2 + 1.3*A))
+  return(data.frame(Z1, Z2, A, Y))
+}
+
+# Simulate a data set
+set.seed(456)
+simple_df <- simulate_simple(n = 5000)
+
+# Package data for Stan
+stan_dat <- list(N = nrow(simple_df), 
+                 P = 3,
+                 X = cbind(1, simple_df$Z1, simple_df$Z2),
+                 A = simple_df$A,
+                 Y = simple_df$Y)
+```
+
+The frequentist point estimate of the ATE in this data set would be 0.27.
+```{r}
+# Calculate frequentist ATE
+ffit1 <- glm(Y ~ 1 + Z1 + Z2 + A, family = binomial(link = "logit"), data = simple_df)
+fcoef <- coef(ffit1)
+fATE <- mean(plogis(cbind(1, simple_df$Z1, simple_df$Z2, 1) %*% fcoef) - 
+             plogis(cbind(1, simple_df$Z1, simple_df$Z2, 0) %*% fcoef))
+print(fATE)
+```
+
+# A demonstration of the Bayesian g-formula in Stan
+
+The Stan code to obtain the ATE is shown below. One could adopt Stan's default flat priors for the elements of $\boldsymbol{\theta} = (\boldsymbol{\alpha}, \alpha_A)$. Instead, we choose to place greater prior mass on the range of plausible values for coefficients on the log-odds scale. For binary covariates, independent $\mathcal{N}(0, 2.5)$ priors on all coefficients effectively rule out implausibly strong effects (e.g., log-odds ratios of 3, which would correspond to the enormous odds ratio of $e^3$ or $\approx 20$). With non-rare outcomes, the same prior can be chosen for the intercept of the regression model since log-odds of $\pm 3$ correspond to reference level event probabilities of $\approx 0.05$ or 0.95.
+```{r, code = readLines("simple_mc.stan"), eval = FALSE}
+```
+
+```{r, cache = TRUE}
+# Fit model
+suppressPackageStartupMessages(library("rstan"))
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+fit1 <- stan(file = "simple_mc.stan", data = stan_dat)
+
+# Regression coefficients not very different from frequentist model
+rbind(coef(ffit1), summary(fit1, pars = "alpha")[["summary"]][,"mean"])
+
+# Posterior summary of ATE
+summary(fit1, pars = "ATE")[["summary"]]
+
+# Posterior mean
+bATE <- summary(fit1, pars = "ATE")[["summary"]][,"mean"]
+
+# Posterior density of ATE by chain
+library("bayesplot")
+library("ggplot2")
+theme_set(theme_bw())
+mcmc_dens_overlay(As.mcmc.list(fit1), pars = "ATE")
+```
+
+The posterior mean ATE is `r bATE`, which is compatible with the frequentist estimate of `r fATE`.
+
+# Another demonstration: the g-formula applied to mediation
+
+Mediators are intermediate variables on the causal path between the exposure and the outcome. Vanderweele provides a comprehensive overview of mediation analysis in his book [@vanderweele2015explanation]. Figure \ref{fig:medsimp} shows a basic causal diagram with an exposure $A$, a mediator $M$, outcome $Y$, and baseline confounders $\mathbf{Z}$.
+
+\begin{figure}[h!]
+\begin{center}
+\caption{Basic mediation model with exposure-mediator and exposure-outcome confounders}
+\label{fig:medsimp}
+\begin{tikzpicture}[node distance = 1cm]
+\node (A) {$A$};
+\node[right=of A] (M) {$M$};
+\node[right=of M] (Y) {$Y$};
+\node[above left=of A] (Z) {$\mathbf{Z}$};
+\draw[->] (A) -- (M);
+\draw[->] (M) -- (Y);
+\draw[->] (A) to [out=330,in=210] (Y);
+\draw[->] (Z) -- (A);
+\draw[->] (Z) -- (M);
+\draw[->] (Z) to [out=0,in=120] (Y);
+\end{tikzpicture}
+\end{center}
+\end{figure}
+
+One potential question in causal inference is the degree to which an effect would remain if we somehow intervened upon part of the downstream causal pathway. This estimand is typically referred to as a natural direct effect (NDE). We simulate data from this scenario below using logistic link models for binary $M$ and $Y$, and two binary baseline confounders $\mathbf{Z} = (Z_1,Z_2)$:
+
+```{r}
+# Function to simulate data for mediation
+simulate_simple_med <- function(n) {
+  Z1 <- rbinom(n = n, size = 1, prob = 0.3)
+  Z2 <- rbinom(n = n, size = 1, prob = plogis(0 + 0.2*Z1))
+  A  <- rbinom(n = n, size = 1, prob = plogis(-1 + 0.7*Z1 + 0.8*Z2))
+  M  <- rbinom(n = n, size = 1, prob = plogis(-2 + 0.3*Z1 + 0.5*Z2 + 1*A))
+  Y  <- rbinom(n = n, size = 1, prob = plogis(-2 + 0.4*Z1 + 0.3*Z2 + 0.9*A + 0.9*M))
+  return(data.frame(Z1, Z2, A, M, Y))
+}
+
+med_df <- simulate_simple_med(n = 5000)
+
+# Package data for Stan
+# Last 6 arguments specify weakly informative priors on coefficients
+med_dat <- list(N = nrow(med_df), 
+                P = 3,
+                X = cbind(1, med_df$Z1, med_df$Z2),
+                A = med_df$A,
+                M = med_df$M,
+                Y = med_df$Y,
+                alpha_m = rep(0, 5),
+                beta_m = rep(0, 4),
+                alpha_vcv = 2.5 * diag(5),
+                beta_vcv = 2.5 * diag(4))
+```
+
+The mediator gets added to the outcome model:
+$$
+\mathrm{logit}\left( P(Y_{i}=1|A_i,M_i,\mathbf{Z}_i) \right) = \alpha_0 + \boldsymbol{\alpha}_Z' \mathbf{Z}_i + \alpha_A A_i + \alpha_M M_i 
+$$
+
+In addition to the $Y$ model, we also adopt a logistic model for $M$. 
+$$
+\mathrm{logit}\left( P(M_{i}=1|A_i, \mathbf{Z}_i) \right) = \beta_0 + \boldsymbol{\beta}_Z' \mathbf{Z}_i +  \beta_A A_i
+$$
+
+These two models can be estimated simultaneously with Stan. Using the resampling of $\mathbf{Z}$ as described earlier, we can draw samples from the distributions of the counterfactuals $M_a$ for $a \in \{ 0,1 \}$. At the $b^{th}$ MCMC iteration and for $i = 1,\dots,n$,
+$$
+M_a^{(i,b)} \sim \mathrm{Bernoulli}\left(
+\mathrm{logit}^{-1}\left( 
+\beta_0^{(b)} + \boldsymbol{\beta}_Z^{(b)} \mathbf{Z}^{(i,b)} + \beta_A a
+\right)
+\right)
+$$
+
+The outcome counterfactuals $Y_{aM_a}$ and $Y_{aM_{a^*}}$ represent the potential outcome values under regime $A=a$ when the mediator $M$ is set to the value it would naturally take under either $a$ or $a^*$. For example, we may be interested in the hypothetical outcomes if the population were exposed (i.e., all $A=1$) while the path through $M$ is somehow disabled (i.e., $M = M_{a=0}$). This contrast is sometimes referred to as a natural direct effect because it captures the effect of $A$ on $Y$ that is "direct" -- that is, the effect _not_ through the mediator.
+
+$$
+M_a^{(i,b)} \sim \mathrm{Bernoulli}\left(
+\mathrm{logit}^{-1}\left( 
+\beta_0^{(b)} + \boldsymbol{\beta}_Z^{(b)} \mathbf{Z}^{(i,b)} + \beta_A a
+\right)
+\right)
+$$
+
+Stan code to fit these models is shown below.
+
+```{r, code = readLines("mediation_mc.stan"), eval = FALSE}
+```
+
+```{r, cache = TRUE}
+library("rstan")
+library("bayesplot")
+fit2 <- stan(file = "mediation_mc.stan", data = med_dat)
+
+# Posterior summary of NDE
+summary(extract(fit2)[["NDE"]])
+
+# Posterior density for NDE
+mcmc_dens_overlay(As.mcmc.list(fit2), pars = "NDE")
+```
+
+# Application: data integration in unmeasured confounding
+
+While the above models demonstrate application of the parametric g-formula for mediation in a Bayesian framework, they offer little advantage over existing frequentist methods. However, this need not be true. Suppose that one variable of $\mathbf{Z}$ is not measured in the analysis data set but is measured in a smaller, secondary data source. Denoting this variable with $U$, we can fit maximum likelihood regression models for $U$, $M$, and $Y$ in the secondary data set. The point estimates and variance-covariance matrices from the maximum likelihood fits can serve as the mean and variance of multivariate normal priors.
+
+We can simulate data using the same `R` function as the previous mediation example, renaming the simulated confounder $Z_2$ as $U$ because it is unmeasured. (In our simulated data, $\mathbf{Z}$ will no longer be a vector of covariates, but we keep the more general notation since $\mathbf{Z}$ may be vector-valued.) The specific causal structure posited is shown in Figure \ref{fig:azyudag}. Importantly, we are not addressing the special case of exposure-induced mediator-outcome confounding, i.e., where $U$ is caused by $A$.
+
+\begin{figure}[h!]
+\begin{center}
+\caption{Mediation with one type of unmeasured confounder}
+\label{fig:azyudag}
+\begin{tikzpicture}[node distance = 1cm]
+\node (A) {$A$};
+\node[right=of A] (M) {$M$};
+\node[right=of M] (Y) {$Y$};
+\node[above left=of A] (Z) {$\mathbf{Z}$};
+\node[below left=of A] (U) {$U$};
+\draw[->] (U) -- (A);
+\draw[->] (U) -- (M);
+\draw[->] (U) -- (Y);
+\draw[->] (A) to [out=30, in=150] (Y);
+\draw[->] (A) -- (M);
+\draw[->] (M) -- (Y);
+\draw[->] (Z) -- (A);
+\draw[->] (Z) to [out=10, in=120] (Y);
+\draw[->] (Z) to [out=270, in=90] (U);
+\end{tikzpicture}
+\end{center}
+\end{figure}
+
+We add a model for $U$ and add a term for $U$ in the $M$ and $Y$ regressions, giving model equations:
+
+$$
+\mathrm{logit}\left( P(U_{i}=1|\mathbf{Z}_i, A_i) \right) = \gamma_0 + \boldsymbol{\gamma}_Z' \mathbf{Z}_i
+$$
+
+$$
+\mathrm{logit}\left( P(M_{i}=1|A_i,M_i,U_i,\mathbf{Z}_i) \right) = \beta_0 + \boldsymbol{\beta}_Z' \mathbf{Z}_i + \beta_U U_i + \beta_A A_i
+$$
+
+$$
+\mathrm{logit}\left( P(Y_{i}=1|A_i,M_i,U_i,\mathbf{Z}_i) \right) = \alpha_0 + \boldsymbol{\alpha}_Z' \mathbf{Z}_i + \alpha_U U_i + \alpha_A A_i + \alpha_M M_i
+$$
+
+Let $\boldsymbol{\alpha} = (\alpha_0, \boldsymbol{\alpha}_Z, \alpha_U, \alpha_A, \alpha_M)'$, $\boldsymbol{\beta} = (\beta_0, \boldsymbol{\beta}_Z, \beta_U, \beta_A)'$, and $\boldsymbol{\gamma} = (\gamma_0, \boldsymbol{\gamma}_Z)'$. Denote the full regression coefficient parameter vector $(\boldsymbol{\alpha}, \boldsymbol{\beta}, \boldsymbol{\gamma})$ by $\boldsymbol{\theta}$. Had $U$ been observed, the joint data likelihood for $n$ observations would be
+
+$$
+\prod_{i=1}^n 
+f(y_i | \boldsymbol{\alpha}, \mathbf{z}_i, a_i, m_i, u_i) 
+f(m_i | \boldsymbol{\beta}, \mathbf{z}_i, a_i, u_i) 
+f(u_i | \boldsymbol{\gamma}, \mathbf{z}_i) 
+$$
+Since $U$ is binary, this can be rewritten as
+$$
+\prod_{i=1}^n 
+f(y_i | \boldsymbol{\alpha}, \mathbf{z}_i, a_i, m_i, u_i) 
+f(m_i | \boldsymbol{\beta}, \mathbf{z}_i, a_i, u_i) 
+P(U_i = u_i | \boldsymbol{\gamma}, \mathbf{z}_i) 
+$$
+To marginalize over the unobserved $U_i$, we sum over $u = 0$ and $u=1$ to obtain:
+$$
+\prod_{i=1}^n
+\left[
+\sum_{u=0}^1 f(y_i | \boldsymbol{\alpha}, \mathbf{z}_i, a_i, m_i, u_i = u) 
+f(m_i | \boldsymbol{\beta}, \mathbf{z}_i, a_i, u_i = u) 
+P(U_i = u | \boldsymbol{\gamma}, \mathbf{z}_i)
+\right]
+$$
+
+With binary $M$ and $Y$, this becomes
+$$
+\prod_{i=1}^n
+\left[
+\sum_{u=0}^1 
+\left(\pi^Y_i(u)\right)^{y_i} \left(1 - \pi^Y_i(u)\right)^{1 - y_i}
+\left(\pi^M_i(u)\right)^{m_i} \left(1 - \pi^M_i(u)\right)^{1 - m_i}
+P(U_i = u | \boldsymbol{\gamma}, \mathbf{z}_i)
+\right]
+$$
+where $\pi^Y_i(u) = P(Y_i = 1 | \boldsymbol{\alpha}, \mathbf{Z}_i, A_i, M_i, U_i = u)$ and $\pi^M_i(u) = P(M_i = 1 | \boldsymbol{\beta}, \mathbf{Z}_i, A_i, U_i = u)$.
+
+
+Informative prior distributions are derived from the maximum likelihood point estimates and variance-covariance matrices from the secondary data source. For example, the prior for $\boldsymbol{\gamma} = (\gamma_0, \boldsymbol{\gamma}_Z)'$ would be 
+
+$$
+\boldsymbol{\gamma}
+\sim \mathcal{MVN} \left(\hat{\boldsymbol{\gamma}}_{MLE}, \widehat{\boldsymbol{\Sigma}}_{MLE}  \right)
+$$
+where $\hat{\boldsymbol{\gamma}}_{MLE}$ and $\widehat{\boldsymbol{\Sigma}}_{MLE}$ are the frequentist point estimate and variance-covariance matrix from the maximum likelihood estimation (MLE). Analogous priors are adopted for $\boldsymbol{\beta} = (\beta_0, \boldsymbol{\beta}_Z, \beta_U, \beta_A)'$ and $\boldsymbol{\alpha} = (\alpha_0, \boldsymbol{\alpha}_Z, \alpha_U, \alpha_A, \alpha_M)'$.
+
+```{r}
+# Simulate small and big mediation data sets from same data generating parameters
+small_df <- simulate_simple_med(n = 200)
+big_df   <- simulate_simple_med(n = 5000)
+
+# Rename Z2 to U (because it is unmeasured)
+names(small_df)[names(small_df) == "Z2"] <- "U"
+names(big_df)[names(big_df) == "Z2"] <- "U"
+
+# Frequentist model fits for prior information
+fitU <- glm(U ~ Z1, data = small_df)
+fitM <- glm(M ~ Z1 + U + A, data = small_df)
+fitY <- glm(Y ~ Z1 + U + A + M, data = small_df)
+
+# Prior means for coefficients
+gamma_m <- unname(coef(fitU))
+beta_m  <- unname(coef(fitM))
+alpha_m <- unname(coef(fitY))
+
+# Prior variance-covariance matrices
+gamma_vcv <- unname(vcov(fitU))
+beta_vcv  <- unname(vcov(fitM))
+alpha_vcv <- unname(vcov(fitY))
+
+# Package data for Stan
+medU_dat <- list(N = nrow(big_df), 
+                 P = 2,
+                 X = cbind(1, big_df$Z1),
+                 A = big_df$A,
+                 M = big_df$M,
+                 Y = big_df$Y,
+                 alpha_m = alpha_m,
+                 beta_m = beta_m,
+                 gamma_m = gamma_m,
+                 alpha_vcv = alpha_vcv,
+                 beta_vcv = beta_vcv,
+                 gamma_vcv = gamma_vcv)
+```
+
+The Stan code to fit these models is shown below.
+```{r, code = readLines("mediation_unmeasured_mc.stan"), eval = FALSE}
+```
+
+```{r, cache = TRUE}
+# Fit mediation model model with unmeasured confounder
+fit3 <- stan(file = "mediation_unmeasured_mc.stan", data = medU_dat)
+
+# Posterior summary of NDE
+summary(extract(fit3)[["NDE"]])
+
+# Posterior density for NDE
+mcmc_dens_overlay(As.mcmc.list(fit3), pars = "NDE")
+```
+
+## Data integration: informative priors vs. combining data sets
+
+The above analysis could have been performed two ways. The first is as a classical missing data problem. The analysis could proceed by combining the two datasets, taking the traditional Bayesian approach to missing data with the observations coming from the original main data set where $U$ is unmeasured. The second approach is the one shown here, where information from the external data enters through informative priors on the regression coefficients.
+
+The first approach might be preferable if the data sets are thought to be samples from the same underlying population, as with a validation data set. In that case, the supplemental data simply adds more information about the distribution of $\mathbf{Z}$. Combining the data sets also allows for non-normal priors, unlike with MLEs. However, there are two downsides to this approach. First, the missing data way requires access to the actual external data set. Obtaining the external data may not be possible due to data privacy reasons. Sharing the point estimates and variance-covariance matrices from a maximum likelihood model would not require data use agreements the same way that sharing data would. Secondly, the interpretation of the target population is cleaner without full data integration. If the underlying populations are thought to differ with respect to their confounder distributions, a combined data source has a mixture of those confounder distributions which depends on the number of observations in each data set, which is somewhat arbitrary. In this case, sampling baseline confounder vectors exclusively from the main data source is more interpretable.
+
+# Summary
+
+Stan's `generated quantities` block offers a straightforward way to apply the g-formula to Bayesian models, including models for mediation. Incorporating prior information from another data source may partially address problems due to unmeasured confounding and improve the communication of uncertainty to decision makers.
+
+# References

@@ -1,0 +1,473 @@
+---
+title: "Assessing the Safety of Rosiglitazone for the Treatment of Type II Diabetes"
+author:
+- "K. Vamvourellis (London School of Economics)"
+- "Joint work with K. Kalogeropoulos and L. Phillips"
+date: "`r format(Sys.time(), '%D %B, %Y')`"
+output:
+  html_document:
+    # fig_height: 7
+    # fig_width: 11
+    theme: flatly
+    toc: true
+    number_sections: true
+    fig_caption: true
+bibliography: references.bib
+---
+
+
+```{r setup, include=FALSE, cache=TRUE}
+d = Sys.Date()
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Setup
+Assuming Stan is successfully installed, to run this notebook, we will need 3 more things
+
+1. Install the following packages:  
+
+    -  __rstan__
+    -  __bayesplot__
+    -  __gtools__
+    -  __MASS__
+    - __ggplot2__
+
+
+2. Set the working directory to the folder containing this notebook.
+
+3. Finally, to keep things tidy, we run the following code to load up front all the necessary libraries and setup our environment
+```{r, eval = TRUE, message=FALSE, warning=FALSE}
+library(rstan)
+library(bayesplot)
+library(gtools)
+library(MASS)
+library(ggplot2)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+source('./stan_utility.R')
+color_scheme_set('red')
+
+```
+
+
+# Introduction  
+
+Rosiglitazone was authorized to enter the market for the treatment of Type II diabetes in the United States in 1999 and in the European Union in 2000. New data subsequently emerged about possible cardiovascular risks associated with Rosiglitazone, confirmed by a meta-analysis in @nissen, which resulted in a European suspension of the Marketing Authorisation in 2010.  This suspension included its use as a fixed dose combination with metformin or glimepiride for Type II diabetes, which had been approved in 2003 for metformin and 2006 for glimepiride.  The drug remained available in the United States, but only under a restricted-access program implemented in 2010.
+
+## When to approve a drug?
+Regulators focus on a few keys factors when deciding whether a drug is fit to enter the market. In the case of Rosiglitazone, for example, previous work (@phillips13) concentrated on 11 of the drug's effects, weighing positive effects against negative effects. Clinical trials data are presented to experts and clinicians to assess the safety of the drug.
+The clinical analysis of trial data is based on statistical summaries of the data, including averages, standard deviations and signifiance levels. However any dependencies between the effects are the subject of clinical judgment and rarely are included in the statistical summaries.
+
+In this study, we address these issues by building a Bayesian model to do a full benefit-risk balance analysis of the dataset at the individual patient's level. Specifically, we construct a latent variable model to account for the whole joint distribution of the effects. This model will allow us to simulate the effect of the drug on a new patient conditioned on all the observations in the clinical trials. By quantifying the uncertainty of the effects of a drug treatment, given the available clinical trial datasets, our approach can inform whether regulators should approve a drug or not. This is done by combining clinical judgement as well samples for the model posterior using multi criteria decision analysis (MCDA) via a Bayesian decision-theoretic framework, discussed in more detail in the Application section.
+
+
+## How to model the dependence between discrete and continuous observations?
+It is common in clinical trials to collect "Yes/No" data. We want to fully model this process of interrelated dependencies, incorporate the dependence between the different measurements for each person, and account for uncertainty. Furthermore, datapoints collected in clinical trials are routinely of mixed type: binary, continuous, counts, etc. The main purpose of this work is to extend the current framework so that it can incorporate interdependencies between different features, both discrete and continuous.
+
+Our data is organized with one subject per row and one effect per column. For example, if our clinical trial dataset records 3 effects per subject, 'Haemoglobin Levels' (continuous), 'Nausea' (yes/no) and 'Dyspepsia' (yes/no) the dataset would look like this:
+
+|Subject ID| Group Type|Hemoglobin Level  | Dyspepsia |Nausea |
+|--------- | --------- | -------- | ---------|---------|
+|123 | Control    | 3.42  | 1 |0 |
+|213 | Treatment  | 4.41  | 1 |0 |
+|431 | Control    | 1.12  | 0 |0 |
+|224 | Control    | -0.11 | 1 |0 |
+|224 | Treatment  | 2.42  | 1 |1 |
+
+To model the effects of a drug we need a generative model for these 3 effects that also allows for dependencies between these effects. It stands to reason that the probability of a subject experiencing Nausea is not independent of the probability of experiencing Dyspepsia. To that end, we adopt a parametric generative model to learn the covariance matrix directly.
+
+We denote the observed data by $y$ and the parameters of the model by $\theta$. We are then interested in the posterior distribution $\pi(\theta | y)$, with which we can draw samples from the distribution of effects on future, so far unseen, patients $y'$ conditional on the observations from $f(y'|y)$ as follows:
+
+$$
+f(y'|y) = \int f(y'|y,\theta) \pi(\theta|y) d\theta
+$$
+In practice we cannot analytically derive the full posterior $\pi(\theta | y)$, but we can get samples from it using _Stan_. Consequently, we can approximate the expectation of any function $h(y')$ on the future data
+$$
+\mathbb{E} (h (y') | y) = \int \int h(y') f(y'|y,\theta) \pi(\theta|y) d\theta dy' = \int h(y') f(y'|y) dy'
+$$
+using Monte Carlo.
+
+We assume that each subject is independently and identically distributed within its group. We run inference for each group separately and get two sets of parameters, one for the treatment group and one for the placebo, also known as control group. Using the samples from the predictive distribution of each group we can produce samples for the difference between the two groups. Generally, with these posterior samples we can compute any value of interest currently used to decide whether to approve the drug. As an application, we will later show what such an evaluation function looks like and work through a complete example (see Application section).
+
+# Methodology
+
+Let $Y$ be a $N\times K$ matrix where each column represents an effect and each row refers to an individual subject. This is our observations, our clinical trials dataset. In order to distinguish the treatment from placebo subjects, we will analyse the data for each group $Y^T$ and $Y^{C}$ separately. As the model for $Y^T$ and $Y^{C}$ is identical we suppress the notation into $Y$ in the remainder of this section for convenience. Recall that the important feature of the data is that each column in $Y$ may be measured on different scales, i.e. binary, count or continuous etc. The main purpose of this work is to extend the current framework so that it can incorporate inter-dependencies between different features, both discrete and continuous.
+
+We consider the following general latent variable framework.  The idea to assign appropriate distributions on each column and apply appropriate transformations on their parameters  via user specified link functions $g_{j}(\cdot)$, so that everything is brought on the same scale. For example, let's fix our attention to the $i$-th subject for a moment. Then if the $j$-th effect is measured in the binary scale, the model can be
+
+\begin{equation}
+\label{eq:binary}
+\begin{cases}
+Y_{ij}\; \sim\; \text{Bernoulli}(\eta_j),\;i=1,\dots,N,\;Y_{ij} \text{ independent, for fixed } j\\
+h_{j}(\eta_j) \; = \; \mu_j + Z_{ij},\\
+\end{cases}
+\end{equation}
+
+where the link function can be the logit, probit or any other bijection from $[0, 1]$ to the real line. Similarly, for count data on the $j-$th column we can adopt the following model
+
+\begin{equation}
+\label{eq:counts}
+\begin{cases}
+Y_{ij}\; \sim\; \text{Poisson}(\eta_j),\;i=1,\dots,N,\;Y_{ij} \text{ independent, for fixed } j\\
+h_{j}(\eta_j) \; = \; \mu_j + Z_{ij}.
+\end{cases}
+\end{equation}
+
+where $h_{j}(\cdot)$ could be the natural logarithm, whereas for continuous data one can simply write
+
+\begin{equation}
+\label{eq:contain}
+Y_{ij}\; = \; \mu_j + Z_{ij},\;i=1,\dots,N.\\
+\end{equation}
+
+In order to complete the model we need to define the $N\times K$ matrix $Z$. Here we use a K-variate Normal distribution $\mathcal{N}_K(\cdot)$ on each $Z_{i :}$ row, such that
+
+
+\begin{equation}
+\label{eq:Zdist}
+Z_{i\cdot} \;\sim\; \mathcal{N}_{K}(0_{K},\Sigma),
+\end{equation}
+
+where $\Sigma$ is a $K\times K$ covariance matrix, $O_{K}$ is a row $K-$dimensional vector with zeros and $Z_{i\cdot}$ are independent for all $i$. Of course other options are available, e.g. a multivariate $t$.
+
+In the model above the vector $\mu=(\mu_{1},\dots,\mu_K)$ represents quantities related with the mean of each effect, whereas the matrix $\Sigma$ models their covariance. Note that the variance of binary variables is non identifiable (@greenberg, @talhouk), so we focus on the correlation matrix instead.
+
+# Stan Code
+
+For this case study we use the Bernoulli likelihood for the binary data with a logit link function. The Stan program encoding this model is the following:
+
+```{r eval=FALSE}
+data{
+ int<lower=0> N;
+ int<lower=0> K;
+ int<lower=0> Kb;
+ int<lower=0> Kc;
+ int<lower=0, upper=1> yb[N,Kb];
+ vector[Kc] yc[N];
+}
+
+transformed data {
+  matrix[Kc, Kc] I = diag_matrix(rep_vector(1, Kc));
+}
+parameters {
+  vector[Kb] zb[N];
+  cholesky_factor_corr[K] L_R;  // first continuous, then binary
+  vector<lower=0>[Kc] sigma;
+  vector[K] mu;
+}
+
+transformed parameters{
+  matrix[N, Kb] z;
+  vector[Kc] mu_c = head(mu, Kc);
+  vector[Kb] mu_b = tail(mu, Kb);
+  {
+    matrix[Kc, Kc] L_inv = mdivide_left_tri_low(diag_pre_multiply(sigma, L_R[1:Kc, 1:Kc]), I);
+    for (n in 1:N){
+      vector[Kc] resid = L_inv * (yc[n] - mu_c);
+      z[n,] = transpose(mu_b + tail(L_R * append_row(resid, zb[n]), Kb));
+    }
+  }
+}
+
+model{
+  mu ~ normal(0,10);
+  L_R ~ lkj_corr_cholesky(2);
+  sigma~cauchy(0,2.5);
+  yc ~ multi_normal_cholesky(mu_c, diag_pre_multiply(sigma, L_R[1:Kc, 1:Kc]));
+  for (n in 1:N) zb[n] ~ normal(0,1);
+  for (k in 1:Kb) yb[,k] ~ bernoulli_logit(z[,k]);
+
+}
+
+generated quantities{
+  matrix[K,K] R = multiply_lower_tri_self_transpose(L_R);
+}
+```
+
+We will fit the model with synthetic data that we generate as follows:
+```{r}
+set.seed(6823234)
+N <-300
+Kb <- 4
+Kc <- 2
+K <-Kb+Kc
+
+# correlation matrix
+A <- matrix(runif(K^2,2,10)-K/2, ncol=K)
+R<- cov2cor(t(A)%*% A )
+
+# standard deviations
+sigma<- runif(Kc, 0, 2)
+Dval<-c(sigma,rep(1,Kb))
+D<-diag(Dval)
+
+Sigma <- D %*% R %*% D # covariance matrix
+
+# mean vector
+mu_c<- runif(Kc, -5,5)
+mu_b<- runif(Kb, -1,1)
+mu<-c(mu_c,mu_b)
+
+z <- mvrnorm(n = N, mu, Sigma) # latent continuous variables
+
+# binary variable effects
+p <- plogis( z[,(1+Kc):K])
+yb <- sapply(1:N, function(n) rbinom(size=1, Kb,  prob = p[n,]))
+yb<- t(yb)
+dim(yb)<-c(N,Kb)
+
+yc <- z[,1:Kc] # continuous variable effects
+dim(yc)<-c(N,Kc)
+```
+
+We fit the model with the following code.
+
+```{r eval=TRUE, message=FALSE, cache=TRUE}
+fit <- stan(file='./modelcode.stan',
+            data=list(N = N, K = K, Kb = Kb, Kc = Kc, yb = yb, yc = yc),
+            control = list('adapt_delta' = 0.9, 'max_treedepth' = 10),
+            iter=1000,
+            chains = 4,
+            seed=4938483)
+```
+
+It's good practice to save the data and posterior samples of the model fit to it. 
+In our case, we will need it again when we demonstrate how to fit the model on the real datasets. For the purposes of this notebook, we will re-use this data in place of the hypothetical control group dataset. We can save the data and the samples as follows
+```{r eval=TRUE}
+stan_rdump(c("N", "Kb","Kc" , "K" , "yb" , "yc"), file="control.data.R")
+saveRDS(fit, "fit_control.rds" )
+```
+
+Can load the samples as follows
+```{r eval=TRUE}
+fit <- readRDS("fit_control.rds" )
+```
+
+
+## Model Diagnostics
+We first check the fit of the 5 crucial parameters of interest.
+```{r}
+print(fit, pars=c('mu', 'R', 'sigma'))
+```
+We see that max `Rhat` values are good, below 1.01. The effective sample size `n_eff` is good and the rest of the diagnostics are clean.
+
+```{r}
+check_treedepth(fit)
+check_energy(fit)
+check_div(fit)
+```
+
+Below we plot histograms of posterior samples for the mean, correlations and variance of the effects against the true values.
+
+```{r fig.height = 3, message=FALSE, warning=FALSE}
+mcmc_recover_hist(
+  as.matrix(fit, pars = c("mu_b")),
+  true = mu_b,
+  facet_args = list(ncol = 2)
+)
+```
+```{r fig.height = 1, message=FALSE, warning=FALSE}
+mcmc_recover_hist(
+  as.matrix(fit, pars = c("mu_c")),
+  true = mu_c,
+  facet_args = list(ncol = 2)
+)
+mcmc_recover_hist(
+  as.matrix(fit, pars = c("sigma")),
+  true = sigma,
+  facet_args = list(ncol = 2)
+)
+
+```
+
+```{r fig.height = 5, fig.width=10, message=FALSE, warning=FALSE}
+R_to_print = vector(mode="character", length=(K^2-K)/2)
+true_R_to_print = vector(mode="double", length=(K^2-K)/2)
+k<-1
+for (i in 1:6){
+  for (j in 1:i){
+    if (i!=j){
+      R_to_print[k] <- paste("R[",i, "," ,j,"]", sep="")
+      true_R_to_print[k] <- R[i,j]
+      k<- k+1
+    }
+  }
+}
+
+mcmc_recover_hist(
+  as.matrix(fit, pars =  R_to_print),
+  true =  true_R_to_print,
+  facet_args = list(ncol = 4)
+)
+
+```
+
+
+# Application
+
+In order to use the measurements in the clinical trial to make a final decision on market readiness, we need an evaluation function. Here we describe one such function that uses Multicriteria Decision Analysis (MCDA). The process of constructing such a function is somewhat involved because it requires collaboration of expertise from various fields. This section is adapted from @phillips15.
+
+## How to compare disparate effects?
+
+In order to meaningfully compare the various effects, such as glucose levels, weight loss, and cardiovascular arrest, we need to transform physical measurements to a scale appropriate to the task in hand, in this case, treating type II diabetes. For example, how are we to compare an average reduction of 5\% in Hemoglobin levels against an average 3\% increase in weight? We compare these effects and their relevant importance in a two-step process. First, we bring all measurements to a common denominator, called "preference score." Then, we ask clinicians to assign a weight to each effect based on its importance relative to the drug's treatment potential. Note that, by design, this mapping is subjective so that it can reflect the judgement of the clinicians. We leave it to the clinicians to decide whether a 1\% reduction of Hemoglobin levels outweigh the damage of 3\% increase in weight.
+
+
+For example, one of effect for the assessment of Rosiglitazone is "Nausea". For step one, we need to start from a reasonable expected range for this effect in any given trial, let's say the percentage of subjects experiencing "Nausea" ranges from 0 to 10 in percentage units (\%). The "preference score"  is essentially a map from [0,10] onto [0,100] such that 0 corresponds to the least desirable measurement, 10 \%,  and 100 the most desirable one, 0\%. With the two extremes fixed, the map can take any form in between. In this study will use linear maps for simplicity. Each effect gets it's own "preference score" map from its own range to [0,100]. This way we can track, on a common scale, how  _clinically desirable_ each observation is. In step two, each effect is given a weight $w_j$ that corresponds to the importance of moving from "preference score" 0 to 100. Finally, we need to normalize the weights to ensure they sum to 1.
+
+
+## How to score a drug?
+With this scoring system we can estimate the effect of a drug on a new patient. For a given measurement we simply take a weighted sum of the "preference scores". Specifically for the $j$-th effect, let's assume that $c_j(\cdot)$ is the "preference score" map. Also let $y_j^{(T)}$ be the measurement in the treatment group and $y_j^{(C)}$ be the corresponding measurement in the control group. We then get a final score of $$s = \sum_j w_j \cdot \big( c_j \big(y_j^{(T)}\big) - c_j \big(y_j^{(C)}\big) \big) $$
+Thus we can decided if the treatment is beneficial (when the sum is positive), or not (the sum is negative).
+
+Since there is noise in the data, the final score is noisy too. With the Bayesian model suggested here, we can use our posterior samples to propagate the uncertainty to the final score. We do this for each group separately and with the posterior samples we can estimate the probability of interest, $P(s^{(T)}>s^{(T)})$ .  
+
+
+## A worked out example
+
+Here we will present a full example starting from the observational data to the final score. In this example we assess the safety of Rosiglitazone drug for type II diabetes by comparing the distribution of the final score for the treatment group (152 subjects) and the control group (150 subjects). The first two columns capture Hemoglobin and Glucose levels respectively, as deviations from the baseline recorded when the subjects entered treatment. The last four columns record four different events, Diarrhea, Nausea/Vomiting, Dyspepsia and Edema respectively.  According to clinical judgment we we will assume that the clinical weights are (59.2,11.8, 8.9,17.8,1.8,0.6).  This means that, to take the first two effects for example, a full swing from the least desirable observation to the most desirable one is judged to be $\frac{59.2}{11.8}$ more important for the first effect than for the second. The following two functions allow us to calculate the preference scores for a vector of measurements for these 6 effects. Note that for the binary data we consider the underlying probability of observing the effect.
+```{r}
+## Map from effect range to [0,100]
+pref_score <- function(x, m1, m2, sign){
+  m <- 100 / (m2-m1)
+  b <- m* m1
+  if(sign==1) {res <- -m * m1+ m*x}
+  else {res <- m * m2 - m*x}
+  return(res)
+}
+
+## Return the preference score for a row of measurements
+get_scores_perrow <- function(x){
+  res <- rep(0,6)
+  res[1] <- pref_score(x[1], -6.,3.,-1)
+  res[2] <- pref_score(x[2], -15.,7.5,-1)
+  res[3] <- pref_score(x[3], 0.1,.35, -1)
+  res[4] <- pref_score(x[4], 0.1,.25, -1)
+  res[5] <- pref_score(x[5], 0.1,.2, -1)
+  res[6] <- pref_score(x[6], 0.,.15, -1)
+
+  return(res)
+}
+```
+
+For example, the measurement vector ( -1.1,-2,.3,0.17, .1, .14)  gets a preference score of ( 45.6,  42.2,20, 53.3, 100, 6.7). The best possible measurement would correspond necessarily to a preference score of (100,100,100,100,100), while the worst measurement would correspond to (0,0,0,0,0).
+```{r}
+x = c(-1.1,-2, .3,0.17, .1, .14)
+get_scores_perrow(x)
+```
+The final preference score, for this measurement, is the sum of the preference scores weighted by the clinicians weights, which gives us a final score of 4505.778, as follows:
+```{r}
+get_final_score_perrow<- function(x){
+  scores <- get_scores_perrow(x)
+  weights <- c(59.2,11.8, 8.9, 17.8, 1.8, 0.5)
+  return(scores %*% weights)
+}
+get_final_score_perrow(x)
+
+```
+
+We are interested in the posterior distribution of the final score for a new subject in each of the groups. This way we can calculate the posterior distribution of the difference between the two groups. We do that by sampling one latent variable vector $Z$ for each posterior sample of $\mu, R, \sigma$. For each $Z$ we calculate a final score, which becomes a posterior sample for the final score.
+
+The function to calculate the posterior samples for the two groups is the following:
+
+```{r}
+final_score <- function(fit){
+  mus <- as.matrix(fit, pars = "mu")
+  Sigmas <- as.matrix(fit, pars = "Sigma")
+  n_rows<-dim(mus)[1]
+
+  final_score <- vector(mode="numeric", length=n_rows)
+  for(i in 1:n_rows){
+    Sigma_i <- matrix(Sigmas[i,], nrow=6, byrow = TRUE)
+    p_z <- mvrnorm(n = 1, mus[i,] , Sigma_i)
+    p_z[3:6]<- inv.logit(p_z[3:6], min = 0, max = 1)
+    p_z[1:2] <- p_z[1:2]
+    final_score[i]  <- get_final_score_perrow(p_z)
+  }
+  return(final_score)
+}
+```
+
+We can evaluate the above function for each group separately. We will re-use the data and samples we generated earlier as if it came from our control group. We will generate one more dataset to use as the treatment group and fit our model to. First we generate and save the data
+```{r}
+# mean vector
+muc<- runif(Kc, -5,5) - runif(Kc, -2,0)
+mub<- runif(Kb, -1,1) - runif(Kb, -.5,0)
+mu<-c(muc,mub)
+
+z <- mvrnorm(n = N, mu, Sigma) # latent continuous variables
+
+# binary variable effects
+p <- plogis( z[,(1+Kc):K])
+yb <- sapply(1:N, function(n) rbinom(size=1, Kb,  prob = p[n,]))
+yb<- t(yb)
+dim(yb)<-c(N,Kb)
+
+yc <- z[,1:Kc] # continuous variable effects
+dim(yc)<-c(N,Kc)
+
+stan_rdump(c("N", "Kb","Kc" , "K" , "yb" , "yc"), file="treat.data.R")
+```
+
+We can draw posterior samples from fitting our model to the treatment group data as follows
+```{r eval=TRUE}
+treat_data <- read_rdump("treat.data.R")
+fit <- stan(file='./corr_model.stan',
+            data=treat_data,
+            control = list('adapt_delta' = 0.9, 'max_treedepth' = 10),
+            iter=1000,
+            chains = 4,
+            seed=4938483)
+saveRDS(fit, "fit_treat.rds" )
+```
+
+
+
+The value we are interested in is the difference of the final score between the treatment and the control group. We have pre-fit our models to the two groups and saved the posterior samples. We load the samples and compute the values of interest as follows:
+
+```{r fig.height = 5, fig.width=12}
+final_score_C <- final_score(readRDS("./fit_control.rds"))
+final_score_T <- final_score(readRDS("./fit_treat.rds"))
+t_hist <- hist(final_score_C, plot=FALSE, breaks =40)
+plot(t_hist, col = alpha('blue', 0.5), main="Final Score for Treatment and Control",
+     xlab="Final Score", yaxt='n', ann=TRUE, xlim=c(-12000,12000), ylim=c(0,200))
+t_hist2 <- hist(final_score_T, plot=FALSE, breaks=40)
+plot(t_hist2, col=alpha('orange', 0.6), main="Final Score of Treatment and Control",
+     xlab="", yaxt='n', ann=TRUE, add=TRUE)
+legend("topright", legend=c("Control Group", "Treatment Group"),
+       fill=c(alpha('blue', 0.5), alpha('orange', 0.6)), text.font=4)
+
+
+```
+We see that the distribution of the score under the treatment for a new patient is higher without the treatment. Using these posterior samples we can estimate the probability of the treatment score being higher than the control as follows
+```{r}
+diff <- final_score_T - final_score_C
+length(diff[diff>0])/length(diff) # estimate of P(Score(Treatment) > Score(Control))
+```
+We observe that under this model, the final score is above 0 with probability 54% for a new patient. We can also make a plot of the difference to visualize the final result.
+
+```{r fig.height=3}
+t_hist <- hist(final_score_T - final_score_C, plot=FALSE, breaks=50)
+plot(t_hist, col=alpha('purple', 0.3), main="Final Score of Treatment - Control",
+     xlab="Score(Treatment) - Score(Control)", yaxt='n', ann=TRUE)
+abline(v = 0, col="black", lwd=3, lty=1)
+
+```
+
+
+### Discussion - Future Work
+
+One natural question is how sensitive is the final result to the choice of preference score functions. The preference scores could in principle have any form. In this study we chose linear mappings because they are easy to interpret and to work with. @phillips15 looked at non-linear preference functions, guided by clinical experts who suggested that “desirability” of some effects is better modeled with sigmoid-like functions. Their study found “that model results are very robust to imprecision and disagreements about weights. Even non-linear value functions on the most discriminating effects did not tip this balance [sign of score difference between treatment and control]”.
+
+Another source of variability we examined is the choice of clinical weights. Based on preliminary experimentation we conclude that the final probability seems relatively stable to changes of the weights. When we pertrube the weights by 10% we observed a difference in the final score distribution that was close to 5%.
+
+__Acknowledgments__   
+The author would like to thank Jonah Gabry, Bob Carpenter, Andrew Gelman, and Ben Goodrich (who practically wrote the stan code) for their feedback and help during the process of writing this report.
+
+
+__License__  
+
+- Code &copy; 2017, Konstantinos Vamvourellis, licensed under BSD-3   
+- Text &copy; 2017, Konstantinos Vamvourellis, licensed under CC BY-NC 4.0
+
+# References
