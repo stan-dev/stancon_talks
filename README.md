@@ -93,7 +93,7 @@ This submission investigates whether the New York City Police Department (NYPD) 
 
 Links: 
 
-  - Video (coming soon)
+  - [Video](https://youtu.be/5qojKAiirqI)
   - [Notebook, code, slides](2018/Contributed-Talks/01_auerbach) 
   - <a href="https://github.com/jauerbach"> github.com/jauerbach</a>
 
@@ -108,7 +108,7 @@ Alzheimer's Disease is one the most debilitating diseases, but how do we diagnos
 
 Links: 
 
-  - Video (coming soon)
+  - [Video](https://youtu.be/j_JIfNiO9TA)
   - [Notebook, code, slides](2018/Contributed-Talks/02_pourzanjani)
   - [https://github.com/pourzanj/Stancon2018\_Alzheimers](https://github.com/pourzanj/Stancon2018_Alzheimers)
   - <a href="https://aryastats.com/"> aryastats.com</a>
@@ -124,7 +124,7 @@ notebook are a simplified version of those underpinning the `stan_jm` modeling f
 
 Links: 
 
-  - Video (coming soon)
+  - [Video](https://youtu.be/8r-Ipt885FA)
   - [Notebook, code, slides](2018/Contributed-Talks/03_brilleman) 
   - [github.com/sambrilleman/2018-StanCon-Notebook](https://github.com/sambrilleman/2018-StanCon-Notebook)
   - <a href="http://www.sambrilleman.com/"> sambrilleman.com</a>
@@ -140,7 +140,7 @@ We implement a standard Hidden Markov Model (HMM) and the Input-Output Hidden Ma
 
 Links: 
 
-  - Video (coming soon)
+  - [Video](https://youtu.be/oe9PAEI97oI)
   - [Notebook, code, slides](2018/Contributed-Talks/04_damiano) 
   - <a href="https://github.com/luisdamiano/stancon18"> github.com/luisdamiano/stancon18</a>
 
@@ -171,7 +171,7 @@ We present SlicStan — a probabilistic programming language that compiles to St
 
 Links: 
 
-  - Video (coming soon)
+  - [Video](https://youtu.be/WTqnehdFNbo)
   - [Notebook, code, slides](2018/Contributed-Talks/06_gorinova) 
   - [github.com/mgorinova/SlicStan-Paper](https://github.com/mgorinova/SlicStan-Paper)
   - <a href="http://homepages.inf.ed.ac.uk/s1207807/"> homepages.inf.ed.ac.uk/s1207807</a>, <a href="https://www.microsoft.com/en-us/research/people/adg/"> microsoft.com/en-us/research/people/adg</a>, <a href="http://homepages.inf.ed.ac.uk/csutton/"> http://homepages.inf.ed.ac.uk/csutton</a> 
@@ -187,7 +187,7 @@ Item-response theory (IRT) ideal-point scaling/dimension reduction methods that 
 
 Links: 
 
-  - Video (coming soon)
+  - [Video](https://youtu.be/0ZjrLOosXwk)
   - [Notebook, code, slides](2018/Contributed-Talks/07_kubinec) 
   - [https://CRAN.R-project.org/package=idealstan](https://CRAN.R-project.org/package=idealstan)
 
@@ -202,7 +202,7 @@ Stan’s numerical algebraic solver can be used to solve systems of nonlinear al
 
 Links: 
 
-  - Video (coming soon)
+  - [Video](https://youtu.be/JhwZIX5ryw0) 
   - [Notebook, code, slides](2018/Contributed-Talks/08_margossian) 
   - [github.com/charlesm93](https://github.com/charlesm93)
 
@@ -217,7 +217,7 @@ This outlines a Bayesian approach to resonance ultrasound spectroscopy (RUS), a 
 
 Links: 
 
-  - Video (coming soon)
+  - [Video](https://youtu.be/vOoZBTpN8n4)
   - [Notebook, code, slides](2018/Contributed-Talks/09_bales) 
   - [github.com/bbbales2/stancon_2018](https://github.com/bbbales2/stancon_2018)
 
@@ -232,7 +232,7 @@ This notebook illustrates how to fit aggregate random coefficient logit models i
 
 Links: 
 
-  - Video (coming soon)
+  - [Video](https://youtu.be/LDOhRIRRe8M)
   - [Notebook, code, slides](2018/Contributed-Talks/10_savage) 
   - [github.com/khakieconomics](https://github.com/khakieconomics), [github.com/shoshievass](https://github.com/shoshievass)
 
@@ -247,7 +247,7 @@ We develop a new statistical test to detect bias in decision making — the thre
 
 Links: 
 
-  - Video (coming soon)
+  - [Video](https://youtu.be/vEO-rjAqGW8)
   - [Notebook, code, slides](2018/Contributed-Talks/11_simoiu) 
   - [github.com/camioux/stancon2018](https://github.com/camioux/stancon2018) 
   - [web.stanford.edu/~csimoiu](http://web.stanford.edu/~csimoiu/), [samcorbettdavies.com](https://samcorbettdavies.com/), [cs.stanford.edu/~emmap1](https://cs.stanford.edu/~emmap1/), [5harad.com](https://5harad.com/)
@@ -263,7 +263,7 @@ A Bayesian paradigm for making drug approval decisions. Case study in the treatm
 
 Links: 
 
-  - Video (coming soon)
+  - [Video](https://youtu.be/Gt73VNaZLXA)
   - [Notebook, code, slides](2018/Contributed-Talks/12_vamvourellis) 
   - [github.com/bayesways/case\_studies\_R/tree/master/stancon18](https://github.com/bayesways/case_studies_R/tree/master/stancon18)
   - [personal.lse.ac.uk/vamourel/](http://personal.lse.ac.uk/vamourel/)
@@ -279,7 +279,7 @@ The potential outcomes framework often uses one or more parametric outcome model
 
 Links: 
 
-  - Video (coming soon)
+  - [Video](https://youtu.be/W3gnbG0v4IE)
   - [Notebook, code, slides](2018/Contributed-Talks/13_comment) 
   - [https://github.com/lcomm/stancon2018](https://github.com/lcomm/stancon2018)
   - [scholar.harvard.edu/leahcomment](https://scholar.harvard.edu/leahcomment/)
@@ -294,7 +294,7 @@ Earthquake modeling with Stan. Applied to seismic recurrence in Ecuador in 2016.
 
 Links: 
 
-  - Video (coming soon)
+  - [Video](https://youtu.be/hTswMCRzltQ)
   - [Notebook, code, slides](2018/Contributed-Talks/14_crespo) 
   - [linkedin.com/in/phd-student-fausto-fabian-crespo-fernandez](https://www.linkedin.com/in/phd-student-fausto-fabian-crespo-fernandez-2b457a71/)
 
@@ -306,13 +306,14 @@ Links:
 **_Predictive information criteria in hierarchical Bayesian models for clustered data_**
     
 * Presenters: Sophia Rabe-Hesketh, Daniel Furr (UC Berkeley)
-* Video (coming soon)
+* [Video](https://youtu.be/FiSw6adfZcY)
 * [Slides and code](2018/Invited-Talks/RabeHesketh_Furr) 
 * [gse.berkeley.edu/people/sophia-rabe-hesketh](https://gse.berkeley.edu/people/sophia-rabe-hesketh), [github.com/danielcfurr](https://github.com/danielcfurr)
 
 **_ScalaStan_** 
 
 * Presenter: Joe Wingbermuehle (Cibo Technologies)
+* [Video](https://youtu.be/OtggQJI4J7U)
 * [Slides](2018/Invited-Talks/Wingbermuehle.pdf) 
 * <a href="https://github.com/cibotech/ScalaStan"> github.com/cibotech/ScalaStan</a>
 
@@ -326,6 +327,7 @@ Links:
 **_Forecasting at scale: How and why we developed Prophet for forecasting at Facebook_**
 
 * Presenters: Sean Taylor, Ben Letham (Facebook)
+* [Video](https://youtu.be/E8z3LObimok)
 * [research.fb.com/facebook-at-stancon-2018](https://research.fb.com/facebook-at-stancon-2018/)
 * [facebook.github.io/prophet](https://facebook.github.io/prophet/)
 
@@ -333,12 +335,14 @@ Links:
 **_Stan applications in human genetics: Prioritizing genetic mutations that protect individuals from human disease_**
 
 * Presenter: Manuel Rivas (Stanford University)
+* [Video](https://youtu.be/S6FzGHPPxV4) 
 * [Slides](Invited-Talks/Rivas.pdf)
 * [med.stanford.edu/rivaslab](http://med.stanford.edu/rivaslab.html)
 
 **_Statistics using geometry to show uncertainties and integrate graph information_**
 
 * Presenter: Susan Holmes (Stanford University)
+* [Video]( https://youtu.be/W8TxxN8UdDQ)
 * [Slides](Invited-Talks/Holmes.pdf)
 * [statweb.stanford.edu/~susan](http://statweb.stanford.edu/~susan/)
 
@@ -346,6 +350,7 @@ Links:
 **_A brief history of Stan_** 
 
 * Presenter: Daniel Lee (Generable)
+* [Video](https://youtu.be/xJTZKawa-bM)
 * [Slides](2018/Invited-Talks/Lee.pdf)
 * [github.com/syclik](https://github.com/syclik)
 
@@ -353,13 +358,20 @@ Links:
 **_Model assessment, model selection and inference after model selection_** 
 
 * Presenter: Aki Vehtari (Aalto University)
+* [Video](https://youtu.be/FUROJM3u5HQ)
 * [Notebook, code, slides](https://github.com/avehtari/modelselection_tutorial) 
 * [users.aalto.fi/~ave/](https://users.aalto.fi/~ave/)
   
   
 **_Spatial models in Stan: intrinsic auto-regressive models for areal data_** 
 
-* Authors: Mitzi Morris (Columbia University)
+* Presenter: Mitzi Morris (Columbia University)
+* [Video](https://youtu.be/bwLkumivtjU)
 * [Slides](2018/Invited-Talks/Morris.pdf)
 * [Case study](http://mc-stan.org/users/documentation/case-studies/icar_stan.html)
 * [github.com/mitzimorris](https://github.com/mitzimorris)
+
+**_Some problems I'd like to solve in Stan, and what we'll need to do to get there_** 
+
+* Presenter: Andrew Gelman (Columbia University) 
+* [Video](https://youtu.be/uDB_NF_i5Ps)
