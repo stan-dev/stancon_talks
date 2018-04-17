@@ -336,14 +336,14 @@ Links:
 
 * Presenter: Manuel Rivas (Stanford University)
 * [Video](https://youtu.be/S6FzGHPPxV4) 
-* [Slides](Invited-Talks/Rivas.pdf)
+* [Slides](2018/Invited-Talks/Rivas.pdf)
 * [med.stanford.edu/rivaslab](http://med.stanford.edu/rivaslab.html)
 
 **_Statistics using geometry to show uncertainties and integrate graph information_**
 
 * Presenter: Susan Holmes (Stanford University)
 * [Video]( https://youtu.be/W8TxxN8UdDQ)
-* [Slides](Invited-Talks/Holmes.pdf)
+* [Slides](2018/Invited-Talks/Holmes.pdf)
 * [statweb.stanford.edu/~susan](http://statweb.stanford.edu/~susan/)
 
   
