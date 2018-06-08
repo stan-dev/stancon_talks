@@ -21,60 +21,165 @@ StanCon’s version of conference proceedings is a collection of contributed tal
 
 ### 2017 Peer reviewed contributed talks
 
-* Jonathan Auerbach, Rob Trangucci: **_Twelve Cities: Does lowering speed limits save pedestrian lives?_** 
-  - Presenter: <a href="https://github.com/jauerbach"> **Jonathan Auerbach**</a> is a PhD candidate in the Department of Statistics at Columbia University.
-  - [Notebook and materials](2017/Contributed-Talks/01_auerbach) 
-  - [Slides](2017/Contributed-Talks/slides/01_auerbach_stancon_slides.pdf)
+**_Twelve Cities: Does lowering speed limits save pedestrian lives?_**      
+
+* Authors: Jonathan Auerbach, Rob Trangucci (Columbia University)
+
+We investigate whether American cities can expect to achieve a meaningful reduction in pedestrian deaths by lowering the posted speed limit. We find some evidence that a lower speed limit does in fact reduce fatality rates, and our estimated causal effect is similar to the traditional before-after analysis espoused by policy analysts. Nevertheless, we conclude that adjusting the posted speed limit in urban environments does not correspond with a reliable reduction in pedestrian fatalities.
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1283490.svg)](https://doi.org/10.5281/zenodo.1283490)
+
+Links: 
+
   - [Video](https://youtu.be/DJ0c7Bm5Djk?t=1h58m49s)
+  - [Notebook and materials](2017/Contributed-Talks/01_auerbach)
+  - [Slides](2017/Contributed-Talks/slides/01_auerbach_stancon_slides.pdf)
+  - https://github.com/jauerbach
 
-* Milad Kharratzadeh: **_Hierarchical Bayesian Modeling of the English Premier League_** 
-  - Presenter: <a href="http://www.columbia.edu/~mk3971/"> **Milad Kharratzadeh**</a> is a Postdoctoral Research Scientist in Statistics at Columbia University working with Andrew Gelman. He is jointly appointed at  the Earth Institute and the Data Science Institute. His main focus is on developing new statistical methods and using hierarchical Bayesian models for analyzing social, environmental, and health data.
-  - [Notebook and materials](2017/Contributed-Talks/02_kharratzadeh)
-  - [Slides](2017/Contributed-Talks/slides/02_kharratzadeh_stancon_slides.pdf)
+
+<br> 
+
+**_Hierarchical Bayesian Modeling of the English Premier League_**    
+
+* Authors: Milad Kharratzadeh (Columbia University)
+
+In this case study, we provide a hierarchical Bayesian model for the English Premier League in the season of 2015/2016. The league consists of 20 teams and each two teams play two games with each other (home and away games). So, in total, there are 38 weeks, and 380 games. We model the score difference (home team goals − away team goals) in each match. The main parameters of the model are the teams’ abilities which is assumed to vary over the course of the 38 weeks. The initial abilities are determined by performance in the previous season plus some variation.
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1283496.svg)](https://doi.org/10.5281/zenodo.1283496)
+
+Links: 
+
   - [Video](https://youtu.be/DJ0c7Bm5Djk?t=2h12m12s)
+  - [Notebook and materials](2017/Contributed-Talks/02_kharratzadeh); 
+  - [Slides](2017/Contributed-Talks/slides/02_kharratzadeh_stancon_slides.pdf)
+  - http://www.columbia.edu/~mk3971/
 
-* Victor Lei, Nathan Sanders, Abigail Dawson: **_Advertising Attribution Modeling in the Movie Industry_** 
-  - Presenter: <a href="https://github.com/foo-bar-baz-qux"> **Victor Lei**</a> is a data scientist with the Applied Analytics group at Legendary Entertainment. He has a varied background, with experience in law, computer science and finance.
+
+<br>
+
+**_Advertising Attribution Modeling in the Movie Industry_** 
+
+* Authors: Victor Lei, Nathan Sanders, Abigail Dawson (Legendary Entertainment)
+
+We present a Bayesian method for inferring advertising platform effectiveness as applied to the movie industry, and show some possibilities for drawing inferences by analyzing model parameters at different levels of the hierarchy. In addition, we show some common ways to check model efficacy, and possibilities for comparing between different models.
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1284248.svg)](https://doi.org/10.5281/zenodo.1284248)
+
+Links: 
+
+  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=2h25m43s)
   - [Notebook and materials](2017/Contributed-Talks/03_lei)
   - [Slides](2017/Contributed-Talks/slides/03_lei_stancon_slides.pdf)
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=2h25m43s)
+  - https://github.com/foo-bar-baz-qux
 
-* Woo-Young Ahn, Nate Haines, Lei Zhang: **_hBayesDM: Hierarchical Bayesian modeling of decision-making tasks_** 
-  - Presenter: <a href="https://ccs-lab.github.io"> **Woo-Young (Young) Ahn**</a> is an assistant professor in the Department of Psychology and Translational Data Analytics at the Ohio State University. He earned his Ph.D. in clinical science from Indiana University, Bloomington, S.M. in applied physics from Harvard University, and B.S. in materials science and engineering from Seoul National University.
+
+<br>
+
+**_hBayesDM: Hierarchical Bayesian modeling of decision-making tasks_** 
+
+* Authors: Woo-Young Ahn, Nate Haines, Lei Zhang (Ohio State University)
+
+hBayesDM (hierarchical Bayesian modeling of Decision-Making tasks) is a user-friendly R package that offers hierarchical Bayesian analysis of various computational models on an array of decision-making tasks. 
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1284262.svg)](https://doi.org/10.5281/zenodo.1284262)
+
+Links: 
+
+  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=2h40m20s)
   - [Notebook and materials](2017/Contributed-Talks/04_ahn)
   - [Slides](2017/Contributed-Talks/slides/04_ahn_stancon_slides.pdf)
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=2h40m20s)
+  - https://ccs-lab.github.io
 
 
-* Charles Margossian, Bill Gillespie: **_Differential Equation Based Models in Stan_** 
-  - Presenter: <a href="http://metrumrg.com/"> **Charles Margossian**</a> is a visiting scientist at Metrum Research Group, a biomedical lab that specializes in modeling and simulation. He joined Stan's development team this September to work on tools for differential equation based models.
+<br>
+
+**_Differential Equation Based Models in Stan_** 
+
+* Authors: Charles Margossian, Bill Gillespie (Metrum Research Group)
+
+Differential equations can help us model sophisticated processes in biology, physics, and many other fields. Over the past year, the Stan team has developed many tools to tackle models based on differential equations.
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1284264.svg)](https://doi.org/10.5281/zenodo.1284264)
+
+Links: 
+
+  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=2h53m26s)
   - [Notebook and materials](2017/Contributed-Talks/05_margossian)
   - [Slides](2017/Contributed-Talks/slides/05_margossian_stancon_slides.pdf)
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=2h53m26s)
+  - http://metrumrg.com/
 
-* Teddy Groves: **_How to Test IRT Models Using Simulated Data_**
-  - Presenter: <a href="https://kent.academia.edu/TeddyGroves"> **Teddy Groves**</a> completed his PhD in inductive logic and philosophy of statistics at Kent University and now works for Football Radar, a football statistics company based in London. His interests include politics, Rudolf Carnap’s writing about probability and applying statistical methods to football.
+
+<br>
+
+**_How to Test IRT Models Using Simulated Data_**
+
+* Authors: Teddy Groves (Football Radar)
+
+This notebook explains how to code some IRT models using Stan and test whether they can recover input parameters when given simulated data.
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1284275.svg)](https://doi.org/10.5281/zenodo.1284275)
+
+Links: 
+
+  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=6h3m16s)
   - [Notebook and materials](2017/Contributed-Talks/06_groves)
   - [Slides](2017/Contributed-Talks/slides/06_groves_stancon_slides.html)
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=6h3m16s)
+  - https://kent.academia.edu/TeddyGroves
 
-* Bruno Nicenboim, Shravan Vasishth: **_Models of Retrieval in Sentence Comprehension_** 
-  - Presenter: <a href="http://www.ling.uni-potsdam.de/~nicenboim/"> **Bruno Nicenboim**</a> is a PhD candidate at the Department of Linguistics of the University of Potsdam, Germany. His research focus is on cognitive models that link memory processes with sentence comprehension, taking into account individual differences.  He currently teaches graduate and undergraduate level courses at the University of Potsdam.
+
+<br>
+
+**_Models of Retrieval in Sentence Comprehension_** 
+
+* Authors: Bruno Nicenboim, Shravan Vasishth (University of Potsdam)
+
+This work presents an evaluation of two well-known models of retrieval processes in sentence comprehension, the activation-based model and the direct-access model. We implemented these models in a Bayesian hierarchical framework and showed that some aspects of the data can be explained better by the direct access model. Specifically, the activation-based cannot predict that, on average, incorrect retrievals would be faster than correct ones. More generally, our work leverages the capabilities of Stan to provide a powerful framework for flexibly developing computational models of competing theories of retrieval, and demonstrates how these models’ predictions can be compared in a Bayesian setting.
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1284286.svg)](https://doi.org/10.5281/zenodo.1284286)
+
+Links: 
+
+  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=6h18m1s)
   - [Notebook and materials](2017/Contributed-Talks/07_nicenboim) 
   - [Slides](2017/Contributed-Talks/slides/07_nicenboim_stancon_slides.pdf)
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=6h18m1s)
+  - http://www.ling.uni-potsdam.de/~nicenboim/
+  
 
-* Rob Trangucci: **_Hierarchical Gaussian Processes in Stan_** 
-  - Presenter: <a href="https://github.com/rtrangucci"> **Rob Trangucci**</a> is a statistician in NYC working with the Stan team.
+<br>
+
+**_Hierarchical Gaussian Processes in Stan_** 
+
+* Authors: Rob Trangucci (Columbia University)
+
+Stan’s library has been expanded with functions that facilitate adding Gaussian processes (GPs) to Stan models. I will share the best practices for coding GPs in Stan, and demonstrate how GPs can be added as one component of a larger model.
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1284293.svg)](https://doi.org/10.5281/zenodo.1284293)
+
+Links: 
+
+  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=6h31m27s)
   - [Notebook and materials](2017/Contributed-Talks/08_trangucci)
   - [Slides](2017/Contributed-Talks/slides/08_trangucci_stancon_slides.pdf)
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=6h31m27s)
+  - https://github.com/rtrangucci
+  
 
-* Nathan Sanders, Victor Lei: **_Modeling the Rate of Public Mass Shootings with Gaussian Processes_** 
-  - Presenter: <a href="https://github.com/nesanders"> **Nathan Sanders**</a> is the Senior Director of Quantitative Analytics at Legendary Entertainment and has used Stan to model systems in astronomy, film, environmental policy, public health, and more.  
+<br>
+
+**_Modeling the Rate of Public Mass Shootings with Gaussian Processes_** 
+
+* Authors: Nathan Sanders, Victor Lei (Legendary Entertainment)
+
+We have used Stan to develop a new model for the annualized rate of public mass shootings in the United States based on a Gaussian process with a time-varying mean function. This design yields a predictive model with the full non-parametric flexibility of a Gaussian process, while retaining the direct interpretability of a parametric model for long-term evolution of the mass shooting rate. We apply this model to the Mother Jones database of public mass shootings and explore the posterior consequences of different prior choices and of correlations between hyperparameters. We reach conclusions about the long term evolution of the rate of public mass shootings in the United States and short-term periods deviating from this trend.
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1284299.svg)](https://doi.org/10.5281/zenodo.1284299)
+
+Links:
+
+  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=6h45m55s)  
   - [Notebook and materials](2017/Contributed-Talks/09_sanders)
   - [Slides](2017/Contributed-Talks/slides/09_sanders_stancon_slides.pdf)
-  - [Video](https://youtu.be/DJ0c7Bm5Djk?t=6h45m55s)
+  - https://github.com/nesanders
+
 
   
   
