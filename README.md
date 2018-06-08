@@ -196,6 +196,8 @@ Links:
 
 This submission investigates whether the New York City Police Department (NYPD) uses productivity targets or quotas to manage officers in contravention of New York State Law. The analysis is presented in three parts. First, the NYPD's employee evaluation system is introduced, and the criticism that it constitutes a quota is summarized. Secondly, a publically available dataset of traffic tickets issued by NYPD officers in 2014 and 2015 is described. Finally, a generative model to describe how officers write traffic tickets is proposed. The fitted model is consistent with the criticism that police officers substantially alter their ticket writing to coincide with departmental targets. The submission concludes by discussing the implication of these findings and offering directions for further research.
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1284317.svg)](https://doi.org/10.5281/zenodo.1284317)
+
 Links: 
 
   - [Video](https://youtu.be/5qojKAiirqI)
@@ -210,6 +212,8 @@ Links:
 * Authors: Arya A. Pourzanjani, Benjamin B. Bales, Linda R. Petzold, Michael Harrington (UC Santa Barbara)
 
 Alzheimer's Disease is one the most debilitating diseases, but how do we diagnose it accurately? Researchers have been trying to answer this question by building generative models to describe how patient biomarkers, such as MRI scans, psychological tests, and lab tests relate over time to the underlying brain deterioration that's present in Alzheimer's Disease. In this notebook we show how we translated these models to the Bayesian framework in Stan and how this allowed for several model improvements that can ultimately improve our understanding of Alzheimer's and help physicians in diagnosis. In particular, we describe how we hierarchically model patient disease trajectories to obtain stable estimates for patients who lack data. We describe how fitting in Stan yields uncertainties on these disease trajectories, and why that is important for weighing the pros and cons of risky treatment. Lastly, we describe a new method for Bayesian modeling of these monotonic disease trajectories in Stan using I-Splines.
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1284330.svg)](https://doi.org/10.5281/zenodo.1284330)
 
 Links: 
 
@@ -227,6 +231,8 @@ Links:
 The joint modelling of longitudinal and time-to-event data has received much attention in the biostatistical literature in recent years. In this notebook (and talk), we describe the implementation of a shared parameter joint model for longitudinal and time-to-event data in Stan. The methods described in the
 notebook are a simplified version of those underpinning the `stan_jm` modeling function that has recently been contributed to the [**rstanarm**](http://mc-stan.org/rstanarm) R package.
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1284334.svg)](https://doi.org/10.5281/zenodo.1284334)
+
 Links: 
 
   - [Video](https://youtu.be/8r-Ipt885FA)
@@ -243,6 +249,8 @@ Links:
 
 We implement a standard Hidden Markov Model (HMM) and the Input-Output Hidden Markov Model for unsupervised learning of time series dynamics in Stan. We begin by reviewing three commonly-used algorithms for inference and parameter estimation, as well as a number of computational techniques and modeling strategies that make full Bayesian inference practical. For both models, we demonstrate the effectiveness of our proposed approach in simulations. Finally, we give an example of embedding a HMM within a larger model using an example from the econometrics literature.
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1284341.svg)](https://doi.org/10.5281/zenodo.1284341)
+
 Links: 
 
   - [Video](https://youtu.be/oe9PAEI97oI)
@@ -257,6 +265,8 @@ Links:
 * Authors: Aaron Goodman (Stanford University)
 
 Ornstein-Uhlenbeck (OU) processes are a mean reverting process and is used to model dynamics in biology, physics, and finance. I fit an extension of the OU process that is driven by a Lévy process with Student's t-marginals rather than Brownian motion with Gaussian marginals, which allows for heavy-tailed increments. I implement four formulations of the Student-t OU-type model in Stan and compare the sampling performance on both real and simulated population dynamic data. 
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1284346.svg)](https://doi.org/10.5281/zenodo.1284346)
 
 Links: 
 
@@ -274,6 +284,8 @@ Links:
 
 We present SlicStan — a probabilistic programming language that compiles to Stan and uses static analysis techniques to allow for more abstract and flexible models. SlicStan is novel in two ways: (1) it allows variable declarations and statements to be automatically shredded into different components needed for efficient Hamiltonian Monte Carlo inference, and (2) it introduces more flexible user-defined functions that allow for new model parameters to be declared as local variables. This work demonstrates that efficient automatic inference can be the result of the machine learning and programming languages communities joint efforts.
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1284348.svg)](https://doi.org/10.5281/zenodo.1284348)
+
 Links: 
 
   - [Video](https://youtu.be/WTqnehdFNbo)
@@ -284,11 +296,13 @@ Links:
 
 <br>
 
-**_Introducing idealstan, an R package for ideal point modeling with Stan_** 
+**_idealstan: an R package for ideal point modeling with Stan_** 
 
 * Authors: Robert Kubinec (University of Virginia)
 
 Item-response theory (IRT) ideal-point scaling/dimension reduction methods that incorporate additional response categories and missing/censored values, including absences and abstentions, for roll call voting data (or any other kind of binary or ordinal item-response theory data). Full and approximate Bayesian inference is done via Stan.
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1284361.svg)](https://doi.org/10.5281/zenodo.1284361)
 
 Links: 
 
@@ -305,6 +319,8 @@ Links:
 
 Stan’s numerical algebraic solver can be used to solve systems of nonlinear algebraic equations with no closed form solutions. One of its key applications in scientific and engineering fields is the computation of equilibrium states (equivalently steady states). This case study illustrates the use of the algebraic solver by applying it to a problem in pharmacometrics. In particular, I show the algebraic system we solve can be quite complex and embed, for instance, numerical solutions to ordinary differential equations. The code in R and Stan are provided, and a Bayesian model is fitted to simulated data. 
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1284375.svg)](https://doi.org/10.5281/zenodo.1284375)
+
 Links: 
 
   - [Video](https://youtu.be/JhwZIX5ryw0) 
@@ -319,6 +335,8 @@ Links:
 * Authors: Ben Bales, Brent Goodlet, Tresa Pollock, Linda Petzold (UC Santa Barbara)
 
 This outlines a Bayesian approach to resonance ultrasound spectroscopy (RUS), a technique for estimating elastic constants of a material from a sample's measured resonance modes. The notebook includes an example of how to take advantage of custom automatic differentiation in specialized Stan models (either for numerical or efficiency reasons).
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1285265.svg)](https://doi.org/10.5281/zenodo.1285265)
 
 Links: 
 
@@ -335,6 +353,8 @@ Links:
 
 This notebook illustrates how to fit aggregate random coefficient logit models in Stan, using Bayesian techniques. It’s far easier to learn and implement than the standard BLP algorithm, and has the benefits of being robust to mismeasurement of market shares, and giving limited-sample posterior uncertainty of all parameters (and demand shocks). This comes at the cost of modeling firms’ price-setting process, including how unobserved product-market demand shocks affect prices.
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1285268.svg)](https://doi.org/10.5281/zenodo.1285268)
+
 Links: 
 
   - [Video](https://youtu.be/LDOhRIRRe8M)
@@ -349,6 +369,8 @@ Links:
 * Authors: Camelia Simoiu, Sam Corbett-Davies, Sharad Goel, Emma Pierson (Stanford University)
 
 We develop a new statistical test to detect bias in decision making — the threshold test—that mitigates the problem of infra-marginality by jointly estimating decision thresholds and risk distributions.
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1285270.svg)](https://doi.org/10.5281/zenodo.1285270)
 
 Links: 
 
@@ -366,6 +388,8 @@ Links:
 
 A Bayesian paradigm for making drug approval decisions. Case study in the treatment of Diabetes (Type 2).
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1285274.svg)](https://doi.org/10.5281/zenodo.1285274)
+
 Links: 
 
   - [Video](https://youtu.be/Gt73VNaZLXA)
@@ -382,6 +406,8 @@ Links:
 
 The potential outcomes framework often uses one or more parametric outcome models to learn about underlying causal processes. In Stan, parameter estimation using observed data takes place in the model block, while simulation-based estimation of causal parameters using the g-formula can be done separately with generated quantities. Bayesian estimation allows for data-driven sensitivity analysis regarding the assumption of no unmeasured confounding. This presentation shows some simple causal models, then outlines a basic sensitivity analysis using prior information derived from an external data source.
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1285276.svg)](https://doi.org/10.5281/zenodo.1285276)
+
 Links: 
 
   - [Video](https://youtu.be/W3gnbG0v4IE)
@@ -396,6 +422,8 @@ Links:
 * Authors: Fausto Fabian Crespo Fernandez (Universidad San Francisco de Quito)
 
 Earthquake modeling with Stan. Applied to seismic recurrence in Ecuador in 2016.
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1285278.svg)](https://doi.org/10.5281/zenodo.1285278)
 
 Links: 
 
