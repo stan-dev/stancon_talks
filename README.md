@@ -191,18 +191,9 @@ Links:
   - https://github.com/nesanders
 
 
-<br>
-
-<div align="center">
-<a href="http://mc-stan.org">
-<img src="https://raw.githubusercontent.com/stan-dev/logos/master/logo.png" width=25 alt="Stan Logo"/>
-<img src="https://raw.githubusercontent.com/stan-dev/logos/master/logo.png" width=25 alt="Stan Logo"/>
-<img src="https://raw.githubusercontent.com/stan-dev/logos/master/logo.png" width=25 alt="Stan Logo"/>
-<img src="https://raw.githubusercontent.com/stan-dev/logos/master/logo.png" width=25 alt="Stan Logo"/>  
-</a>
-</div>
 
 <br>
+
   
 ## StanCon 2018 | January 10-12, Asilomar, California  
 
