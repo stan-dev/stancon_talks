@@ -8,18 +8,6 @@ StanCon’s version of conference proceedings is a collection of contributed tal
 
 **License**: unless otherwise noted, the text in this repository is distributed under the [CC BY 4.0 License](https://creativecommons.org/licenses/by/4.0/legalcode) and code is distributed under the [New BSD License](https://opensource.org/licenses/BSD-3-Clause). Copyright to the authors.
 
-<div align="center">
-<a href="http://mc-stan.org">
-<img src="https://raw.githubusercontent.com/stan-dev/logos/master/logo.png" width=25 alt="Stan Logo"/>
-<img src="https://raw.githubusercontent.com/stan-dev/logos/master/logo.png" width=25 alt="Stan Logo"/>
-<img src="https://raw.githubusercontent.com/stan-dev/logos/master/logo.png" width=25 alt="Stan Logo"/>
-<img src="https://raw.githubusercontent.com/stan-dev/logos/master/logo.png" width=25 alt="Stan Logo"/>  
-<img src="https://raw.githubusercontent.com/stan-dev/logos/master/logo.png" width=25 alt="Stan Logo"/>  
-<img src="https://raw.githubusercontent.com/stan-dev/logos/master/logo.png" width=25 alt="Stan Logo"/>  
-<img src="https://raw.githubusercontent.com/stan-dev/logos/master/logo.png" width=25 alt="Stan Logo"/>    
-</a>
-</div>
-
 ### Contents:
 
 **2017 NYC**
@@ -203,8 +191,16 @@ Links:
   - https://github.com/nesanders
 
 
-  
-  
+<br>
+
+<div align="center">
+<a href="http://mc-stan.org">
+<img src="https://raw.githubusercontent.com/stan-dev/logos/master/logo.png" width=25 alt="Stan Logo"/>
+<img src="https://raw.githubusercontent.com/stan-dev/logos/master/logo.png" width=25 alt="Stan Logo"/>
+<img src="https://raw.githubusercontent.com/stan-dev/logos/master/logo.png" width=25 alt="Stan Logo"/>
+<img src="https://raw.githubusercontent.com/stan-dev/logos/master/logo.png" width=25 alt="Stan Logo"/>  
+</a>
+</div>
 
 <br>
   
