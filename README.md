@@ -11,9 +11,20 @@ StanCon’s version of conference proceedings is a collection of contributed tal
 
 ### Contents:
 
-* [StanCon 2017 contributed talks](#2017-peer-reviewed-contributed-talks) 
-* [StanCon 2018 contributed talks](#2018-peer-reviewed-contributed-talks)
-* [StanCon 2018 invited talks](#2018-invited-talks) 
+**2017 NYC**
+
+* [Contributed talks](#2017-peer-reviewed-contributed-talks) 
+
+**2018 Asilomar**
+
+* [Contributed talks](#2018-peer-reviewed-contributed-talks)
+* [Invited talks](#2018-invited-talks) 
+
+**2018 Helsinki**
+
+* [Contributed talks](#2018-helsinki-peer-reviewed-contributed-talks)
+* [Invited talks](#2018-helsinki-invited-talks) 
+
 
 <br>
 
@@ -508,3 +519,36 @@ Links:
 
 * Presenter: Andrew Gelman (Columbia University) 
 * [Video](https://youtu.be/uDB_NF_i5Ps)
+
+
+
+
+<br>
+  
+## StanCon 2018 | August 29-31, Aalto University, Helsinki
+
+### 2018 Helsinki Peer reviewed contributed talks
+
+**_Title_** 
+
+* Authors: Names (Affiliations)
+
+Blurb goes here
+
+DOI link image goes here
+
+Links: 
+
+* Video
+* [Notebook, code, slides](2018-helsinki/Contributed-Talks/01_lastname) 
+
+
+
+  
+### 2018 Helsinki Invited talks 
+
+**_Title_**
+    
+* Presenter: Name (Affiliation)
+* Video
+* [Slides](2018/Invited-Talks/lastname) 
