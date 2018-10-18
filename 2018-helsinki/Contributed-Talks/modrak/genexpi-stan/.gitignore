@@ -1,0 +1,11 @@
+sigB_eval
+local_data
+out
+Figs
+*_cache
+*_files
+.Rproj.user
+*.rds
+.Rhistory
+*.RData
+*.nb.html

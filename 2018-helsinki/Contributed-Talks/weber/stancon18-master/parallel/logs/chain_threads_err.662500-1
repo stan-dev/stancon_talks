@@ -1,0 +1,43 @@
+Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
+Exception: Exception: Exception: gamma_lpdf: Inverse scale parameter[1] is -2.40653e-41, but must be > 0!  (in '/home/weberse2/work/stan/stancon18/parallel/warfarin_pd_tlagMax_2par_generated_218.stan' at line 48)
+  (in '/home/weberse2/work/stan/stancon18/parallel/warfarin_pd_tlagMax_2par_generated_218.stan' at line 160)
+  (in '/home/weberse2/work/stan/stancon18/parallel/warfarin_pd_tlagMax_2par_generated_218.stan' at line 225)
+
+If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
+but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
+
+Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
+Exception: Exception: Exception: gamma_lpdf: Inverse scale parameter[2] is -9.88025e-43, but must be > 0!  (in '/home/weberse2/work/stan/stancon18/parallel/warfarin_pd_tlagMax_2par_generated_218.stan' at line 48)
+  (in '/home/weberse2/work/stan/stancon18/parallel/warfarin_pd_tlagMax_2par_generated_218.stan' at line 160)
+  (in '/home/weberse2/work/stan/stancon18/parallel/warfarin_pd_tlagMax_2par_generated_218.stan' at line 225)
+
+If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
+but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
+
+Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
+Exception: Exception: Exception: gamma_lpdf: Shape parameter[1] is nan, but must be > 0!  (in '/home/weberse2/work/stan/stancon18/parallel/warfarin_pd_tlagMax_2par_generated_218.stan' at line 48)
+  (in '/home/weberse2/work/stan/stancon18/parallel/warfarin_pd_tlagMax_2par_generated_218.stan' at line 160)
+  (in '/home/weberse2/work/stan/stancon18/parallel/warfarin_pd_tlagMax_2par_generated_218.stan' at line 225)
+
+If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
+but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
+
+Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
+Exception: Exception: Max number of iterations exceeded (500).  (in '/home/weberse2/work/stan/stancon18/parallel/warfarin_pd_tlagMax_2par_generated_218.stan' at line 151)
+  (in '/home/weberse2/work/stan/stancon18/parallel/warfarin_pd_tlagMax_2par_generated_218.stan' at line 225)
+
+If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
+but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
+
+Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
+Exception: Exception: Exception: gamma_lpdf: Shape parameter[2] is -nan, but must be > 0!  (in '/home/weberse2/work/stan/stancon18/parallel/warfarin_pd_tlagMax_2par_generated_218.stan' at line 48)
+  (in '/home/weberse2/work/stan/stancon18/parallel/warfarin_pd_tlagMax_2par_generated_218.stan' at line 160)
+  (in '/home/weberse2/work/stan/stancon18/parallel/warfarin_pd_tlagMax_2par_generated_218.stan' at line 225)
+
+If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
+but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
+
+
+real	8m48.092s
+user	8m47.426s
+sys	0m0.172s

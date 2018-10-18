@@ -1,0 +1,11 @@
+stancon18_odeWild.Rmd Main notebook
+warfarin_pk.R         Warfarin PK model
+warfarin_pd.R         Warfarin PD model
+
+
+To run the main notebook, please use a recent R and do
+
+library(rmarkdown)
+render("stancon18_odeWild.Rmd")
+
+The main analysis is performed in warfarin_pd.R

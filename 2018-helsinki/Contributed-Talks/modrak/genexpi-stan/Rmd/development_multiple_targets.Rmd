@@ -1,0 +1,80 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r setup}
+library(rstan)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+library(tidyverse)
+library(bayesplot)
+library(shinystan)
+library(here)
+```
+
+
+Note: the model is able to fit correctly when measurement_sigma_absolute and measurement_sigma_relative are treated as parameters, but it is not very useful for real data - either measurement_sigma_relative has to be tightly constrained by prior or it grows large enough to accomodate data without accomodating the underlying spline and regulation
+
+
+```{r}
+regulated_model <- stan_model(file = here('stan','regulated.stan'))
+```
+
+```{r}
+data <- simulate_regulated_spline(3,31,5,seq(1,31,by = 3), 0.2, 0.2, regulator_measured = TRUE, integrate_ode45 = FALSE)
+print(data$true[c("degradation","sensitivity", "w","b_raw")])
+data.frame(time = 1:data$observed$num_time, regulator = data$true$regulator_expression, target1 = data$true$expression[1,], target2 = data$true$expression[2,], target3 = data$true$expression[3,]) %>%
+  gather("profile", "value",-time) %>%
+  ggplot(aes(x=time, y = value, color = profile)) + geom_line()
+```
+
+```{r}
+data <- simulate_regulated_spline(5,31,seq(1,31,by = 3), num_df = 5, measurement_sigma_absolute = 0.1, measurement_sigma_relative = 0.2, regulator_measured = TRUE, integrate_ode45 = FALSE)
+
+fit <- sampling(regulated_model, data = data$observed, control = list(adapt_delta = 0.95))
+evaluation_summary(rstan::extract(fit, c("coeffs","initial_condition","sensitivity","degradation", "intercept","w","b","sigma_relative_param","sigma_absolute_param")), data$true, printParamsResults = TRUE)
+ summary(fit)$summary[,c("n_eff","Rhat")] %>% as.data.frame() %>% summarise(min_n_eff = min(n_eff),max_Rhat = max(Rhat))
+
+fitted_regulator_plot(fit, data$observed)
+
+for(t in 1:data$observed$num_targets) { 
+  fitted_target_plot(fit, data$observed, target = t) %>% print()
+
+}
+
+
+```
+```{r}
+np_style <- parcoord_style_np(div_alpha = 0.6)
+
+mcmc_parcoord(as.array(fit, pars = c("coeffs","degradation","sensitivity","initial_condition","w","b_raw","intercept_raw")), np = nuts_params(fit), np_style = np_style)
+
+mcmc_parcoord(as.array(fit, pars = c("coeffs","initial_condition","b_raw","intercept_raw")), np = nuts_params(fit), np_style = np_style)
+
+
+target <- 3
+expression_data <- as.array(fit, pars = c("predicted_expression"))
+target_data <- expression_data[,,seq(1,(dim(tt)[3]), by = 3) - 1 + target]
+mcmc_parcoord(target1_data, np = nuts_params(fit), np_style = np_style)
+
+
+mcmc_parcoord(as.array(fit, pars = c("predicted_regulator_expression")), np = nuts_params(fit), np_style = np_style)
+
+```
+
+# TODO check alternatives to ensuring positivity
+
+```{r}
+points <- 1:100
+df <- 7
+basis <- bs(points, df = df, intercept = TRUE)
+n_samples <- 10
+rand_coeff <- array(rnorm(df*n_samples), c(df, n_samples))
+raw_points <- basis %*% rand_coeff
+min_add <- array(apply(raw_points, 2, min), c(n_samples, length(points))) %>% t
+min_plot <- ggmatplot(points, raw_points - min_add, main_geom = geom_line(alpha = 0.5)) + ggtitle("Min = 0")
+exp_plot <- ggmatplot(points, log1p(exp(raw_points)), main_geom = geom_line(alpha = 0.5)) + ggtitle("log(1 + exp)") 
+plot_grid(min_plot, exp_plot, ncol = 1)
+
+```

@@ -1,0 +1,1270 @@
+---
+title: "Are shots predictive of soccer results?"
+author: "L.Egidi, F.Pauli, N.Torelli - University of Trieste, Italy"
+date: "StanCon Helsinki, 29-31 August 2018"
+bibliography: ref.bib
+output:
+  html_document:
+    css: style.css
+    toc: yes
+  beamer_presentation:
+    highlight: tango
+  include: null
+  ioslides_presentation:
+    highlight: tango
+  pdf_document:
+    highlight: tango
+    keep_tex: yes
+    toc: yes
+  slide_level: 2
+  slidy_presentation:
+    fig.height: 3
+    fig.width: 4
+    highlight: tango
+header-includes:
+- \usepackage{color}
+- \usepackage{bm}
+- \definecolor{Purple}{HTML}{911146}
+- \definecolor{Orange}{HTML}{CF4A30}
+- \setbeamercolor{alerted text}{fg=Orange}
+- \setbeamercolor{frametitle}{bg=Purple}
+institute: University of Udine & University of Trieste
+graphics: yes
+subtitle: A Stan model for the shooting soccer ability
+fontsize: 10pt
+---
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.align = 'center', warning=FALSE, message=FALSE, fig.asp=0.625, fig.height =10, fig.width = 8, out.width='750px', dpi=200, 
+  dev='png', global.par = TRUE, dev.args=list(pointsize=10), fig.path = 'figs/')
+library(MASS)
+```
+```{r setup, include=FALSE}
+library(knitr)
+local({
+  hook_plot = knit_hooks$get('plot')
+  knit_hooks$set(plot = function(x, options) {
+    paste0('\n\n----\n\n', hook_plot(x, options))
+  })
+})
+```
+
+
+
+# Introduction
+
+Predicting the outcome of a soccer match is the subject of much debate, and several models based on different assumptions 
+have been proposed for modeling the numbers of goals scored by two competing teams:
+
+- <span style="color:red">double Poisson</span> models [@baio2010bayesian; @maher1982modelling; @rue2000prediction; @egidi2018combining];
+
+- <span style="color:red">joint bivariate Poisson</span> models accounting for a (positive) goals' correlation [@karlis2003analysis];
+
+- <span style="color:red">negative binomial</span> models accounting for goals' overdispersion.
+
+
+<!-- ```{r target, fig.width=12, fig.height=15,out.height =19, echo=FALSE} -->
+<!--  library(jpeg) -->
+<!--  library(grid) -->
+<!--  img <- readJPEG("target.jpg") -->
+<!--   grid.raster(img) -->
+<!-- ``` -->
+
+In this case study we adopt a different perspective and propose a Bayesian hierarchical model consisting of three nested multiple outcomes: 
+**number of scores**, **number of shots on target** and **number of total shots**. We model the number of scores and the number of shots on target with  <span style="color:red">two binomial 
+distributions</span> respectively, whereas the total shots follow a negative binomial distributon. Our dataset consists of nine seasons of the English Premier League (EPL): eight seasons---from 2008/2009 to 2015/2016, 3040 matches---represent the train set, whereas the nineth season, 2016/2017 (with the remaining 380 matches), is our test set, used for out-of sample prediction. 
+
+We fit the model in $\mathsf{Stan}$ and we analyze the output using $\mathsf{R}$.
+
+
+# Model
+
+Here, $\mathbf{y}_n=(y_{n1}, y_{n2})$ denotes the vector of observed scores, where $y_{n1}$ and $y_{n2}$ are the numbers 
+of goals scored by the home team and by the away team in the $n$-th match of the dataset, respectively. Let $\mathbf{s}_n=(s_{n1}, s_{n2})$ denote the shots on the target and $\mathbf{w}_{n}=(w_{n1}, w_{n2})$ the total number of shots, respectively. For each match $n$, the data information is represented by the joint vector $(\mathbf{y}, \mathbf{s}, \mathbf{w})$. The total number of teams considered across the seasons is $T=34$. In the model specification below, the nested indexes $h(n), a(n)=1,\ldots, T$ and $\tau(n)=1,\ldots,9$ identify the home team, the away team and the season $\tau$ associated with the $n$-th game, 
+respectively. The hierarchical model for the scores and the shots is then specified as follows:
+
+\begin{align}
+\begin{split}
+y_{n1}& \sim \mathsf{Binomial}(s_{n1}, p_{h(n),\ \tau(n)}) \\
+y_{n2}& \sim \mathsf{Binomial}(s_{n2}, q_{a(n),\ \tau(n)}) \\
+s_{n1} & \sim \mathsf{Binomial}(w_{n1}, u_{h(n)})\\
+s_{n2} & \sim \mathsf{Binomial}(w_{n2}, v_{a(n)})\\
+w_{nj}| \theta_{nj} &\sim \mathsf{NegBinomial}(\theta_{nj}, \phi), \ \ j=1,2.\\
+%s_{n1} & \perp s_{n2} | \theta_{n1}, \theta_{n2}.
+\end{split}
+\label{eq:model}
+\end{align}
+An inverse logit specification considering the attack and the defense abilities of the competing teams across the seasons is proposed for both the <span style="color:red">*conversion probabilities*</span> $p$ and $q$: 
+
+
+\begin{align}
+\begin{split}
+p_{h(n),\ \tau(n)} & =  \mbox{logit}^{-1}(\mu+att_{h(n),\ \tau(n)}+def_{a(n) ,\ \tau(n)})\\
+q_{a(n),\ \tau(n)} & =  \mbox{logit}^{-1}(att_{a(n),\ \tau(n)}+def_{h(n),\ \tau(n) }).
+\end{split}
+\label{eq:conv_prob}
+\end{align}
+The attack and defence parameters are assumed to to be dynamic [@owen2011dynamic] and to follow two Gaussian processes:
+
+\begin{align}
+\begin{split}
+att_{\cdot,\tau} \sim & \mathsf{GP}(\mu_{att}(\tau), k(\tau)),\\ 
+def_{\cdot, \tau} \sim & \mathsf{GP}(\mu_{def}(\tau), k(\tau)),
+\end{split}
+\label{eq:att_def}
+\end{align}
+with mean functions $\mu_{att}( \tau)=0,\ \mu_{def}(\tau)=0$, and covariance function with generic element $k(\tau)_{i,j}= \exp \{ -(\tau_{i}-\tau_{j})^{2} \}+0.1$. As motivated in the literature, a `zero-sum' identifiability constraint within each season is required; thus,  we assume:
+$\sum_{t=1}^{T} att_{t ,\tau}=0,\  \sum_{t=1}^{T}def_{t,\tau}=0,  \tau=1,\ldots \mathcal{T}$.
+
+The <span style="color:red">*shots' precision probabilities*</span> $u$ and $v$ are given a $\mathsf{Beta}$ distribution with hyperparameters $\delta,\epsilon$, whereas the *shots rates* $\theta_{n1}, \theta_{n2}$  are assigned a $\mathsf{Gamma}$ distribution with hyperparameters $\alpha,\beta$, :
+
+
+\begin{align}
+u_{h(n}) &\sim \mathsf{Beta}(\delta_{h(n)},\epsilon_{h(n)}), \ v_{a(n)} \sim \mathsf{Beta}(\delta_{a(n)},\epsilon_{a(n)}) \\
+\theta_{n1} &\sim \mathsf{Gamma}(\alpha_{h(n)},\beta_{h(n)}), \ \theta_{n2} \sim \mathsf{Gamma}(\alpha_{a(n)},\beta_{a(n)}).
+\end{align}
+The model is completed by the elicitation of weakly informative priors for the home effect parameter $\mu$, the overdispersion parameter $\phi$, and the hyperparameters $\alpha,\beta,\delta,\epsilon$:
+
+\begin{align}
+\mu \sim \mathsf{Normal}(0,1)\\
+\phi \sim \mathsf{Normal}(0,1)\\
+\alpha \sim \mathsf{Normal}(0,5)\\
+\beta \sim \mathsf{Normal}(0,5)\\
+\delta \sim \mathsf{Normal}(0,5)\\
+\epsilon \sim \mathsf{Normal}(0,5)
+\end{align}
+
+#Reading data
+
+EPL data have been downloaded from the website [https://football-data.co.uk](https://football-data.co.uk). Once you save the $\mathsf{.csv}$ files in your computer, the function ```import_data()```is needed for importing them in the $\mathsf{R}$ environment; ```PL``` is the full dataset, consisting of the nine seasons (3420 rows and 16 columns). After importing data, we rename the main quantities. Among the others, ```teams``` identifies the teams, ```score1```, ```score2``` identify the home teams and away teams goals, respectively. ```kicks1```, ```kicks2``` are the total shots, whereas ```kicks1_target```, ```kicks2_target``` denote the kicks on target. ```team_1```, ```team_2``` denote the home team and the away team index, respectively. As mentioned above, we use the first eight seasons as training set---with length ```ngames_train```---and the nineth as test set---with length ```ngames_test```.
+
+
+```{r data, include=TRUE, warning = FALSE}
+#load required packages
+library(rstan)
+library(readr)
+library(ggplot2)
+library(dplyr)
+library(reshape2)
+library(shinystan)
+library(bayesplot)
+library(kableExtra)
+library(loo)
+library(matrixStats)
+
+#my directory, where .csv files are stored
+mydir <- getwd()
+#global function for importing several seasons
+import_data <- function(season){
+  season <- read_csv(paste(mydir, "/", season,".csv", sep=""))
+  pl <- cbind( season$HomeTeam, season$AwayTeam,
+           season$FTHG, season$FTAG, season$FTR,
+           season$HS, season$AS, season$HST,season$AST,
+           season$HY, season$AY, season$HR, season$AR,
+           season$B365H, season$B365D, season$B365A)
+           return(list(pl=pl, season=season))
+}
+#data concatenation
+seasons_string <- c("PL08-09", "PL09-10", "PL10-11", 
+                    "PL11-12","PL12-13", "PL13-14", 
+                    "PL14-15", "PL15-16", "PL16-17" )
+
+#full dataset 
+PL <- rbind(import_data("PL08-09")$pl,
+           import_data("PL09-10")$pl,
+           import_data("PL10-11")$pl,
+           import_data("PL11-12")$pl,
+           import_data("PL12-13")$pl,
+           import_data("PL13-14")$pl,
+           import_data("PL14-15")$pl,
+           import_data("PL15-16")$pl, 
+           import_data("PL16-17")$pl)
+ 
+#season index
+season_or <- rep(1:9, each=380)
+#number of season
+nseason   <- length(unique(season_or))
+season_time <- c(1:nseason)
+#teams for all the nine seasons
+teams_matrix <- matrix(NA, nseason, 20)
+   for (i in 1:length(seasons_string)){
+        launch <- import_data(seasons_string[i])
+        teams_matrix[i,] <- unique(launch$pl[,1])
+ }
+teams   <- unique( as.vector(t(teams_matrix)))
+PL16_17 <-  import_data("PL16-17")
+teams16_17 <- unique(PL16_17$season$HomeTeam)
+teams16_17_index <- match(teams16_17, teams)
+nteams <- length(teams)
+#total games
+ngames_tot   <- length(PL[,1])
+#test set games
+ngames_test  <- 380
+#train set games
+ngames_train <- ngames_tot-ngames_test
+season_train <- season_or[1:ngames_train]
+#team index, scores and kicks
+team1             <- match (as.vector(PL[,1])[1:ngames_train], teams)
+score1            <- as.numeric(as.vector(PL[,3])[1:ngames_train])
+team2             <- match (as.vector(PL[,2])[1:ngames_train], teams)
+score2            <- as.numeric(as.vector(PL[,4])[1:ngames_train])
+kicks1            <- as.vector(as.numeric(PL[1:ngames_train,6]))
+kicks2            <- as.vector(as.numeric(PL[1:ngames_train,7]))
+kicks1_target     <- as.vector(as.numeric(PL[1:ngames_train,8]))
+kicks2_target     <- as.vector(as.numeric(PL[1:ngames_train,9]))
+score1_prev       <- as.numeric(as.vector(PL[,3])[(ngames_train+1):ngames_tot])
+score2_prev       <- as.numeric(as.vector(PL[,4])[(ngames_train+1):ngames_tot])
+team1_prev        <- match (as.vector(PL[,1])[(ngames_train+1):ngames_tot], teams)
+team2_prev        <- match (as.vector(PL[,2])[(ngames_train+1):ngames_tot], teams)
+season_prev       <- season_or[(ngames_train+1):ngames_tot]
+
+# correction for both the shots on target and the total shots:
+# when the number of shots on target (total shots) is minor than
+# the number of scores (shots on target), the binomial distribution
+# above stucks: for simplicity, we assume that the number of 
+# shots on target (total shots) is always greater or equal than
+# the number of scores (shots on target).
+
+kicks1_target[(1:ngames_train)[score1>kicks1_target]]=score1[ (1:ngames_train)[score1>kicks1_target]]
+kicks2_target[(1:ngames_train)[score2>kicks2_target]]=score2[ (1:ngames_train)[score2>kicks2_target]]
+kicks1[(1:ngames_train)[kicks1<kicks1_target]]=kicks1_target[(1:ngames_train)[kicks1<kicks1_target]]
+kicks2[(1:ngames_train)[kicks2<kicks2_target]]=kicks2_target[(1:ngames_train)[kicks2<kicks2_target]]
+
+```
+
+# Stan code
+
+We provide here the self-explanatory $\mathsf{Stan}$ code, saved as $\mathsf{shots.stan}$. The ```generated quantities``` block contains both in-sample and out-of-sample replications.
+
+
+
+```{stan, output.var="ex1"}
+
+data {
+  int N;                                  // number of matches
+  int nseason;                            // number of seasons
+  int season[N];                          // season index
+  int score_home[N];                      // home scores
+  int score_away[N];                      // away scores
+  int Shots_home[N];                      // home shots on target
+  int Shots_away[N];                      // away total shots on target
+  int Tot_Shots_home[N];                  // home total shots  
+  int Tot_Shots_away[N];                  // away total shots
+  int nteams;                             // number of teams  
+  int teams_home[N];                      // team home index  
+  int teams_away[N];                      // team away index  
+  int N_prev;                             // number of predicted matches  
+  int teams_home_prev[N_prev];            // team home predicted index
+  int teams_away_prev[N_prev];            // team away predicted index
+  int season_prev[N_prev];                // season predicted index
+  int season_time[nseason];               
+  }
+ parameters {
+  real mu;                                // home effect parameter
+  real<lower=0> phi;                      // overdispersion total shots parameter
+  vector<lower=0>[nteams] alpha;          // total shots shape
+  vector<lower=0>[nteams] beta;           // total shots rate
+  vector<lower=0>[nteams] delta;          // beta shape 1
+  vector<lower=0>[nteams] epsilon;        // beta shape 2
+  matrix[nseason, nteams] att_raw;        // raw attack ability
+  matrix[nseason, nteams] def_raw;        // raw defense ability
+  vector<lower=0>[N] theta_home;          // home total shots rate
+  vector<lower=0>[N] theta_away;          // away total shots rate
+}
+ transformed parameters{
+  matrix[nseason, nteams] att;            // attack abilities
+  matrix[nseason, nteams] def;            // defense abilities
+  cov_matrix[nseason] Sigma_att;          // Gaussian process attack cov. funct.
+  cov_matrix[nseason] Sigma_def;          // Gaussian process defense cov.funct.
+  matrix[nseason, nteams] mu_att;         // attack hyperparameter
+  matrix[nseason, nteams] mu_def;         // defense hyperparameter
+  matrix<lower=0, upper=1>[nteams,nseason-1] p;   // conversion home probabilities
+  matrix<lower=0, upper=1>[nteams,nseason-1] q;   // conversion away probabilities
+  
+  p = rep_matrix(0.2, nteams, nseason-1);
+  q = rep_matrix(0.2, nteams, nseason-1);
+  
+   
+  // Gaussian process covariance functions
+   for (i in 1:(nseason)){
+     for (j in 1:(nseason)){
+       Sigma_att[i, j] = exp(-pow(season_time[i] - season_time[j], 2))
+       + (i == j ? 0.1 : 0.0);
+       Sigma_def[i, j] = exp(-pow(season_time[i] - season_time[j], 2))
+                   + (i == j ? 0.1 : 0.0);
+     }}
+   
+  // Sum-to-zero constraint for attack/defense parameters
+  att[1]=att_raw[1]-mean(att_raw[1]);
+  def[1]=def_raw[1]-mean(def_raw[1]);
+   for (t in 2:nseason){
+      att[t]=att_raw[t]-mean(att_raw[t]);
+      def[t]=def_raw[t]-mean(def_raw[t]);
+     }
+ 
+  // Lagged prior mean for attack/defense parameters 
+   for (t in 2:(nseason)){
+     mu_att[1]=rep_row_vector(0,nteams);
+     mu_att[t]=rep_row_vector(0,nteams);
+     //att[t-1];
+     mu_def[1]=rep_row_vector(0,nteams);
+     mu_def[t]=rep_row_vector(0,nteams);
+     //def[t-1];
+     }
+ 
+  // Conversion probabilities
+   for (n in 1:N){
+     p[teams_home[n], season[n]]=inv_logit(mu+att[season[n], teams_home[n]]  
+                                    +def[season[n], teams_away[n]]);
+     q[teams_away[n], season[n]]=inv_logit(att[season[n], teams_away[n]]
+                                    +def[season[n], teams_home[n]]);
+     }
+}
+ model{
+  // Priors
+  target+=normal_lpdf(phi|0,1);
+  target+=normal_lpdf(alpha |0,5);
+  target+=normal_lpdf(beta |0,5);
+  target+=normal_lpdf(delta |0,5);
+  target+=normal_lpdf(epsilon |0,5);
+   
+   for (h in 1:(nteams)){
+     att_raw[,h]~multi_normal(mu_att[,h], Sigma_att);
+     def_raw[,h]~multi_normal(mu_def[,h], Sigma_def);
+   }
+  
+  // Likelihood
+   for (n in 1:N){
+     target+= binomial_lpmf(score_home[n] |  Shots_home[n],  
+                            p[teams_home[n],season[n]]);
+     target+= binomial_lpmf(score_away[n] |  Shots_away[n], 
+                            q[teams_away[n], season[n]]);
+     target+= beta_binomial_lpmf(Shots_home[n] |  Tot_Shots_home[n],     
+                                 delta[teams_home[n]],epsilon[teams_home[n]]);
+     target+= beta_binomial_lpmf(Shots_away[n] |  Tot_Shots_away[n], 
+                                 delta[teams_away[n]],epsilon[teams_away[n]]);
+     target+=gamma_lpdf(theta_home[n]|alpha[teams_home[n]],beta[teams_home[n]]);
+     target+=gamma_lpdf(theta_away[n]|alpha[teams_away[n]],beta[teams_away[n]]);
+      }
+ 
+  target+= neg_binomial_2_lpmf(Tot_Shots_home|theta_home, phi );
+  target+= neg_binomial_2_lpmf(Tot_Shots_away|theta_away, phi);
+}
+ generated quantities{
+  vector[N] log_lik;
+  int score_home_rep[N];        // in-sample replication for home scores
+  int score_away_rep[N];        // in-sample replications for away scores 
+  int Shots_home_rep[N];        // in-sample replications for home shots on t.
+  int Shots_away_rep[N];        // in-sample replications for away shots on t.
+  int Tot_Shots_home_rep[N];    // in-sample replications for home total shots
+  int Tot_Shots_away_rep[N];    // in-sample replications for away total shots
+  int score_home_prev[N_prev];  // out-of-sample replications for home scores 
+  int score_away_prev[N_prev];  // out-of-sample replications for away scores 
+  int Shots_home_prev[N_prev];  // out-of-sample replications for home shots on t. 
+  int Shots_away_prev[N_prev];  // out-of-sample replications for away shots on t.
+  int Tot_Shots_home_prev[N_prev];  // out-of-sample repl. for home total shots
+  int Tot_Shots_away_prev[N_prev];  // out-of-sample repl. for away total shots
+  vector<lower=0>[N_prev] theta_home_prev;   // predicted home shooting rate 
+  vector<lower=0>[N_prev] theta_away_prev;   // predicted away shooting rate 
+  vector<lower=0, upper=1>[nteams] p_prev;   // pred. conversion home probabilities
+  vector<lower=0, upper=1>[nteams] q_prev;   // pred. conversion away probabilities
+    
+    for (n in 1:N){
+      Tot_Shots_home_rep[n]=neg_binomial_2_rng(theta_home[n], phi);
+      Tot_Shots_away_rep[n]=neg_binomial_2_rng(theta_away[n], phi);
+      Shots_home_rep[n]=beta_binomial_rng(Tot_Shots_home_rep[n],
+                        delta[teams_home[n]],epsilon[teams_home[n]]);
+      Shots_away_rep[n]=beta_binomial_rng(Tot_Shots_away_rep[n],
+                        delta[teams_away[n]],epsilon[teams_away[n]]);
+      score_home_rep[n]=binomial_rng(Shots_home_rep[n],
+                                      p[teams_home[n], season[n]]);
+      score_away_rep[n]=binomial_rng(Shots_away_rep[n],
+                                      q[teams_away[n], season[n]]);
+      log_lik[n] =binomial_lpmf(score_home[n] |  Shots_home[n],  
+                                p[teams_home[n],season[n]])+
+                  binomial_lpmf(score_away[n] |  Shots_away[n], 
+                                q[teams_away[n], season[n]]);
+                  }
+ 
+  // p_prev and q_prev initialization
+   p_prev=p[,nseason-1];
+   q_prev=q[,nseason-1];
+ 
+    for (n in 1:N_prev){
+      p_prev[teams_home_prev[n]]=p[teams_home_prev[n], nseason-1];
+      q_prev[teams_away_prev[n]]=q[teams_away_prev[n], nseason-1];
+      theta_home_prev[n]=gamma_rng(alpha[teams_home_prev[n]],
+                                    beta[teams_home_prev[n]]);
+      theta_away_prev[n]=gamma_rng(alpha[teams_away_prev[n]],
+                                    beta[teams_away_prev[n]]);
+      Tot_Shots_home_prev[n]=neg_binomial_2_rng(theta_home_prev[n], phi);
+      Tot_Shots_away_prev[n]=neg_binomial_2_rng(theta_away_prev[n], phi);
+      Shots_home_prev[n]=beta_binomial_rng(Tot_Shots_home_prev[n],
+                  delta[teams_home_prev[n]],epsilon[teams_home_prev[n]]);
+      Shots_away_prev[n]=beta_binomial_rng(Tot_Shots_away_prev[n],          
+                  delta[teams_away_prev[n]],epsilon[teams_away_prev[n]]);
+      score_home_prev[n]=binomial_rng(Shots_home_prev[n],
+                                        p_prev[teams_home_prev[n]]);
+      score_away_prev[n]=binomial_rng(Shots_away_prev[n],
+                                        q_prev[teams_away_prev[n]]);
+        }
+}
+
+```
+
+
+# Fitting the model
+
+We fit the model running four chains each of length 1000 HMC iterations. The Gelman-Rubin statistic $\hat{R}\le 1.1$ for all the parameters.
+
+```{r fitting, output.var="ex1", eval = FALSE}
+ 
+# data
+shots_data <- list(N=ngames_train, N_prev=ngames_test, score_home=score1,
+                   score_away=score2, Shots_home=kicks1_target,
+                   Shots_away=kicks2_target, Tot_Shots_home=kicks1,
+                   Tot_Shots_away=kicks2, nteams=nteams,
+                   teams_home=team1, teams_away=team2,
+                   teams_home_prev=team1_prev, teams_away_prev=team2_prev,
+                   season=season_or[1:ngames_train], season_prev=season_prev,
+                   nseason=nseason,
+                   season_time=season_time)
+ 
+# fit stan model
+mod_shots_stan <- stan(file="shots.stan", data=shots_data,  iter = 1000,
+                       chains = 4, cores = 4, seed = 1)
+ 
+#  extract posterior output
+sims <- extract(mod_shots_stan)
+
+
+
+
+```
+
+# Parameters estimates
+
+## Evolution of team abilities across the seasons
+
+Higher values for the attack parameters are associated with a greater propensity to 
+convert the shots on target in goals; conversely, lower values for the defense correspond 
+to a better ability to not concede goals. The figure below displays the posterior medians for parameters $att$ (orange solid lines) and $def$ 
+(black solid lines) along with the 50\% credible bars across the different seasons; it is worth noting that the model above does not account for any *relegation* system. 
+However, the dynamic assumption allows for estimating the above mentioned latent abilities for all the teams, even those not partecipating to the EPL 
+in some seasons---such as Middlesbrough, Swansea, Watford and many others.
+
+
+```{r team abilities, fig.height=17, echo=FALSE}
+# load the stanfit
+load("fit.RData")
+sims <- extract(mod_shots_stan)
+season_unique <- 1:nseason
+
+att <- sims$att
+def <- sims$def
+
+att_med <- t(apply(att,c(2,3), median))
+def_med <- t(apply(def,c(2,3), median))
+att_25  <- t(apply(att, c(2,3), function(x) quantile(x, 0.25)))
+att_75  <- t(apply(att, c(2,3), function(x)  quantile(x, 0.75)))
+def_25  <- t(apply(def, c(2,3), function(x) quantile(x, 0.25)))
+def_75  <- t(apply(def, c(2,3), function(x)  quantile(x, 0.75)))
+
+att_25_mat=att_75_mat=def_25_mat=def_75_mat=att_50_mat=def_50_mat=matrix(NA, nseason, nteams)
+for (t in 1:nseason){
+  att_25_mat[t,] <- as.vector(att_25[(t*nteams-((nteams-1))):(t*nteams)])
+  att_50_mat[t,] <- as.vector(att_med[  (t*nteams-((nteams-1))):(t*nteams)])
+  att_75_mat[t,] <- as.vector(att_75[  (t*nteams-((nteams-1))):(t*nteams)])
+  def_25_mat[t,] <- as.vector(def_25[  (t*nteams-((nteams-1))):(t*nteams)])
+  def_50_mat[t,] <- as.vector(def_med[  (t*nteams-((nteams-1))):(t*nteams)])
+  def_75_mat[t,] <- as.vector(def_75[  (t*nteams-((nteams-1))):(t*nteams)])
+}
+
+
+att_25_mat <- att_25_mat[,teams16_17_index]
+att_50_mat <- att_50_mat[,teams16_17_index]
+att_75_mat <- att_75_mat[,teams16_17_index]
+def_25_mat <- def_25_mat[,teams16_17_index]
+def_50_mat <- def_50_mat[,teams16_17_index]
+def_75_mat <- def_75_mat[,teams16_17_index]
+
+
+
+mt_att_25 <- melt(t(att_25_mat))
+mt_att_50 <-melt(t(att_50_mat))
+mt_att_75 <- melt(t(att_75_mat))
+
+mt_def_25 <- melt(t(def_25_mat))
+mt_def_50 <- melt(t(def_50_mat))
+mt_def_75 <- melt(t(def_75_mat))
+
+teams_fac_rep <- rep(teams16_17, length(season_unique))
+season_rep=rep(1:length(season_unique), each=20)
+
+att_data=data.frame(
+  teams=teams_fac_rep,
+  season=season_rep,
+  mid=mt_att_50$value,
+  lo=mt_att_25$value,
+  hi=mt_att_75$value
+)
+
+def_data=data.frame(
+  teams=teams_fac_rep,
+  season=season_rep,
+  mid=mt_def_50$value,
+  lo=mt_def_25$value,
+  hi=mt_def_75$value
+)
+
+position_lookup <-
+  att_data %>%
+  group_by(teams) %>%
+  summarise(pos=first(teams))
+
+
+ggplot() +
+  geom_ribbon(
+    aes(x = season, ymin = lo, ymax = hi),
+    data = att_data,
+    fill = color_scheme_get("gray")[[2]]
+  ) +
+  geom_ribbon(
+    aes(x = season, ymin = lo, ymax = hi),
+    data = def_data,
+    fill = color_scheme_get("gray")[[2]]
+  )+
+  geom_line(
+    aes(x = season, y = mid),
+    data = att_data,
+    size = 1,
+    color ="orange" 
+      #color_scheme_get("orange")[[4]]
+  )+
+  geom_line(
+    aes(x = season, y = mid),
+    data = def_data,
+    size = 1,
+    color = "black"
+      #color_scheme_get("black")[[4]]
+  )+
+  scale_color_manual(values = c(color_scheme_get("blue")[[4]],
+    color_scheme_get("red")[[4]]))+
+  facet_wrap("teams", scales = "free")+
+  lims(y = c(-2,2)) +
+  scale_x_discrete( limits=c("08/09","","","", "12/13","", "","", "16/17")  ) + 
+  labs(x = "Seasons", y = "Teams' effects",
+    title = "Attack and defence effects (50% posterior bars)",
+    subtitle = "for teams of Premier League 2016/2017") +
+  facet_text(size = rel(0.9)) +
+  xaxis_text( size = rel(0.7))
+
+
+
+
+```
+
+
+The figure below displays the 50\% posterior intervals for the conversion home probabilities $p_{t, \tau}$ (solid red line) and the conversion away 
+probabilities $q_{t,\tau}$ (solid blue line) across the different seasons $\tau=1\,\ldots,9$, only for the nine teams partecipating to the EPL with regard of all the seasons considered---from 2008/2009 to 2016/2017. Red and blue points denote the observed conversion rates. As a general comment, the conversion propensity seems to globally increase across the seasons, and the inverse logit specification strictly detects this pattern.
+
+
+```{r probabilities,echo=FALSE}
+# load the stanfit
+#load("fit3.RData")
+
+season_unique <- 1:nseason
+sel_teams <- c("Arsenal", "Chelsea", "Everton", "Liverpool", "Man City", 
+  "Sunderland","Stoke", "Man United", "Tottenham")
+sel_teams_index <- match(sel_teams, teams)
+
+
+
+ratio_shots = ratio_gol = array(0, c(nseason-1, nteams,2))
+
+for (ns in 1:(nseason-1)){
+for (t in 1:nteams){
+  ratio_gol[ns, t,1] <- sum(as.numeric(subset(PL[((ns*380)-380+1):(ns*380),3],  PL[((ns*380)-380+1):(ns*380),1]==teams[t])))/
+    sum(as.numeric(subset(PL[((ns*380)-380+1):(ns*380),8],  PL[((ns*380)-380+1):(ns*380),1]==teams[t])))
+  ratio_gol[ns, t, 2] <- sum(as.numeric(subset(PL[((ns*380)-380+1):(ns*380),4],  PL[((ns*380)-380+1):(ns*380),2]==teams[t])))/
+    sum(as.numeric(subset(PL[((ns*380)-380+1):(ns*380),9],  PL[((ns*380)-380+1):(ns*380),2]==teams[t])))
+  ratio_shots[ns, t,1]<- sum(as.numeric(subset(PL[((ns*380)-380+1):(ns*380),8],  PL[((ns*380)-380+1):(ns*380),1]==teams[t])))/
+ sum(as.numeric(subset(PL[((ns*380)-380+1):(ns*380),6],  PL[((ns*380)-380+1):(ns*380),1]==teams[t])))
+  }
+}
+
+ratio_home_gol <- ratio_gol[,sel_teams_index,1]
+ratio_away_gol <- ratio_gol[,sel_teams_index,2]
+ratio_shots <-    ratio_shots[,sel_teams_index,]
+
+
+
+p     <- sims$p
+p_med <- (apply(p,c(2,3), median))
+p_25  <- apply(p, c(2,3), function(x) quantile(x, 0.25))
+p_75  <- (apply(p, c(2,3), function(x)  quantile(x, 0.75)))
+
+p_50_mat=p_25_mat=p_75_mat=matrix(NA, (nseason-1), nteams)
+for (t in 1:(nseason-1)){
+  p_25_mat[t,]=as.vector(p_25[(t*nteams-((nteams-1))):(t*nteams)])
+  p_50_mat[t,]=as.vector(p_med[  (t*nteams-((nteams-1))):(t*nteams)])
+  p_75_mat[t,]=as.vector(p_75[  (t*nteams-((nteams-1))):(t*nteams)])
+ 
+}
+
+q     <- sims$q
+q_med <- apply(q,c(2,3), median)
+q_25  <- apply(q, c(2,3), function(x) quantile(x, 0.25))
+q_75  <- apply(q, c(2,3), function(x)  quantile(x, 0.75))
+
+q_50_mat=q_25_mat=q_75_mat=matrix(NA, (nseason-1), nteams)
+for (t in 1:(nseason-1)){
+  q_25_mat[t,] <- as.vector(q_25[(t*nteams-((nteams-1))):(t*nteams)])
+  q_50_mat[t,] <- as.vector(q_med[  (t*nteams-((nteams-1))):(t*nteams)])
+  q_75_mat[t,] <- as.vector(q_75[  (t*nteams-((nteams-1))):(t*nteams)])
+}
+
+
+p_25_mat <- p_25_mat[,sel_teams_index]
+p_50_mat <- p_50_mat[,sel_teams_index]
+p_75_mat <- p_75_mat[,sel_teams_index]
+
+q_25_mat <- q_25_mat[,sel_teams_index]
+q_50_mat <- q_50_mat[,sel_teams_index]
+q_75_mat <- q_75_mat[,sel_teams_index]
+
+mt_p_25 <- melt(t(p_25_mat))
+mt_p_50 <- melt(t(p_50_mat))
+mt_p_75 <- melt(t(p_75_mat))
+mt_ratio_home_gol <- melt(t(ratio_home_gol))
+
+mt_q_25 <- melt(t(q_25_mat))
+mt_q_50 <- melt(t(q_50_mat))
+mt_q_75 <- melt(t(q_75_mat))
+mt_ratio_away_gol <- melt(t(ratio_away_gol))
+
+
+
+teams_fac_rep <- rep(sel_teams, length(season_unique)-1)
+season_rep    <- rep(1:(length(season_unique)-1), each=length(sel_teams))
+
+p_data=data.frame(
+  teams=teams_fac_rep,
+  season=season_rep,
+  mid=mt_p_50$value,
+  lo=mt_p_25$value,
+  hi=mt_p_75$value,
+  ratio_home_gol = mt_ratio_home_gol$value
+)
+
+q_data=data.frame(
+  teams=teams_fac_rep,
+  season=season_rep,
+  mid=mt_q_50$value,
+  lo=mt_q_25$value,
+  hi=mt_q_75$value,
+  ratio_away_gol = mt_ratio_away_gol$value
+)
+
+position_lookup <-
+  p_data %>%
+  group_by(teams) %>%
+  summarise(pos=first(teams))
+
+
+ggplot() +
+  geom_ribbon(
+    aes(x = season, ymin = lo, ymax = hi),
+    data = p_data,
+    fill = color_scheme_get("gray")[[2]]) +
+geom_ribbon(aes(x = season, ymin = lo, ymax = hi),
+    data = q_data,
+    fill = color_scheme_get("gray")[[2]]) +
+geom_line(aes(x = season, y = mid),
+    data = p_data,
+    size = 1,
+    color = color_scheme_get("red")[[4]])+
+geom_line(aes(x = season, y = mid),
+    data = q_data,
+    size = 1,
+    color = color_scheme_get("blue")[[4]])+
+geom_point(aes(x = season, y = ratio_home_gol),
+    data = p_data,
+    size = 1.3,
+    color = color_scheme_get("red")[[4]])+
+geom_point(aes(x= season, y = ratio_away_gol),
+    data = q_data,
+    size = 1.3,
+    color = color_scheme_get("blue")[[4]])+
+scale_color_manual(values = c(color_scheme_get("blue")[[4]],
+    color_scheme_get("red")[[4]]))+
+  facet_wrap("teams", scales = "free")+
+  #lims(y = c(0,0.5)) +
+  scale_x_discrete( limits=c("08/09","","","", "12/13","", "","15/16")  ) + 
+  scale_y_continuous(name="Conv.prob.", 
+    breaks = c(0,0.1,0.2,0.3,0.4,0.5))+
+  labs(x = "Seasons", y = "Teams' effects",
+    title = "Conversion probabilities (50% posterior bars)",
+    subtitle = "for teams of Premier League 2016/2017", size =rel(1.4)) +
+  facet_text(size = rel(1.2)) +
+  xaxis_text( size = rel(0.7))
+
+
+
+```
+
+
+##  Shots rates
+
+
+The total shots consist of the shots on target and all those out-of-target attempts---such as long-distance shots, last-minute shots---that often are not really correlated with the actual attack ability. However, massive shooting is a necessary condition for increasing the winning probability: as shown in the figure below, the teams associated with the highest average shots rates---both home and away---correspond to those that dominated the EPL in the last years: Manchester City, Arsenal, Chelsea, Tottenham and Liverpool. Each team shows a greater shooting activity when plays at its home stadium. The figure displays the verage shots rates, $\bar{\theta}_1, \bar{\theta}_2$ for home teams (red bars) and away teams (blue bars) respectively.
+
+
+```{r coefplots, out.width ='93%',   echo=FALSE}
+
+sd_theta_home  <- apply(sims$theta_home, 2,  sd)
+theta_home     <- apply(sims$theta_home, 2,  mean)
+
+sd_theta_away  <- apply(sims$theta_away, 2,  sd)
+theta_away     <- apply(sims$theta_away, 2,  mean)
+
+
+theta_home_team <- c()
+theta_away_team <- c()
+theta_home_team_sd <- c()
+theta_away_team_sd <- c()
+
+
+for (j in 1:20){
+  theta_home_team[j] <- mean(theta_home[team1==teams16_17_index[j]])
+  theta_away_team[j] <- mean(theta_away[team2==teams16_17_index[j]])
+  theta_home_team_sd[j] <- mean(sd_theta_home[team1==teams16_17_index[j]])
+  theta_away_team_sd[j] <- mean(sd_theta_away[team1==teams16_17_index[j]])
+
+}
+
+library(arm)
+#par(mfrow=c(1,1), mar=c(1,6,4.5,1),  oma=c(3,3,3,3))
+coefplot(rev(theta_home_team), rev(theta_home_team_sd), CI=1, varnames=rev(teams[teams16_17_index]), main="Shots rates (estim. +/- 1 s.e.)\n", cex.var=1, mar=c(1,6,4.5,1),
+  cex.main=0.9,pch=16, col="red", xlim=c(5,25))
+coefplot(rev(theta_away_team), rev(theta_away_team_sd), CI=1, varnames=rev(teams[teams16_17_index]), main="Shots rates (estim. +/- 1 s.e.)\n", cex.var=1, mar=c(1,6,4.5,1),  cex.main=0.9,pch=17, col="blue", add=TRUE)
+legend( 20, 19.5, c(expression(theta[1]), expression(theta[2])),
+  pch=c(16,17),
+  col=c("red", "blue"), cex=1.2)
+
+
+
+```
+
+
+
+# Model checking
+
+We use now the replicated data defined in the  ```generated quantities``` block for assessing the global goodness of fit of the proposed model. Thus, we draw simulated values $y^{rep}$ from the joint predictive distribution of replicated data:
+
+\begin{equation*}
+p(y^{rep}|y) = \int_{\Theta} p({y}^{rep}, \theta|y) d\theta= \int_{\Theta} p(\theta|y)p({y}^{rep}|\theta) d\theta.
+\label{posterior_predicitve_1}
+\end{equation*}
+
+It is worth noting that the symbol $y^{rep}$ used here is conceptually different from the symbol $\tilde{y}$ used in the next section. The former is just a replication of $y$, the latter is any future observable unknown value. The figure below displays the posterior medians (red tails) for the score difference $y_{n1}-y_{n2}$ along with the posterior 95\% intervals (light yellow ribbon) and the 50\% posterior (dark yellow ribbon), plotted against the observed ordered score differences (blue points). We may note that the model calibration is quite good for the 95\% uncertainty intervals---95.1\% of the observed score differences fall inside the corresponding intervals---whereas the model calibration may not be considered equally decent for the 50\% uncertinty intervals, since only 33\% of the observed differences fall inside.
+
+```{r pp, out.width='700px', echo=TRUE}
+
+diff_gol=score1-score2
+diff_gol_rep=sims$score_home_rep-sims$score_away_rep
+
+scd <- diff_gol
+scd_sims <- diff_gol_rep
+
+scd_hat <- colMedians(scd_sims)
+scd_se <- sqrt(colVars(scd_sims))
+# 95% credible intervals
+alpha <- 0.95;
+scd_ub <- colQuantiles(scd_sims, probs = 1-(1-alpha)/2)
+scd_lb <- colQuantiles(scd_sims, probs = (1-alpha)/2)
+ci95 <- sum(scd < scd_ub & scd_lb<scd)/ngames_train
+# 50% credible intervals 
+alpha <- 0.5;
+scd_ub2 <- colQuantiles(scd_sims, probs = 1-(1-alpha)/2)
+scd_lb2 <- colQuantiles(scd_sims, probs = (1-alpha)/2)
+ci50 <- sum(scd < scd_ub2 & scd_lb2<scd)/ngames_train
+# ordered quantiles
+sort_scd <- scd[order(scd)]
+sort_scd_hat <- scd_hat[order(scd)]
+sort_scd_se <- scd_se[order(scd)]
+sort_scd_ub <- scd_ub[order(scd)]
+sort_scd_lb <- scd_lb[order(scd)]
+sort_scd_ub2 <- scd_ub2[order(scd)]
+sort_scd_lb2 <- scd_lb2[order(scd)]
+df <- data.frame(list(scd = sort_scd, scd_hat = sort_scd_hat, scd_se = sort_scd_se, 
+  scd_ub = sort_scd_ub, scd_lb = sort_scd_lb, 
+  scd_ub2 = sort_scd_ub2, scd_lb2 = sort_scd_lb2))
+
+ggplot(df, aes(x = c(1:ngames_train))) +
+  geom_ribbon(aes(ymin = scd_lb,
+    ymax = scd_ub),
+    fill="#F0E442") + 
+  geom_ribbon(aes(ymin = scd_lb2,
+    ymax = scd_ub2),
+    fill="khaki3") + 
+  geom_point(aes(y=scd_hat),colour="darkred",shape=4) +
+  geom_point(aes(y=scd), size = 0.7, col="blue") +
+  scale_x_continuous(name="match") +
+  scale_y_continuous(name="score difference", 
+    breaks = c(-8,-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7,8), 
+    sec.axis = dup_axis()) +
+  ggtitle("Estimated score differences (red tails) along with 95% intervals (light yellow ribbon),
+    \n  50% intervals (dark yellow ribbon) plotted against the actual score differences (blue points)")
+
+```
+
+
+# Model comparison: LOOIC
+
+In order to assess the predictive accuracy of our multiple outcomes hierarchical model, we compute approximate leave-one-out (LOO) cross-validation for this model and the simplest double Poisson model for the scores ($\mathsf{double\_poisson.stan}$ file) using the **loo** package (see @vehtari2017practical for further details about this method), considering here only the EPL season 2016-2017. The ```log_lik``` quantity in the ```generated quantities``` block above is declared for storing the pointwise log-likelihood of the model; we provide here below the code for computing the looic of the two the models:
+
+
+
+
+```{r looic, echo= TRUE, eval =FALSE}
+
+double_poi_stan <- stan(file="double_poisson.stan", data=scores_data,  
+                        iter = 2000, chains = 4, cores = 4, seed = 1)
+
+log_lik1 <- extract_log_lik(mod_shots_stan)
+loo1 <- loo(log_lik1)
+
+log_lik2 <- extract_log_lik(double_poi_stan)
+loo2 <- loo(log_lik2)
+
+```
+
+
+```{r looic tab, echo = FALSE}
+looic_tab <- rbind(c( 1133.8, 25.1 ),
+c(1132.3, 30))
+dimnames(looic_tab)<- list(c("Double Poisson", "Shots model"), c( "LOOIC", "LOOIC_SE"))
+kable(looic_tab, "html", escape = F) %>%
+  kable_styling(bootstrap_options = "striped", full_width = F)%>%
+row_spec(2, bold = T, color = "white", background = "#D7261E")
+```
+
+There is only a slight improvement in the looic due to the adoption of the shots model instead of the double Poisson model.
+
+# Posterior prediction probabilities
+
+Making predictions is the hottest task for a sport statistician. We may achieve this goal in several ways:  we may predict single match results, the final number of rank points, the relegated teams, etc.  This section may be seen as a sort of visualization tutorial for the posterior ouputs. All we need are posterior probabilities for future matches, obtained through HMC samples of future scores $\tilde{y}_{m1}, \tilde{y}_{m2}$, corresponding to ```score_home_prev``` and ```score_away_prev``` respectively, and saved in the ```sims``` objects. Let $\tilde{y}$ be a generic unknown observable. Its distribution is then conditional on the observed $y$,
+
+\begin{equation*}
+p(\tilde{y}|y) = \int_{\Theta} p(\tilde{y}, \theta|y) d\theta= \int_{\Theta} p(\theta|y)p(\tilde{y}|\theta) d\theta,
+\label{posterior_predicitve_2}
+\end{equation*}
+
+where the conditional independence of $y$ and $\tilde{y}$ given $\theta$ is assumed.  The first figure below shows the joint posterior probabiities for the goals in one selected future match between Middlesbrough (home team) and Stoke City (away team): darker region are associated with more likely results. The red square corresponds to the observed result.
+
+
+
+```{r pred, out.width='93%',echo=FALSE}
+
+M <- dim(sims$score_home_prev)[1]; 
+previsioni1  <- sims$score_home_prev;
+previsioni2  <- sims$score_away_prev;
+gol_vero1    <- score1_prev; 
+gol_vero2    <- score2_prev;
+p=6
+  
+  
+  posterior_prop1<-table(subset(previsioni1[,p], previsioni1[,p]<15))
+  posterior_prop2<-table(subset(previsioni2[,p], previsioni2[,p]<15))
+  
+  
+  teamaa=teams[team1_prev[p]]
+  teamab=teams[team2_prev[p]]
+  
+  x_min=y_min=min(length(posterior_prop1), length(posterior_prop2))
+  
+  counts_mix<-matrix(0, min(length(posterior_prop1), length(posterior_prop2)), 
+    min(length(posterior_prop1), length(posterior_prop2)))
+  
+  for (j in 1: min(length(posterior_prop1), length(posterior_prop2))){
+    for (t in 1: min(length(posterior_prop1), length(posterior_prop2))){
+      counts_mix[j,t]<-posterior_prop1[j]*posterior_prop2[t]
+    }}
+  
+  
+  x <- seq(0,5, length.out=6)
+  y <- seq(0,5, length.out=6)
+  data <- expand.grid(Home=x, Away=y)
+  data$Prob=as.double(counts_mix[1:6, 1:6]/(M*M))
+  
+  
+  # To change the color of the gradation :
+  
+  ggplot(data, aes(Home, Away, z= Prob)) + geom_tile(aes(fill = Prob)) + 
+    theme_bw() + 
+    scale_fill_gradient(low="white", high="black") +
+    geom_rect(aes(xmin = as.numeric(as.vector(gol_vero1))[p]-0.5, 
+      xmax = as.numeric(as.vector(score1_prev))[p]+0.5, 
+      ymin = as.numeric(as.vector(score2_prev))[p]-0.5, 
+      ymax =as.numeric(as.vector(score2_prev))[p]+0.5),
+      fill = "transparent", color = "red", size = 1.5)+
+    labs(title=paste(  teams[team1_prev[p]],"-", teams[team2_prev[p]]))
+  #ggsave(file=paste(teams[team1_prev[p]], teams[team2_prev[p]], "Heatmap.pdf", sep=""), width=6, height=6)
+
+```
+
+
+Similarly as before, we may obtain a sort of PP plot for the score differences of the predicted matches, plotting posterior 95\% uncertainty intervals (light yellow ribbon), 50\% uncertainty intervals (dark yellow ribbon) and posterior medians (red tails) against the actual observed score differences (blue points). Still, the model partially lacks in the 50\% calibration, since only 38.6\% of the points fall inside the 50\% uncertainty interval; however, the calibration for the 95\% uncertainty intervals is good, with 95.7\% of the observed score differences falling into the intervals. 
+
+
+```{r predictions, out.width='700px' , echo=FALSE}
+library(matrixStats)
+
+diff_gol_test <- score1_prev-score2_prev
+diff_gol_prev <- sims$score_home_prev-sims$score_away_prev
+
+scd <- diff_gol_test
+scd_sims <- diff_gol_prev
+
+scd_hat <- colMedians(scd_sims)
+scd_se <- sqrt(colVars(scd_sims))
+alpha <- 0.95;
+scd_ub <- colQuantiles(scd_sims, probs = 1-(1-alpha)/2)
+scd_lb <- colQuantiles(scd_sims, probs = (1-alpha)/2)
+ci95 <- sum(scd < scd_ub & scd_lb<scd)/ngames_test
+ngames_test_draw <- sum(scd ==0)
+scd_draw <- scd[scd==0]
+ci95_draw <- sum(scd_draw < scd_ub[scd==0] & scd_lb[scd==0]<scd_draw)/ngames_test_draw
+alpha <- 0.5;
+scd_ub2 <- colQuantiles(scd_sims, probs = 1-(1-alpha)/2)
+scd_lb2 <- colQuantiles(scd_sims, probs = (1-alpha)/2)
+ci50 <- sum(scd < scd_ub2 & scd_lb2<scd)/ngames_test
+ci50_draw <- sum(scd_draw < scd_ub2[scd==0] & scd_lb2[scd==0]<scd_draw)/ngames_test_draw
+
+
+sort_scd     <- scd[order(scd)]
+sort_scd_hat <- scd_hat[order(scd)]
+sort_scd_se  <- scd_se[order(scd)]
+sort_scd_ub  <- scd_ub[order(scd)]
+sort_scd_lb  <- scd_lb[order(scd)]
+sort_scd_ub2 <- scd_ub2[order(scd)]
+sort_scd_lb2 <- scd_lb2[order(scd)]
+df <- data.frame(list(scd = sort_scd, scd_hat = sort_scd_hat, scd_se = sort_scd_se, scd_ub = sort_scd_ub, scd_lb = sort_scd_lb, 
+  scd_ub2 = sort_scd_ub2, scd_lb2 = sort_scd_lb2))
+
+ggplot(df, aes(x = c(1:ngames_test))) +
+  geom_ribbon(aes(ymin = scd_lb,
+    ymax = scd_ub),
+    fill="#F0E442") + 
+  geom_ribbon(aes(ymin = scd_lb2,
+    ymax = scd_ub2),
+    fill="khaki3") + 
+  geom_point(aes(y=scd_hat),colour="darkred",shape=4) +
+  geom_point(aes(y=scd), size = 0.7, col="blue") +
+  scale_x_continuous(name="match") +
+  scale_y_continuous(name="score difference", 
+    breaks = c(-8,-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7,8), 
+    sec.axis = dup_axis()) +
+  ggtitle("Predicted score differences (red tails) along  with 95% intervals (light yellow ribbon),
+    \n  50% intervals (dark yellow ribbon) plotted against the actual score differences (blue points)")
+
+```
+
+
+Predicting the final number of points is not just a funny exercise.  As mentioned before, we replicate $S$ dataset in the ```generated quantities``` block, and for each match $n$ we obtain the joint scores distribution, $y^{(s)}_{n1}, y^{(s)}_{n2}$, $s=1,\ldots,S$. At this point, we simulate all the tournament and we build $S$ different ranks. The figure below shows the 50\% uncertainty intervals for the final points; the model is able to predict Chelsea as EPL champion at the end of the 2016/2017 season, and it clearly detects the best EPL teams: Manchester United, Arsenal, Liverpool and Manchester City. Leicester, which surprisingly won the EPL 2015/2016, is correctly predicted to not repeat the great performance achieved in the previous season. Hull City is correctly predicted as one of the three relegated teams, while Sunderland and Middlesbrough, the other two relegated teams, are slightly overestimated. Globally, the pattern of the predicted points mirrors the observed final rank.
+
+
+
+```{r rank, out.width = '700px', echo=FALSE}
+score_home_prev <- sims$score_home_prev
+score_away_prev <- sims$score_away_prev
+M               <- dim(score_home_prev)[1]
+conta_punti     <-matrix(0, M, length(teams))
+
+for (t in 1:M){
+  for (n in 1:ngames_test){
+    if (score_home_prev[t,n]>score_away_prev[t,n]){
+      conta_punti[t,team1_prev[n]]=conta_punti[t,team1_prev[n]]+3
+      conta_punti[t,team2_prev[n]]=conta_punti[t,team2_prev[n]]
+    }else if(score_home_prev[t,n]==score_away_prev[t,n]){
+
+      conta_punti[t,team1_prev[n]]=conta_punti[t,team1_prev[n]]+1
+      conta_punti[t,team2_prev[n]]=conta_punti[t,team2_prev[n]]+1
+
+    }else if(score_home_prev[t,n]<score_away_prev[t,n]){
+
+      conta_punti[t,team1_prev[n]]=conta_punti[t,team1_prev[n]]
+      conta_punti[t,team2_prev[n]]=conta_punti[t,team2_prev[n]]+3
+
+    }
+
+  }
+
+}
+
+expected_point <- apply(conta_punti,2,median)
+points_25      <- apply(conta_punti,2,function(x) quantile(x, 0.25))
+points_75      <- apply(conta_punti,2,function(x) quantile(x, 0.75))
+sd_expected    <- apply(conta_punti,2,sd)
+class          <- sort.int(expected_point[unique(team1_prev)], index.return=TRUE, decreasing=TRUE)
+
+rank_bar <-cbind(teams[unique(team1_prev)][class$ix], class$x,
+  points_25[unique(team1_prev)][class$ix], points_75[unique(team1_prev)][class$ix])
+
+obs_eng   <- c(78, 75, 93, 86, 76, 69, 46, 44, 61, 45, 41, 44, 41, 40, 45,45, 24,  34, 28, 40)
+obs_eng   <- sort(obs_eng, decreasing = TRUE)
+class_eng <- c("Chelsea"  , "Tottenham",  "Man City" , "Liverpool",
+  "Arsenal" , "Man United", "Everton" , "Southampton" , "Bournemouth", 
+  "West Brom", "West Ham" ,  "Leicester" , "Stoke" ,  "Crystal Palace", "Swansea",
+  "Burnley", "Watford" , "Hull",          
+  "Middlesbrough" ,"Sunderland")
+
+rank_frame <- data.frame(
+  Teams=rank_bar[,1],
+  mid=as.numeric(as.vector(rank_bar[,2])),
+  lo=as.numeric(as.vector(rank_bar[,3])),
+  hi=as.numeric(as.vector(rank_bar[,4])),
+  obs=obs_eng[  match(  rank_bar[,1], class_eng) ])
+
+rank_frame$Teams <- factor(rank_frame$Teams, levels=rank_bar[,1])
+
+ggplot()+
+  geom_ribbon(aes(x=Teams, ymin=lo, ymax=hi, group=1),
+    data=rank_frame,
+    fill = color_scheme_get("gray")[[2]]
+  )+
+  geom_line(aes(x=Teams, y= mid, group=1),
+    data=rank_frame,
+    fill = color_scheme_get("blue")[[2]]
+  )+
+  geom_point(aes(x=Teams, y=obs),
+    data=rank_frame)+
+  scale_color_manual(values = c(color_scheme_get("blue")[[2]],
+    color_scheme_get("red")[[2]]))+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  labs(x="Teams", y="Points")+
+  ggtitle("Predicted points for the 2016/2017 season along with 50% intervals
+    \n (gray ribbon) and the actual points (black points)")
+
+```
+
+Finally, some tables may be useful. The first table below displays the posterior probability for each team being the first, the second and the third team in the final rank. At the beginning of the season, Chelsea had an overall 63\% posterior probability of being one of the best three teams. The second table shows the probability for each team being the first relegated, the second relegated and the rhird relegated, respectively. Hull City had an estimated 63\% probability to be relegated in Championship. 
+
+```{r tables, echo =FALSE}
+
+conta_max    <- c()
+conta_second <- c()
+conta_third  <- c()
+conta_18     <- c()
+conta_19     <- c()
+conta_last   <- c()
+for(t in 1:M){
+ conta_max[t]  <- which.max(conta_punti[t,])
+ conta_second[t] <- sort.int(conta_punti[t,], index.return = TRUE, decreasing = TRUE)$ix[2]
+ conta_third[t] <- sort.int(conta_punti[t,], index.return = TRUE, decreasing = TRUE)$ix[3]
+ conta_18[t] <- sort.int(conta_punti[t,], index.return = TRUE, decreasing = TRUE)$ix[18]
+ conta_19[t] <- sort.int(conta_punti[t,], index.return = TRUE, decreasing = TRUE)$ix[19]
+ conta_last[t] <- sort.int(conta_punti[t,], index.return = TRUE, decreasing = TRUE)$ix[20]
+}
+
+conta_max_frame <- as.data.frame(table(conta_max))
+sort_conta_max  <- sort.int( conta_max_frame$Freq, index.return = TRUE, decreasing=TRUE)
+team_conta_max  <- conta_max_frame$conta_max[sort_conta_max$ix]
+
+conta_second_frame <- as.data.frame(table(conta_second))
+sort_conta_second  <- sort.int( conta_second_frame$Freq, 
+                                index.return = TRUE, decreasing=TRUE)
+team_conta_second  <- conta_second_frame$conta_second[sort_conta_second$ix]
+
+conta_third_frame  <- as.data.frame(table(conta_third))
+sort_conta_third   <- sort.int( conta_third_frame$Freq, 
+                                index.return = TRUE, decreasing=TRUE)
+team_conta_third   <- conta_third_frame$conta_third[sort_conta_third$ix]
+
+conta_18_frame     <- as.data.frame(table(conta_18))
+sort_conta_18      <- sort.int( conta_18_frame$Freq, index.return = TRUE, decreasing=TRUE)
+team_conta_18      <- conta_18_frame$conta_18[sort_conta_18$ix]
+
+conta_19_frame     <- as.data.frame(table(conta_19))
+sort_conta_19      <- sort.int( conta_19_frame$Freq, 
+                                index.return = TRUE, decreasing=TRUE)
+team_conta_19      <- conta_19_frame$conta_19[sort_conta_19$ix]
+
+conta_last_frame   <- as.data.frame(table(conta_last))
+sort_conta_last    <-sort.int( conta_last_frame$Freq, 
+                               index.return = TRUE, decreasing=TRUE)
+team_conta_last    <- conta_last_frame$conta_last[sort_conta_last$ix]
+
+
+posterior_prob_win    <- cbind(teams[as.numeric(as.vector(team_conta_max))],
+                               sort_conta_max$x/M )
+posterior_prob_second<-cbind(
+  teams[as.numeric(as.vector(team_conta_second))], sort_conta_second$x/M )
+posterior_prob_third  <-cbind(
+  teams[as.numeric(as.vector(team_conta_third))], sort_conta_third$x/M )
+posterior_prob_18     <- cbind(teams[as.numeric(as.vector(team_conta_18))],
+                               sort_conta_18$x/M )
+posterior_prob_19     <- cbind(teams[as.numeric(as.vector(team_conta_19))],
+                               sort_conta_19$x/M )
+posterior_prob_20     <- cbind(teams[as.numeric(as.vector(team_conta_last))],
+                               sort_conta_last$x/M )
+
+
+#tabella
+
+short_teams <- c("Chelsea", "Tottenham", "Man City", "Hull", "Middlesbrough", "Sunderland")
+positions   <- c(1,2,3,18,19,20)
+points      <- c(93,86,78, 34,28,24)
+
+tab_3places <- rbind( c(short_teams[1], 
+  posterior_prob_win[  posterior_prob_win[,1]==short_teams[1],2],
+  posterior_prob_second[  posterior_prob_second[,1]==short_teams[1],2],
+    posterior_prob_third[  
+       posterior_prob_third[,1]==short_teams[1],2],positions[1],points[1]),
+  c(short_teams[2], posterior_prob_win[   
+     posterior_prob_win[,1]==short_teams[2],2],
+      posterior_prob_second[  posterior_prob_second[,1]==short_teams[2],2],
+       posterior_prob_third[  
+         posterior_prob_third[,1]==short_teams[2],2],positions[2],points[2]),
+    c(short_teams[3], posterior_prob_win[   
+       posterior_prob_win[,1]==short_teams[3],2],
+          posterior_prob_second[  posterior_prob_second[,1]==short_teams[3],2],
+            posterior_prob_third[       
+              posterior_prob_third[,1]==short_teams[3],2],positions[3],points[3]))
+
+
+tab_last3places=rbind(
+  c(short_teams[4], posterior_prob_18[  posterior_prob_18[,1]==short_teams[4],2],
+       posterior_prob_19[  posterior_prob_19[,1]==short_teams[4],2],
+          posterior_prob_20[posterior_prob_20[,1]==short_teams[4],2],
+    positions[4],points[4]),
+    c(short_teams[5], posterior_prob_18[           
+        posterior_prob_18[,1]==short_teams[5],2],
+            posterior_prob_19[  posterior_prob_19[,1]==short_teams[5],2],
+              posterior_prob_20[  
+                posterior_prob_20[,1]==short_teams[5],2],positions[5],points[5]),
+                 c(short_teams[6], posterior_prob_18[  
+                   posterior_prob_18[,1]==short_teams[6],2],
+                     posterior_prob_19[  posterior_prob_19[,1]==short_teams[6],2],
+                       posterior_prob_20[   
+                         posterior_prob_20[,1]==short_teams[6],2],
+                            positions[6],points[6]))
+
+
+
+options(knitr.table.format = "html") 
+data_frame <- tab_3places
+dimnames(data_frame)<- list(1:3, c("Team","Prob(1st)", "Prob(2nd)","Prob(3rd)","Actual rank", "Observed points"))
+kable(data_frame, "html") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F)
+
+options(knitr.table.format = "html") 
+data_frame2 <- tab_last3places
+dimnames(data_frame2)<- list(1:3, c("Team","Prob(1rel)", "Prob(2rel)","Prob(3rel)","Actual rank", "Observed points"))
+kable(data_frame2, "html") %>%
+  kable_styling(bootstrap_options = "striped", full_width = F)
+
+```
+
+# Betting strategy
+
+Finally, we try to assess the predictive accuracy of our model comparing the posterior probabilities of future matches---in terms of home win, draw and away win---with the betting odds provided by a famous betting firm. There are many ways for translating the match probabilities into betting rules. Among the others, we use here the posterior mean for the distribution of the score difference, $\tilde{y}_{n1}-\tilde{y}_{n2}$, and we bet on an home win (draw, away win) if the rounded posterior mean for  the $n$-th score difference is greater than (equal, less than) zero. The result is displayed in the plot below. The final cumulative amount of money is greater than the initial amount, although the winning rate is only the 1.3\%.
+
+```{r betting, out.width = '700px', echo=FALSE}
+
+scd_h <-apply(sims$score_home_prev-sims$score_away_prev,2,mean);
+odds_test <- PL[(ngames_train+1):ngames_tot, c(14,15,16)] 
+sum_vec<-array(0,380)
+summ<-0
+  
+for (i in 1:380) {
+  
+  
+  if (scd[i]>0 & scd_h[i]>0)
+    summ<-summ+as.numeric(odds_test[i,1]);
+  if (scd[i]<0 & scd_h[i]<0)
+    summ<-summ+as.numeric(odds_test[i,3]);
+  if (scd[i]==0 & scd_h[i]==0)
+    summ<-summ+as.numeric(odds_test[i,2]);
+  summ<-summ-1
+  sum_vec[i] <- summ;
+}
+
+
+plot(c(1:380),sum_vec,type="l",ylab="net profit", xlab="match")
+abline(h=0, col="red", lwd=2)
+
+results <- c()
+  results[PL[,5]=="H"] <- 1; 
+  results[PL[,5]=="D"] <- 2; 
+  results[PL[,5]=="A"] <- 3
+  results_test=results[(ngames_train+1):ngames_tot]
+
+binomial_prob <- matrix(NA, ngames_test,3)
+
+for (n in 1:ngames_test){
+  binomial_prob[n,1 ]=sum(sims$score_home_prev[,n]>sims$score_away_prev[,n])/M
+  binomial_prob[n,2 ]=sum(sims$score_home_prev[,n]==sims$score_away_prev[,n])/M
+  binomial_prob[n,3 ]=sum(sims$score_home_prev[,n]<sims$score_away_prev[,n])/M
+}
+
+results_brier <- matrix(0, ngames_test, 3)
+  for(n in 1:ngames_test){
+  results_brier[n, results_test[n]] <- 1 
+  }
+  
+# compute the brier score
+load("Pois_prob.RData")
+brier_score_shots <- (1/ngames_test)*sum( (binomial_prob-results_brier)^2)
+brier_score_pois  <- (1/ngames_test)*sum( (double_poi_prob-results_brier)^2)
+```
+
+Then, we may compute the Brier score, a proper score function that measures the accuracy of probabilistic predictions, the mean squared error of the forecast, as:
+
+$$
+\bar{b}=\frac{1}{n} \sum_{1=1}^{n}\sum_{i=1}^{3}(p_{i,n}-\delta_{i,n})^2,
+$$
+where $p_{i,n}$ is the model probability for the $i$-th outcome in the $n$-th game, and $\delta_{i,n}$ the Kroenecker delta. The Brier score is bounded between 0 and 2, and the lower is this index the better is the prediction accuracy. Still, we compare the Brier score of our shots model with the Brier Score obtained under the double Poisson model: shots model yields a lower value (0.59 vs 0.62).
+
+
+
+
+
+```{r brier_tab, echo = FALSE}
+brier_tab <-  round(rbind(brier_score_pois, brier_score_shots),2)
+dimnames(brier_tab) <- list(c("Double Poisson", "Shots model"), "Brier score")
+kable(brier_tab, "html", escape = F) %>%
+  kable_styling(bootstrap_options = "striped", full_width = F)%>%
+row_spec(2, bold = T, color = "white", background = "#D7261E")
+```
+
+
+# Conclusions
+
+Including the shots in a scoring model:
+
+- enriches the existing framework for modeling the scores
+
+- slightly improves over the fit (looic)
+
+- yields better predictions (Brier score).
+
+Further work:
+
+- correlation between scores/shots
+
+- connect the shots model with *bookmakers* information, as partially done in @egidi2018combining.
+
+Further R Code and analysis soon available at [www.leonardoegidi.com](https://www.leonardoegidi.com/) or contact me at legidi@units.it.
+
+# Acknowledgments
+
+Some of the code plots used in this presentation arise from the presentation *Hierarchical Bayesian Modeling of the English Premier League* given by Milad Kharratzadeh during the StanCon 2017 in New York.
+
+
+
+
+# References
+
+<!-- knitr::knit("shots.Rmd", tangle = TRUE, output ="shots_Script.R") -->
+

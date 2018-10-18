@@ -1,0 +1,627 @@
+---
+title: "Analysis of repated measures data in RStan"
+author: "Marco Munda [marco.munda@pharmalex.com]"
+date: "September 01, 2018"
+output:
+  html_document:
+    theme: default
+    highlight: haddock
+    toc: yes
+bibliography: bib.bib
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warnings = FALSE, message = FALSE)
+```
+
+
+
+```{r, echo = FALSE}
+
+# CLEAR WORKING ENVIRONMENT -----------------------------------------------
+
+rm(list = setdiff(ls(), c()))
+
+
+
+# OPERATING SYSTEM --------------------------------------------------------
+
+OS <- Sys.info()["sysname"]
+
+
+
+# LIBRARIES ---------------------------------------------------------------
+
+library(knitr)
+library(sessioninfo)  
+library(rstan)
+library(xlsx)         # used to read the data in xlsx format
+library(dplyr)        # used for data manipulation
+library(tidyr)        # used for data manipulation
+library(ggplot2)      # used for graphics
+library(gridExtra)    # used for graphics
+library(MASS)         # used for mvnorm() (sample from a multivariate normal)
+
+
+
+# MY COLOURS --------------------------------------------------------------
+
+myblue <- rgb(3 / 255, 154 / 255, 166 / 255)
+
+
+
+# GGPLOT THEME ------------------------------------------------------------
+
+mytheme <- theme_bw() +
+  theme(panel.border     = element_blank(),
+        strip.background = element_rect(fill = myblue),
+        strip.text       = element_text(size = 10, colour = "white",
+                                        face = "bold"),
+        axis.line        = element_line(colour = "black"),
+        legend.title     = element_text(size = 10, face = "bold"),
+        legend.text      = element_text(size = 10),
+        legend.key.width = unit(1.5,"cm"),
+        legend.position  = "right",
+        plot.title       = element_text(size = 13, face = "bold", hjust = 0.5,
+                                        margin = margin(0, 0, 10, 0)),
+        axis.title       = element_text(size = 13),
+        axis.title.x     = element_text(margin = margin(10, 0, 0, 0)),
+        axis.title.y     = element_text(margin = margin(0, 10, 0, 0)),
+        axis.text.x      = element_text(size = 12, angle = 0, hjust = 1),
+        axis.text.y      = element_text(size = 12))
+
+
+
+# OPTIONS -----------------------------------------------------------------
+
+# rstan_options(auto_write = TRUE)
+# options(mc.cores = 1)
+if (OS == "Windows") {
+  windowsFonts(Arial = windowsFont("TT Arial"))
+}
+
+```
+
+
+
+# R session info
+
+```{r}
+session_info(pkgs = c("rstan"))
+```
+
+
+
+# Introduction
+
+This repeated measures example is used in @Littell2006 [, Chapter 5] to
+illustrate the analysis of repeated measures data in SAS proc mixed
+(frequentist). 
+
+Here we re-examine this example in the Bayesian framework using RStan.
+
+In addition to the modelling itself, we further show
+
+* how to make inference on the primary effect based on a probability of
+success, and
+* how to predict the longitudinal profile of a future patient,
+
+two difficult (if not impossible) tasks from a frequentist perspective.
+
+
+
+# Data
+
+Three drugs (A = standard drug, C = test drug, P = placebo) are examined for
+their effects on pulmonary function in asthma patients. 24 patients received
+*each* of the three drugs at random and the FEV1 measure (forced
+expiratory volume in one second) was taken prior to administration of the
+drug (baseline) and every hour for 8 hours following administration.
+
+```{r, echo = FALSE}
+data <- read.xlsx2(file = "fev1.xlsx", sheetIndex = 1)
+
+data <- data %>%
+  mutate(patient  = as.character(patient),
+         drug     = as.character(drug)) %>%
+  mutate_if(is.factor, function(f) as.numeric(levels(f))[f]) %>%
+  arrange(patient) %>%
+  dplyr::select(patient, drug, everything())
+```
+
+The main interest here lies on how differences between treatment means change
+over time.
+
+The first few lines of the dataset appear below. The full dataset can be
+downloaded from the [book's website](https://www.sas.com/store/books/categories/usage-and-reference/sas-for-mixed-models-second-edition/prodBK_59882_en.html).
+
+```{r, echo = FALSE}
+kable(head(data))
+```
+
+The data are processed more conveniently when converted from a wide format to
+a long format.
+
+```{r}
+data <- data %>%
+  gather(key = time, value = fev1, fev11h:fev18h) %>%
+  mutate(time = gsub("fev1", "", time)) %>%
+  arrange(patient, drug, time)
+```
+
+```{r, echo = FALSE}
+kable(head(data, n = 9), align = 'l')
+```
+
+For modelling purposes, 'drug = p' and 'time = 1h' are set as reference
+categories (dummy coding).
+
+```{r}
+data <- data %>%
+  mutate(drug = relevel(factor(data$drug), ref = "p"),
+         time = relevel(factor(data$time), ref = "1h"))
+```
+
+
+
+# Data visualisation
+
+Patient's profiles are shown below.
+
+Some profiles tend to be higher or lower consistently across the three drugs,
+thus indicating the presence of a patient effect. Further, for a given
+patient on a given drug, consecutive FEV1 measures are more correlated than
+measures further apart in time. To account for this, the data will be processed
+in blocks of temporally correlated data.
+
+```{r, echo = FALSE, fig.align = "center", fig.height = 4, fig.width = 7}
+data <- data %>%
+  mutate(time_num = as.numeric(gsub("h", "", time))) %>%
+  dplyr::select(patient, drug, basefev1, time, time_num, fev1)
+
+ggplot(data = data, aes(x = time_num, y = fev1)) +
+  facet_wrap(~ drug) +
+  geom_point(aes(colour = patient), size = 2) +
+  geom_line(aes(colour = patient), size = 1) +
+  xlab("time (hours)") +
+  guides(colour = FALSE) +
+  mytheme
+```
+
+
+
+# Data preparation for Stan
+
+To feed stan, the data are re-arranged in a list:
+
+* `N`       = total number of observations,
+* `Npat`    = number of patients,
+* `p`       = number of regression parameters,
+* `X`       = design matrix of the explanatory variables,
+* `Z`       = design matrix of the patient effects,
+* `y`       = response variable,
+* `Nblocks` = number of blocks of temporally correlated data,
+* `first`   = vector with indices of the first record per block,
+* `last`    = vector with indices of the last record per block,
+* `n`       = vector with numbers of records per block,
+* `maxn`    = maximum number of records in a block.
+
+```{r}
+X        <- model.matrix(~ basefev1 + drug + time + time:drug, data = data)
+Z        <- model.matrix(~ -1 + patient, data = data)
+block    <- paste0(data$patient, data$drug)
+Nblocks  <- length(unique(block))
+first    <- sapply(split(1:nrow(data), block), function(x) head(x, 1))
+last     <- sapply(split(1:nrow(data), block), function(x) tail(x, 1))
+n        <- last - first + 1
+
+datalist <- list(N        = nrow(data),
+                 Npat     = length(unique(data$patient)),
+                 p        = ncol(X),
+                 X        = X,
+                 Z        = Z,
+                 y        = data$fev1,
+                 Nblocks  = Nblocks,
+                 first    = first,
+                 last     = last,
+                 n        = n,
+                 maxn     = max(n))
+```
+
+
+
+The joint posterior distribution of the estimated marginal means (EMMs) for each
+drug over time, the quantities of interest in the case study, can be obtained by
+linear combinations of the model coefficients after the model is fitted. Less
+tediously, all EMMs can be generated at once in the 'generated quantities' Stan
+block. To this end, 'datalist' is appended with the design matrix of all
+combinations of drug and time (using the overall average FEV1 level at
+baseline).
+
+```{r}
+datanew  <- expand.grid(
+  basefev1 = mean(data$basefev1),
+  drug     = relevel(factor(c("p", "a", "c")), ref = "p"),
+  time     = relevel(factor(paste0(1:8, "h")), ref = "1h"))
+
+Nnew     <- nrow(datanew)
+Xnew     <- model.matrix(~ basefev1 + drug + time + time:drug, data = datanew)
+
+datalist <- c(datalist, list(Nnew = Nnew, Xnew = Xnew))
+```
+
+
+
+# Stan model
+
+The Stan model is presented below.
+
+The data are processed by blocks of temporally correlated data. Within a block,
+the multivariate normal distribution, '*multi_normal(mu, Sigma)*', is
+used. 
+
+The mean is dictacted by the linear model, $\text{E}(Y) = X \beta + Z b$,
+where $X$ denotes the design matrix of the explanatory variables
+(intercept, baseline measure, drug, time, drug*time interaction) and where $Z$
+denotes the design matrix of the patient effects.
+
+The covariance matrix specifies the covariance structure between the repeated
+measures within a block. Many different choices can be made [@Littell2000]. 
+Following the original case study [@Littell2006], the AR(1) structure is chosen,
+i.e.
+$$
+\text{Cov}(y_{ijk}, y_{ijk^\prime}) = \sigma^2 \, \rho^{|k-k^\prime|} \qquad
+(0 < \rho < 1)
+$$
+($i$, $j$, and $k$ indexing drugs, patients, and visits, respectively).
+
+In words, the variance is the same at any time point ($\sigma^2$) while the
+correlation between repeated measures declines with increasing distance in time 
+($\rho$, $\rho^2$, $\rho^3$, ...).
+
+When the repeated measures are equally spaced, the AR(1) structure is the most
+popular choice. Further, the AR(1) variance component and the between-patient
+variance component are identifiable. This is not true for all covariance
+structures (e.g., compound symmetry or unstructured); at least in the absence of
+strong priors. Of note, it could be computationally more advantageous under the
+AR(1) structure to parametrise the multivariate normal distribution in terms of
+the precision matrix $\Omega = \Sigma^{-1}$, '*multi_normal_prec(mu, Omega)*',
+because then $\Omega$ is tridiagonal [@Sutradhar2003].
+
+The AR(1) covariance matrix is built in the 'transformed parameters' block.
+
+
+```{r}
+modelString <- "
+
+  data {
+    int N;                        // total number of observations
+    int Npat;                     // number of patients
+    int p;                        // number of regression parameters
+    matrix[N, p] X;               // design matrix of the explanatory variables
+    matrix[N, Npat] Z;            // design matrix of the patient effects
+    vector[N] y;                  // response variable
+    int Nblocks;                  // nb of blocks of temporally correlated data
+    int first[Nblocks];           // index of the first record per block
+    int last[Nblocks];            // index of the last record per block
+    int n[Nblocks];               // number of records per block
+    int maxn;                     // maximum number of records in a block
+    int Nnew;                     // number of EMMs
+    matrix[Nnew, p] Xnew;         // design matrix of the EMMs
+  }
+
+  parameters {
+    vector[p] beta;               // regression parameters
+    vector[Npat] b;               // patient effects
+    real<lower=0> sig2_b;         // patient-to-patient variance
+    real<lower=0> sig2;           // residual variance
+    real<lower=0,upper=1> rho;    // residual correlation parameter
+  }
+
+  transformed parameters {
+    matrix[maxn, maxn] Sigma;     // residual covariance matrix
+    for (row in 1:maxn) {
+      for (col in 1:maxn) {
+        Sigma[row, col] = sig2 * rho^(abs(col - row));
+      }
+    }
+  }
+
+  model {
+    vector[N] eta;                // linear predictor
+    b ~ normal(0, sqrt(sig2_b));  // patient effects
+    eta = X * beta + Z * b;
+    for (i in 1:Nblocks) {
+      target += multi_normal_lpdf(
+        y[first[i]:last[i]] |
+        eta[first[i]:last[i]],
+        Sigma[1:n[i], 1:n[i]]);
+    }
+  }
+
+  generated quantities {
+    vector[Nnew] EMMs;
+    EMMs = Xnew * beta;
+  }
+
+"
+```
+
+The Stan code can easily be adapted to other covariance
+structures. For example, to adapt the Stan code to the homogeneous unstructured
+covariance model (without patient effect for identifiability reasons),
+$$
+\text{Cov}(y_{ijk}, y_{ijk^\prime}) = \sigma^2 \, \rho_{kk^\prime} \qquad
+(-1 < \rho < 1)
+$$
+the 'parameters' and 'transformed parameters' blocks become
+
+```{r, results = FALSE}
+"
+  parameters {
+      vector[p] beta;             // regression parameters
+      real<lower=0> sig2;         // residual variance
+      corr_matrix[maxn] R;        // unstructured residual correlation matrix
+    }
+  
+  transformed parameters {
+    matrix[maxn, maxn] Sigma;     // residual covariance matrix
+    Sigma = quad_form_diag(R, rep_vector(sqrt(sig2), maxn));
+  }
+"
+```
+
+The function '*quad_form_diag*' is used to convert a correlation matrix into a
+covariance matrix. '*quad_form_diag*' is defined so that
+'*quad_form_diag(Sigma, tau)*' is equivalent to '*diag_matrix(tau) $\times$ 
+Sigma $\times$ diag_matrix(tau)*', where '*diag_matrix(tau)*' returns the matrix
+with '*tau*' on the diagonal and zeroes off diagonal.
+
+To facilitate the comparison with the original frequentist analysis, flat priors
+are used. It is worth noting here that priors on (the lower Cholesky factors of) correlation matrices can be assigned in Stan by means of the [LKJ distribution](http://stla.github.io/stlapblog/posts/StanLKJprior.html).
+
+
+
+# Model fitting
+
+```{r, cache = TRUE, results = FALSE}
+stanDso <- stan_model(model_code = modelString)
+
+stanfit <- sampling(object  = stanDso,
+                    data    = datalist,
+                    chains  = 4,
+                    iter    = 3000,
+                    warmup  = 1000,
+                    thin    = 4)
+
+# EXTRACT THE POSTERIOR CHAINS
+chains  <- data.frame(rstan::extract(stanfit))
+Nchains <- nrow(chains)
+```
+
+The trace plots show good mixing of the 4 chains.
+
+```{r, fig.height = 8, fig.width = 12}
+traceplot(stanfit, pars = c("beta", "sig2_b", "sig2", "rho"))
+```
+
+
+
+# Posterior distributions
+
+```{r, echo = FALSE, warning = FALSE, fig.height = 8, fig.width = 12}
+# posteriors of beta's in long format joined with parameter names
+chains_long1 <- gather(data = chains, key = parm, value = value) %>%
+  right_join(y  = data.frame(parm = grep("beta", names(chains), value = TRUE),
+                             name = colnames(X))) %>%
+  mutate(name     = gsub("[\\( | \\)]", "", name),
+         parmname = paste0(parm, " (", name, ")"))
+
+# posteriors of variance-covariance parameters in long format
+chains_long2 <- gather(data = chains, key = parm, value = value) %>%
+  filter(parm %in% c("sig2_b", "sig2", "rho")) %>%
+  mutate(name = parm, parmname = parm)
+
+# all posteriors in long format with parameter names
+chains_long <- bind_rows(chains_long1, chains_long2)
+
+# re-order parameter names
+lvls <- c(paste0(grep("beta", names(chains), value = TRUE),
+                 " (", colnames(X), ")"), "sig2_b", "sig2", "rho")
+lvls[1] <- "beta.1 (Intercept)"
+chains_long$parmname <- factor(chains_long$parmname, lvls)
+
+# plot posterior distributions
+ggplot(data = chains_long, aes(value)) +
+  facet_wrap(~ parmname, scales = "free") +
+  geom_histogram(aes(y = ..density..), colour = "white", fill = "gray") +
+  xlab("") +
+  mytheme +
+  theme(axis.text.x = element_text(size = 8),
+        axis.text.y = element_text(size = 8))
+```
+
+
+
+# Estimated marginal means (EMMs)
+
+The FEV1 EMMs for each drug over time are depicted below (posterior modes
+together with the pointwise 95% quantile-based credible intervals).
+
+```{r, fig.height = 4, fig.width = 7, fig.align = "center"}
+# POSTERIORS OF EMMs
+EMMs        <- chains[, grep("EMMs", names(chains))]
+names(EMMs) <- paste0(datanew$drug, datanew$time)
+
+# POSTERIOR MODES (approximate) + 95% CREDIBLE INTERVALS
+EMMs_summary <- datanew %>%
+  mutate(time_num = as.numeric(gsub("h", "", time)),
+         mode     = apply(X = EMMs, MARGIN = 2, FUN = function(x) {
+           d <- density(x = x, bw = "SJ")
+           return(d$x[which.max(d$y)])
+         }),
+         lower    = apply(X = EMMs, MARGIN = 2, FUN = quantile, prob = 0.025),
+         upper    = apply(X = EMMs, MARGIN = 2, FUN = quantile, prob = 0.975))
+
+# EMMs PROFILES
+ggplot(data = EMMs_summary, aes(x = time_num, y = mode)) +
+  facet_wrap(~ drug) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), fill = "gray", alpha = 0.25) +
+  geom_point(colour = "black", size = 2) +
+  geom_line(colour = "black", size = 1) +
+  xlab("time (hours)") +
+  ylab("") +
+  ggtitle("fev1 EMMs (posterior modes + pointwise 95% credible intervals)") +
+  mytheme
+```
+
+
+
+# Case study conclusion
+
+The main interest of the case study lies on how differences between treatment
+means change over time.
+
+This can be done by pairwise comparisons of the EMMs. 
+
+For the sake of convenience, the stan output containing the posterior EMMs is
+first reformatted as follows:
+
+```{r}
+EMMs_wide <- EMMs %>%
+  gather(key = condition, value = EMM) %>%
+  mutate(drug = substr(condition, start = 1, stop = 1),
+         time = substr(condition, start = 2, stop = nchar(condition))) %>%
+  group_by(drug, time) %>%
+  mutate(sample = 1:n()) %>%
+  dplyr::select(-condition) %>%
+  spread(key = drug, value = EMM)
+```
+
+The first few lines of '*EMMs_wide*' are:
+```{r, echo = FALSE}
+kable(head(EMMs_wide), align = 'l')
+```
+
+The posterior probability that drug A is superior to drug P at a given time (and
+for a given patient at a given baseline value) can be obtained from the joint
+posterior by comparing the EMM of drug A (column a) with the EMM of drug P
+(column p). $\Pr(C > P)$ and $\Pr(C > A)$ are obtained similarly.
+
+```{r}
+PoS <- EMMs_wide %>%
+  group_by(time) %>%
+  summarise(a_vs_p = mean(a > p),
+            c_vs_p = mean(c > p),
+            c_vs_a = mean(c > a)) %>%
+  gather(key = comparison, value = proba, -time) %>%
+  mutate(timen = as.numeric(gsub("h", "", time)))
+```
+
+These probabilities are depicted graphically below.
+
+```{r, fig.align = "center"}
+ggplot(data = PoS, aes(x = time, y = proba)) +
+  geom_point(aes(colour = comparison)) +
+  geom_line(aes(x = timen, colour = comparison, linetype = comparison),
+            size = 1) +
+  scale_y_continuous(name = "probability of success", limits = c(0.80, 1)) +
+  mytheme
+```
+
+
+
+# Prediction
+
+Let's, for the sake of illustration, predict the FEV1 profile for a future
+patient receiving drug A.
+
+Predictions are more conveniently done outside the Stan model, by extracting the parameters from the posterior samples.
+
+```{r}
+# SEQUENCE OF POSTERIOR SAMPLES INDICES
+iseq <- sample(x = 1:Nchains, size = 1e3, replace = TRUE)  
+
+fev1_new <- data.frame(t(sapply(X = iseq, FUN = function(i) {
+  # ith POSTERIOR PARAMETERS
+  beta     <- chains[i, grep("beta", names(chains))]
+  sig_b    <- sqrt(chains[i, "sig2_b"])
+  sig      <- sqrt(chains[i, "sig2"])
+  rho      <- chains[i, "rho"]
+  # PATIENT EFFECT
+  b        <- rnorm(n = 1, mean = 0, sd = sig_b)
+  # BASELINE VALUE (sampled from fitted beta distribution)
+  basefev1 <- rbeta(n = 1, shape1 = 2, shape2 = 1.5) * (3.6 - 1.4) + 1.4
+  # DATA (baseline, drug, and time) OF VIRTUAL PATIENT
+  data_new <- data.frame(
+    basefev1 = basefev1,
+    drug     = relevel(factor("a", levels = c("p", "a", "c")), ref = "p"),
+    time     = relevel(factor(paste0(1:8, "h")), ref = "1h"))
+  # DESIGN MATRIX
+  X_new    <- model.matrix(~ basefev1 + drug + time + time:drug,
+                           data = data_new)
+  # MEAN PROFILE
+  eta      <- t(X_new %*% t(as.matrix(beta))) + b
+  # AR(1) COVARIANCE MATRIX
+  R        <- rho^abs(outer(1:8, 1:8, "-"))
+  Sigma    <- diag(rep(sig, 8)) %*% R %*% diag(rep(sig, 8))
+  # PREDICTED FEV1
+  mvrnorm(n = 1, mu = eta, Sigma = Sigma)
+})))
+
+colnames(fev1_new) <- paste0("fev1", 1:8, "h")
+```
+
+In the figure below, the predicted profiles (in gray) are superimposed on the
+raw data (coloured), together with the predictive medians and pointwise 95%
+prediction intervals.
+
+```{r, echo = FALSE, fig.align = "center"}
+fev1_new_ <- fev1_new %>%
+  mutate(subjid = row_number()) %>%
+  gather(key = time, value = fev1, fev11h:fev18h) %>%
+  mutate(time     = gsub("fev1", "", time),
+         time_num = as.numeric(gsub("h", "", time))) 
+
+fev1_new_summary <- fev1_new_  %>%
+  group_by(time_num) %>%
+  summarise(median = median(fev1),
+            lower  = quantile(fev1, 0.025),
+            upper  = quantile(fev1, 0.975))
+
+ggplot(data = fev1_new_, aes(x = time_num, y = fev1)) +
+  geom_line(aes(group = subjid), size = 1.1, colour = "gray", alpha = 0.1) +
+  geom_line(data = data %>% filter(drug == "a"), aes(colour = patient),
+            size = 1, alpha = 0.3) +
+  xlab("time (hours)") +
+  guides(colour = FALSE) +
+  geom_point(data = fev1_new_summary, aes(x = time_num, y = median),
+             colour = myblue, size = 2) +
+  geom_point(data = fev1_new_summary, aes(x = time_num, y = lower),
+             colour = myblue, size = 2) +
+  geom_point(data = fev1_new_summary, aes(x = time_num, y = upper),
+             colour = myblue, size = 2) +
+  geom_line(data = fev1_new_summary, aes(x = time_num, y = median),
+            colour = myblue, size = 1) +
+  geom_line(data = fev1_new_summary, aes(x = time_num, y = lower),
+            colour = myblue, size = 1) +
+  geom_line(data = fev1_new_summary, aes(x = time_num, y = upper),
+            colour = myblue, size = 1) +
+  mytheme
+```
+
+
+The joint probability, say, that a future FEV1 profile lies completely above 2
+is
+
+```{r}
+mean(apply(X = fev1_new, MARGIN = 1, FUN = function(x) all(x > 2)))
+```
+
+
+
+<br>
+
+# References

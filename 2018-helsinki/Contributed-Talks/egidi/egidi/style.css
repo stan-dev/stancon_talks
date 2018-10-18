@@ -1,0 +1,18 @@
+body{ /* Normal  */
+   font-size: 18px;
+}
+.r{ /* Code block */
+  font-size: 16px;
+}
+h1 { /* Header 1 */
+  font-size: 30px;
+  color: DarkRed;
+}
+h2 { /* Header 2 */
+    font-size: 22px;
+  color: DarkBlue;
+}
+h3 { /* Header 3 */
+  font-size: 20px;
+  color: DarkBlue;
+}

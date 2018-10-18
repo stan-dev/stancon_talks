@@ -1,0 +1,496 @@
+---
+title: Does accounting for an artificial turf advantage in Dutch football increase
+  predictive accuracy of probabilistic models?
+author: "Gertjan S Verhoeven (gertjan.verhoeven@gmail.com)"
+date: '`r format(Sys.time(), "%d %B, %Y")`'
+output:
+  pdf_document:
+    includes: 
+      in_header: preamble.tex
+    keep_tex: no
+  word_document: default
+fontsize: 11pt
+link-citations: yes
+csl: global-ecology-and-biogeography.csl
+bibliography: Soccer.bib
+---
+# Summary\footnote{The author would like to thank Rutger Lit, Ramsis Croes, Misja Mikkers and two anonymous reviewers for useful comments and suggestions.}
+
+Currently, one in three matches in Dutch professional football ("Eredivisie") is played on an artificial turf surface. Recently, statistical evidence was reported that suggest an increased home advantage for Dutch teams playing on artificial turf against an away team that plays its home games on natural grass [@van_ours_artificial_2017]. Here we investigate if accounting for this effect increases out-of-sample predictive accuracy of match outcomes. To do so, we implemented existing probabilistic models to make one-step-ahead forecasts, with and without the additional artificial turf predictor. The ranked probability score (RPS) is used to assess the accuracy of the forecasts and compare between models. We find that including the artificial turf home advantage as additional predictor does not improve the accuracy of the forecasts. We conclude that the evidence for a large artificial turf advantage in the Eredivisie is not strong.
+
+*Keywords*: forecasting, soccer, artificial turf
+
+
+
+
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message = FALSE)
+knitr::opts_chunk$set(cache = FALSE)
+
+```
+
+```{r results = 'hide', message = FALSE}
+rm(list = ls())
+library(data.table)
+library(ggplot2)
+library(rstan)
+library(cowplot)
+
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+```
+
+```{r results = 'hide'}
+# Toggle MCMC sampling on or off
+fullrun <- 0
+```
+
+
+```{r results = 'hide'}
+source("code/rankProbScore.R")
+source("code/ppc_coverage_plot.R")
+source("code/MakeTimeSeriesPlot.R")
+source("code/Create_model_data_for_TS2.R")
+source("code/addTeamIds.R")
+source("code/create_league_table.R")
+source("code/MakeEPLPlotAbility.R")
+source("code/games_predicted_vs_actual_intervals.R")
+source("code/ppc_coverage_plot.R")
+source("code/calc_rps_scores.R")
+source("code/odds_to_probability.R")
+source("code/ReadfitsandCalculateRPS.R")
+source("code/array_to_table.R")
+source("code/FitStanModel.R")
+
+```
+
+```{r load_data, results = 'hide', message = FALSE}
+NL_ALL <- readRDS("output/NL_ALL.rds")
+```
+
+# Introduction
+
+In the past few years, several professional football clubs in the Netherlands have switched to playing their home field games on an artificial pitch, apparantly due to financial reasons. Currently (since season 2014/2015), one in three matches (6 of 18 teams) in Dutch professional football (Eredivisie) is played on an artificial turf surface. This has led to a heated debate in the Netherlands which in 2017 resulted in the team captains of the twelve natural grass teams to call for a ban on artificial turf in the Eredivisie. Later that year, this was followed by a manifesto "Quit using artificial turf" signed by over a hundred coaches, former players, trainers etc. 
+
+```{r figPERCATA, echo = FALSE, fig.width=5, fig.height=3, fig.cap="Number of matches played on artificial turf and natural grass in the Dutch Eredivisie by season starting year. Vertical lines indicate the matches analyzed in this paper."}
+res <- NL_ALL[, .(perc_art_turf_advantage = mean(art_turf_advantage),
+                  perc_art_turf = mean(art_turf),
+                  #N_ata = sum(art_turf_advantage),
+                  N_at = sum(art_turf),
+                  N = .N - sum(art_turf)), .(season)]
+
+mres <- melt(res, id.vars = c("season"))
+
+ggplot(mres[variable %in% c("N_ata", "N_at", "N") & season < 18,], aes(x = season +1999, y = value, fill = variable)) + 
+  geom_col(position = position_stack(reverse = TRUE), width = 0.5) + 
+  geom_vline(xintercept = 2012.5) +
+  geom_vline(xintercept = 2016.5) + xlab("Season starting year") + ylab("Number of matches") +
+  scale_fill_discrete(name="Match playing surface",
+                         breaks=c("N_at", "N"),
+                         labels=c("Artificial turf", "Natural grass"))
+  
+
+```
+
+One of the arguments against allowing artificial turf in league competitions (there are several more, see [@hvattum_playing_2015] for a discussion with references) is that a team playing on artificial turf would have an unfair advantage when playing against a team that plays its home matches on natural grass. Research on four teams with artificial pitches competing in the English Football League during the 1980's [@barnett_effect_1993] concluded that this advantage existed and was of sufficient scale to be cause of concern. However, since then, artificial turf technology has evolved and this conclusion might not hold true anymore for current artificial playing surfaces. There are now three recent studies with results on the effect of artificial turf on match outcomes. Trombley [@trombley_does_2016] concludes that artifical turf does not affect the competitive balance in Major League Soccer in the US for the years 2011-2014. Hvattum [@hvattum_playing_2015] finds that team strength on average increases after switching from natural grass to artificial turf for Norwegian soccer teams, and using a model based on ELO rating differences, finds a statistically significant artificial turf advantage in-sample. However, out-of-sample predictive performance is virtually unchanged when including the effect as a predictor. 
+
+Finally, van Ours [@van_ours_artificial_2017] finds a large in-sample effect using an analysis based on group differences. The statistical analysis was based on aggregate differences between four types of matches. A substantial point-estimate (+0.5 additional goals per match holding all else equal) was reported, together with a model to assess the statistical significance (the estimate was statistically significant non-zero with p-value 0.02). It was concluded that artificial pitches lead to unfair advantages that could lead to undeserved relegation of lower ranking teams.
+
+Given the large point estimate (even larger than typical reported values for the regular, well documented home advantage), as well as the large percentage of affected matches (25% of all matches in the last three completed seasons), one would expect that incorporating the artificial turf home advantage in forecasting models would substantially increase their predictive accuracy.
+
+To test this hypothesis, a predictive model is needed that uses a delineated information set as a basis for its predictions, to which information on the playing surface can be added. As the Dutch artificial turf advantage finding [@van_ours_artificial_2017] was based on analysis of historical match result data, we restrict our analysis to this dataset as well (available on e.g. \url{http://www.football-data.co.uk}). This rules out more refined predictive models based on e.g. within match shot attempts (expected goals) or models that incorporate information on individual players (abilities, injuries etc). This also rules out using Bookmaker odds as predictions, since we do not known what information has been incorporated in them.
+
+We surveyed the literature on probabilistic modeling of football outcomes to identify predictive models that appear to perform well on historic match outcomes. We setttle on two variants that model the goal difference of a match using latent parameters for team strength. The outcome of a match in terms of Win, Draw or Loss can be directly derived from the predicted goal difference. Both variants are dynamic, i.e. they allow the team strengths to vary over time. They differ in the distribution that is assumed for the goal differences: The first variant assumes a Poisson difference distribution, also known as the Skellam distribution [@skellam_frequency_1946, @karlis_bayesian_2009-1, @lit_time-varying_2016]. The second variant assumes a $t$-distribution, that allows for long tails and includes the normal distribution as a special case [@kharratzadeh_hierarchical_2017]. Note that the Skellam distribution is the difference of two independent Poisson models and is therefore a discrete distribution, whereas the $t$-distribution is a  continuous distribution.
+
+We subsequently expand these two probabilistic model variants with an additional dummy variable that equals one if the match satifies the two conditions for the additional home advantage due to artificial turf. This requires a) that the match is played on artificial turf, and b) that the away team plays its home matches on natural grass. 
+
+The main result of this paper is that we find no evidence of improved forecasts when accounting for the additional home advantage due to artificial turf. In contrast, leaving out the regular home advantage gives a strong decrease in predictive accuracy. Apart from this, we find that differences in accuracy between the various predictive model variants are relatively small. No model outperforms forecasts derived from the betting odds of two well-known bookmakers, although the models do come surprisingly close.
+
+The paper is organized as follows. After motivating and describing our model variants, we then describe our data as well as how we perform inference. Then we describe our model comparison approach, which is based on one-step-ahead forecasts that are evaluated with the Ranked Probability Score (RPS) [@epstein_scoring_1969, @constantinou_solving_2012]. Finally we present and discuss the results, including a section where we perform model checking (also known as posterior predictive checking).
+
+
+
+# What model to use?
+
+Using statistical models to predict the result of football matches has a long tradition going back to Maher [@maher_modelling_1982]. Maher used two static independent Poisson models for the home and away team respectively, to predict the number goals scored for each team. A landmark paper by Dixon and Coles [@dixon_modelling_1997] improved on Maher's model in several ways, most notably by introducing time-dependence for the team abilities. Another important work is Rue and Salvesen [@rue_prediction_2000] who present a Bayesian dynamic generalized linear model, with team abilities modeled as a random walk in time (Brownian motion). There are many more papers in this literature, for an extensive review we refer the reader to [@constantinou_profiting_2013, @koopman_forecasting_2017].
+
+After reviewing the literature, we conclude that must-haves for a competitive parametric football model are:
+
+1. Inclusion of the regular home advantage [@pollard_home_2008]
+2. Allowance for time-varying team abilities [@lit_time-varying_2016]
+3. Adressing the correlation between goals made by the home and the away team [@koopman_dynamic_2015-1]
+4. Partial pooling of the variance of the team ability time evolution [@lit_time-varying_2016, @kharratzadeh_hierarchical_2017]
+
+The first two points are described in more detail in the next section, where we present the model variants used in this paper.
+
+Regarding the third point, this has been typically adressed in the literature in one of two main ways. The first is modelling the match score as a joint distribution of two independent Poisson processes, and adding a correlation parameter $\gamma$. This is the bivariate Poisson model [@karlis_analysis_2003, @koopman_dynamic_2015-1]. 
+
+An alternative approach, and the one we adopt here, is to take the difference of the pair of goals for each match, and model the score difference. For the distribution of score differences, we consider both a Poisson difference (or Skellam) distribution [@karlis_bayesian_2009-1, @koopman_dynamic_2015-1]\footnote{ Both the difference of two independent Poisson distributions, as well as the difference between two Bivariate Poisson counts with correlation $\gamma$ is distributed as a Skellam distribution, because the correlation term cancels out by differencing (Koopman \& Lit 2014)}, as well as a $t$-distribution. It has been shown by [@koopman_forecasting_2017] that both approaches (modeling the score or the score difference) give very similar predictive accurracy for the outcome in terms of Win, Draw, Loss.
+
+Regarding the fourth and last point: Team strength is expected to change even within a single season for various reasons (e.g. players come and go, get injured, learning effects). In addition, because of the relatively low amount of goals made in each match, a single match outcome in terms of goal difference does not provide us with a strong signal on relative team ability. Estimating team-specific time dynamics (No pooling) might lead to overly noisy, volatile team abilities. Estimating equal time dynamics for all teams (complete pooling) is one way to cope with this situation. However, [@lit_time-varying_2016] found that higher ranking teams having more stable abilities compared to lower ranking teams, and that this distinction improves model fit noticably. An attractive alternative is to use partial pooling (i.e. multilevel / hierarchical modelling) for the time dynamics, which estimates the amount of pooling from the data [@greenland_principles_2000]. We therefore adopt the multilevel variance model of Milad Kharratzadeh [@kharratzadeh_hierarchical_2017]\footnote{The paper of Milad Kharratzadeh has been peer reviewed and is fully reproducible available at \url{https://github.com/stan-dev/stancon_talks/tree/master/2017/Contributed-Talks/02_kharratzadeh}. For the Skellam model, The Stan code of Ben Torvaney of the Karlis \& Ntzoufras static Skellam model on GitHub (https://github.com/Torvaney/soccerstan) provided a starting point. Combining these two sources led to a dynamic multilevel Skellam model, that shares many similarities (apart from the multilevel aspect) with the dynamic Skellam model of Koopman \& Lit.} for both model variants. 
+
+# Description of the model variants
+
+We adopt a Bayesian approach in our modelling. This requires defining prior distributions for all our parameters, as well as a likelihood of observing the data given specific values for all parameters. We then use Bayes' rule to compute the posterior probabilities, conditional on the data and our model. As mentioned earlier, we model the goal difference $Y$ of a football match. From the goal difference, the outcome of the match in terms of win, draw, or loss can be derived directly. 
+
+A natural way to model the goal difference $Y_{ijt}$ for the match between home team $i$ and away team $j$ at time $t$ is as a difference of two Poisson distributions, each with its own rate parameter $\lambda_{it}$ and $\lambda_{jt}$ respectively. The unit of time $t$ is week number, since each team plays at most once a week. 
+
+\begin{equation} Y_{ijt} \sim Skellam(\lambda_{it}, \lambda_{jt})  \label{eq:skellam} \end{equation}
+
+The rate parameters $\lambda$ ("scoring intensities") are modeled as follows:
+
+\begin{equation} \lambda_{it} = \exp(\mu + \delta + \kappa d_{ijt} + \alpha_{it} - \beta_{jt})  \label{eq:lambda1} \end{equation}
+
+\begin{equation} \lambda_{jt} = \exp(\mu + \alpha_{jt} - \beta_{it})  \label{eq:lambda2} \end{equation}
+
+In equation \eqref{eq:lambda1}, $\delta$ captures the regular home advantage, whereas  $d_{ijt}$ is a dummy predictor capturing the additional home advantage $\kappa$ due to artificial turf. $d_{ijt}$ equals one when at time $t$, the game between home team $i$ and away team $j$ satisfies the two required conditions: a) the match is played on artificial turf, and b) the away team plays its home matches on natural grass. The parameter $\mu$, together with the home advantage, determines the scoring intensities when two teams with equal strength play each other. Because we expect Poisson rates of order of magnitude 1 \footnote{The mean of a Poisson distribution is equal to its rate parameter $\lambda$. In the last four complete seasons, on average 1.7 and 1.3 goals were scored by the home and away team respectively.}, and since we have an exponential link function (to constrain the rate $\lambda$ to be always positive), this translates to a value around zero for the exponents \eqref{eq:lambda1} and \eqref{eq:lambda2}. We therefore choose for $\mu$, $\delta$ and $\kappa$ normally distributed priors around zero:
+
+\begin{equation} \mu, \delta \sim Normal(0, 1) \label{eq:prior1} \end{equation}
+\begin{equation}  \kappa \sim Normal(0, 5) \label{eq:prior2} \end{equation}
+
+We choose the scale for the artificial turf advantage as largely uninformative for the expected range of plausible values (plus or minus 1) to reflect that we have only very little prior information for this parameter.
+
+The parameters $\alpha_{it}$ and $\beta_{it}$ model the attack and defense ability of team $i$ at time $t$. 
+The time evolution of these parameters is modeled as a random walk \footnote{A random walk is not a stationary process and can drift off to infinity. The process of conditioning on the data however prevents this from happening. In addition, Koopman \& Lit (2015) model the latent ability $\alpha$ as an first order autoregressive process ($\alpha_{it} = \phi \alpha_{i,t-1}$) and estimate a value for the persistence parameter $\phi$ of 0.996, i.e. very close to 1, the value of a random walk.}: The ability of a team at time $t$ is assumed to be equal to the ability at time $t-1$ plus a noise term that is normally distributed around zero with a team-specific variance $\sigma_{i}$: 
+
+\begin{equation} \alpha_{it} = \alpha_{i,t-1} + \eta_{it} \label{eq:random_walk_alpha} \end{equation}
+
+\begin{equation} \eta_{it} \sim Normal(0, \sigma_i) \end{equation}
+
+We initialize the time series using data on previous season's performance for each team. We follow the approach of [@kharratzadeh_hierarchical_2017]: The previous performance scores $z_{i}$ are calculated by the final sum of league points of each team in the previous season (with 3 points for a win, 1 point for a draw and zero points for a loss), transformed to a range between (-1, +1) using linear scaling between the lowest and highest points. For teams that got promoted from the second highest league ("Jupiler league") we choose $z = -1$ as most likely ability given that they were relegated in the past from the Eredivisie. 
+
+The first week's abilities are then modeled as a weighted average of the $z_{i}$, as well as latent variables $\eta_{i0}$ generated from a normal distribution with a variance $\sigma_{0}$ that is estimated from the data. 
+\begin{equation} \alpha_{i0} = w z_{i} + \eta_{i0} \label{eq:random_walk_alpha0} \end{equation}
+
+\begin{equation} \eta_{i0} \sim Normal(0, \sigma_{0}) \label{eq:random_walk_eta0} \end{equation}
+
+The weight parameter $w$ is a free parameter that can give more weight to the supplied team historical performance $z_{i}$ if this fits the data well. 
+
+Finally, we model the variances $\sigma_i$ of the separate time series (two for each team, for the Attack and defense ability parameters) as coming from a half-normal distribution with hyperparameter $\tau$:
+
+\begin{equation} \sigma_{i} \sim HalfNormal(0, \tau) \end{equation}
+
+This has the effect of shrinking the variances somewhat towards zero, preventing overfitting by smoothing the latent ability parameters estimates [@kharratzadeh_hierarchical_2017]. See also the discussion on partial pooling in the previous paragraph. For the defense abilities $\beta_{it}$ a similar set of equations (with equal priors) is used, with the parameters $\sigma_{0}$, $\sigma_i$ and $\tau$ assumed equal for both attack and defense parameters.
+
+For the Skellam model, a more parsimonious model variant can be obtained by using a single team ability parameter $\theta_{it}$ ("Strength") instead of $\alpha_{it}$ and $\beta_{it}$.
+
+If we replace the Skellam distribution by a $t$-distribution and model the mean of this distribution as the difference of two "scoring intensities", we obtain the model of [@kharratzadeh_hierarchical_2017]. A $t$-distribution has, in addition to a location (Here defined as $(\lambda_{it} - \lambda_{jt})$) and a scale parameter $\sigma_{Y}$,  a third parameter $\nu$ (also called "degrees of freedom") that determines the shape of the tails. For large values of $\nu$, a $t$-distribution approaches a normal distribution.
+
+This modeling approach does not allow diffentiating team strength into two separate team ability parameters $\alpha_{it}$ and $\beta_{it}$ ("Attack" and "Defense"). To see that such a model would not be identified, we rearrange the terms in \eqref{eq:lambda1} and \eqref{eq:lambda2} (omitting the exponent) as $\lambda_{it} - \lambda_{jt} = \delta + d_{ijt} \kappa + (\alpha_{it} + \beta_{it}) - (\alpha_{jt} + \beta_{jt}) = \delta + d_{ijt} \kappa + \phi_{it} - \phi_{jt}$. This leaves us with a single ability parameter $\phi_{it}$ for each team. Including a constant $\mu$ for each scoring intensity $\lambda$ would also leave the model unidentified.
+
+We end up with the following model equations:
+
+\begin{equation} Y_{ijt} \sim t(\lambda_{it} - \lambda_{jt}, \sigma_{Y}, \nu)  \label{eq:normal} \end{equation}
+
+\begin{equation} \lambda_{it} = \delta + d_{ijt} \kappa + \phi_{it} \label{eq:lambda1_lin} \end{equation}
+
+\begin{equation} \lambda_{jt} = \phi_{jt}  \label{eq:lambda2_lin} \end{equation}
+
+\begin{equation} \phi_{it} = \phi_{i,t-1} + \eta_{it} \label{eq:random_walk_phi} \end{equation}
+
+
+Note that we no longer need the exponential function to constrain the $\lambda$'s in the Skellam distribution to the range $[0, \infty]$. 
+
+Finally, following [@karlis_bayesian_2009-1, @lit_time-varying_2016], the Skellam models contain a zero inflation component. This results in a mixed model, where with a probability $p$ the goal difference is 0, and with a probability $1 - p$ the goal difference is generated by the Skellam model. One model variant leaves out this zero inflation component to learn the effect of including it. A uniform distribution between 0 and 1 is used as a prior for $p$. 
+
+# Inference from data
+
+All our models are coded in Stan, a probabilistic programming language for Bayesian modelling [@carpenter_stan_2016]. Stan programs are compiled and during execution generate MCMC samples from the posterior distribution. Stan uses Hamiltonian Monte Carlo sampling, in particular the the No-U-Turn Sampler [@hoffman_no-u-turn_2014], which allows for very efficient exploration of high-dimensional parameter spaces.
+
+Match level data for the dutch Eredivisie was obtained from \url{http://www.football-data.co.uk}). 
+This dataset also contained Win/draw/loss odds for each match from various bookmakers, including William-Hill and Bet365, that we use as a benchmark. To convert the bookmaker odds to probabilities we use standard normalization, where the sum of the raw probabilities obtained by inverting the odds are scaled to equal 100% [@strumbelj_online_2010] \footnote{For a match with outcomes Win/Draw/Lose with given bookmakers odds $o_i = {o_W, o_D, o_L}$, the inverse odds $\pi_i = 1/o_i$ do not represent probabilities because they do not sum to one. Dividing by the sum $\Pi = \sum_{i = 1}^3 \pi_i$, we obtain $p_i = \pi_i / \Pi$. $p_i$ are called standard (or basic) normalized outcome probabilities.}.
+
+Information on playing surface (natural or artificial) for each team was obtained from various sources, and verified by comparing with news media postings online.
+
+Each model variant is fitted separately for each out-of-sample week (2 seasons x 34 playing weeks = 68 weeks in total). Fitting a model consists of running six MCMC chains with 1000 sample draws each (sampled in parallel on six cores) with the first 500 samples of each chain discarded as warmup, retaining the second 500 draws. This gives a total of $M = 3000$ posterior draws for each model fit. A few model variants initially gave warnings during samples (divergent iterations or maximum treedepth reached), after increasing adapt_delta to 0.99 and max_treedepth to 15 all chains sampled without any warnings. To check convergence and diagnose potential problems during sampling, Stan reports the potential scale reduction factor (PSRF) statistic ($\hat{R}$) as well as the effective sample size $n_{eff}$ for each parameter. PSRF values greater than 1.05 and ratios $n_{eff}/N < 0.1$ can heuristically be interpretated as worrisome.
+
+For all fitted models, for all parameters $\hat{R} < 1.02$ except for a few (N = 35, mostly $\sigma_{0}$ and $\tau$) parameters with $1.02 < \hat{R} < 1.04$ , and a single parameter with $\hat{R} = 1.06$. Also a few (N = 25) parameters had $n_{eff}/N < 0.1$, of which 15 had also elevated PSRF values (> 1.02). Our subjective judgement is that all MCMC chains have converged succesfully.
+
+The set of 68 out-of-sample model fits results in 68 x 9 = 612 - 4 = 608 forecasts\footnote{Four matches could not be predicted because a newly promoted team (not present in the training data up to that point) was playing for the first time at home or away.}. To check whether $M = 3000$ draws gave sufficiently stable forecasts, we ran variants of the $t-$distribution model (with and without artificial turf advantage) twice, generating for each model two vectors of 608 ranked probability scores. The correlation coefficient between these vectors was 0.998, for both model variants. Both runs had the same average RPS. This was deemed to be sufficiently stable for model comparison.  We verified that the models were coded properly by simulating parameters and data from the generative model and verifying that the parameters are properly recovered. 
+
+All scripts for this paper, including the paper itself will become available on a Github repository.
+
+# Forecasting approach
+
+Our goal is to compare various models on out-of-sample predictive accuracy (forecasting). The motivation for our approach is that out-of-sample evidence for the artificial turf advantage is more convincing than in-sample evidence. For this approach, we face a trade-off in the choice which data we use to estimate the parameters ("in-sample"), and which data to use for out-of-sample prediction. 
+
+```{r echo = FALSE}
+result_by_model <- readRDS("output/20180828 average RPS by model.rds")
+
+tidy_coef_res <- readRDS("output/20180828 tidy_coef_res.RDS")
+# rename variable for plotting
+tidy_coef_res <- tidy_coef_res[L1 == "b_home", L1 := "home_advantage"]
+
+NL_ALL_PRED <- readRDS("Output/20180828 NL_ALL_PRED_w_odds.rds")
+
+#tidy_rhat_neff_res <- readRDS("output/tidy_rhat_neff_res.rds")
+
+# model checking
+res <- readRDS("output/20180828 res_match_type.rds")
+res_upper_lower <- readRDS("output/20180828 res_upper_lower.RDS")
+#res_upper_lower_at <- readRDS("output/res_upper_lower_at.RDS")
+res_time <- readRDS("output/20180828 res_time.RDS")
+```
+
+The artificial turf advantage effect was reported using data from the three most recent complete seasons (2014/2015 up to 2016/2017) [@van_ours_artificial_2017]. Ideally, we would like to forecast match outcomes for these three seasons. However, we also need data to estimate the parameters, and to estimate the artficial turf advantage, this requires sufficient in-sample matches that satisfy the ATA conditions. Therefore, we decided to use the last four seasons of data (see also Figure 1), and decide (somewhat arbitrarily) to use two seasons worth of data (612 matches) to estimate the parameters, and use an expanding window to obtain one-step-ahead forecasts for the remaining two seasons (612 matches). 
+
+Since the team abilities change over time, increasing the estimation window size by going further back in time is not expected to increase predictive accuracy by much. Only for the time-independent parameters do we expect an impact. Whether the impact is beneficial or detrimental will depend on time horizon, as the constant regular home advantage is an assumption that decreases in plausibility as we increase the period over which we average (in fact it will likely vary in time and across teams).
+
+To compare model predictive performance we use a proper scoring rule [@gneiting_strictly_2007]. Scoring rules are used to compare the quality of forecasts. A scoring rule is proper when it incentivizes a forecaster to use his true beliefs when making forecasts that are ranked by applying the scoring rule [@gneiting_strictly_2007]. For ordered discrete outcomes (Win, draw, loss) with $r$ categories (here $r = 3$), the Ranked Probability Score (RPS) [@epstein_scoring_1969] is a proper scoring rule [@constantinou_solving_2012]: 
+
+\begin{equation} RPS = \dfrac{1}{r-1} \sum_{i=1}^{r-1}(\sum_{j=1}^{i}(p_{j}-e_{j}))^2 \label{eq:rps} \end{equation}
+
+Here $p_{j}$ is the cumulative probability density function (CDF) of the model forecast, and $e_{j}$ is the cumulative outcome vector, that, while stepping through the ordered categories {Win, Draw, Loss} changes from 0 to 1 when the realized outcome occurs. For example, when the actual outcome is a Draw, and the forecast probabilities are p(Win) = 0.2, P(draw) = 0.35, and P(Loss) = 0.45, the RPS is calculated as $[(0.2 - 0)^2 + (0.55 - 1)^2 + (1 - 1)^2]/2 = 0.1212$. Lower RPS values mean more accurate forecasts.
+
+To calculate the probabilities needed for the RPS, we use the posterior predictive distribution $p(y^{rep}| y)$ for observing a goal difference $y^{rep}$, conditional on the observed data $y$ and the model. This gives for a particular match, for each of the potential outcomes (Win, draw, loss for the home team) the probability of occuring, that can plugged into Equation \eqref{eq:rps} to obtain the RPS for that match.
+
+\begin{equation} p(y^{rep}| y) = \int_{\Theta} p(y^{rep} | \theta) p(\theta | y) d\theta \label{eq:post_pred} \end{equation}
+
+Here $p(\theta | y)$ is the posterior distribution of the parameters after conditioning on the data y.   $p(y^{rep} | \theta)$ is the likelihood of observing a particular new value of $y$, given particular values of the parameters of the model $\theta$. The integral can be seen as a weighted average of the likelihood over all possible sets of values for all parameters, each in proportion with their posterior probability. It combines both our uncertainty about the parameters of the model (lack of knowledge), as well as the  uncertainty caused by random variability in the data-generated process.
+
+The posterior predictive distribution for new data can be conveniently calculated during MCMC sampling.
+For each draw $\theta^m$ of a total of $M$ draws from the posterior distribution $p(\theta | y)$, we can plug $\theta^m$ into the likelihood function. This turns the likelihood function in a sampling distribution. We can directly sample from this distribution using forward simulation. The $M$ samples (one for each draw from the posterior) together form the posterior predictive distribution \eqref{eq:post_pred}.  For example, for the Skellam model variant, a single predicted goal difference is a sample from a Skellam distribution with parameters fixed at $\theta^m$.
+
+The resulting posterior predictive distribution over goal differences $y^{rep}$ forms the basis of our probabilistic forecast. For the Skellam model, the probabilities p(win), p(draw) and p(loss) follow directly from the MCMC sample $y^{rep}_{m} = {y^{rep}_1, y^{rep}_2, y^{rep}_3, \dots}$ with p(win) the percentage of $y^{rep}$ values greater than zero, p(draw) the percentage of $y^{rep}$ values equal to zero and p(loss) the percentage of $y^{rep}$ values lower than zero.
+
+For the $t$-distribution models, we first discretize the predicted continuous values $y^{rep}$ for the goal differences by defining a draw as a predicted goal difference in the range [-0.5, +0.5]. We then apply the same procedure as described for the Skellam models.
+
+## Bookmaker odds as benchmark
+
+We present two extremes to compare the model-based predictions with: the Online bookmaker' odds implied probabilities as the target "to beat", and a random forecasting strategy of equal probability for each of the three outcomes as uninformed reference prediction. Probabilities derived from bookmaker odds seem to provide very accurate forecasts that are hard to beat with parametric statistical models that use objective data as inputs [@constantinou_pi-football_2012]. Only after incorporating detailed subjective information did their model achieve comparable forecasting performance (measured by RPS) to that of bookmakers. To our knowledge, no parametric football model using match level data is currently able to outperform the predictive accuracy of published betting odds. We note here that predictive accuracy is not the same as profitability of betting strategies based on parametric models.
+
+Average RPS scores of the betting market (including the Dutch Eredivisie) are reported in [@constantinou_profiting_2013]. For the Dutch Eredivisie the average RPS for the period 2005-2012 is 0.19. However, caution is needed when comparing RPS values, as there is considerable variability in average RPS values over seasons, much larger than the variation in average RPS between bookmakers for the same season. We therefore calculate the average RPS on the exact same data that we let the models predict for. 
+
+We chose somewhat arbitrarily the Bet365 odds since it is one of the largest online betting sites, and the William Hill odds since these odds were available for a longer time period (at least since 2000/2001 season) and is a very large and well known bookmaker as well. It is likely that by pooling the various bookmakers even better forecasts can be obtained, but as our goal here is get some intuition in how well our models are performing, this lead was not pursued further. 
+
+```{r echo = FALSE}
+cor_wh_b365 <- NL_ALL_PRED[model_nr %in% c(11, 12) & !is.na(rps_vec), .(rps_vec, model_nr)]
+cor_bookmakers <- round(cor(cor_wh_b365[model_nr == 11]$rps_vec, cor_wh_b365[model_nr == 12]$rps_vec),3)
+```
+
+The William-Hill and Bet365 odds-based forecasts have an average RPS of `r round(result_by_model[short_name %in% c("WH_odds"),]$aRPS, 3)` and `r round(result_by_model[short_name %in% c("B365_odds"),]$aRPS,3)` respectively, and correlate strongly (Pearson's correlation coefficient of `r cor_bookmakers`) for the 2015/2016 and 2016/2017 Eredivisie seasons combined. The random forecasting strategy of equal probabilities has an average RPS of `r round(result_by_model[short_name %in% c("Equal_prob_odds"),]$aRPS, 3)`.
+
+# Model checking
+
+We have performed various checks on the models. A separate document is available that contains all checks.
+Here we present a few results that illustrate the working of the models. 
+
+```{r, echo = FALSE}
+# recreate data used to fit the models
+fit_pars <- list(nsamples = 1000, # samples PER chain, including warmup
+                chains = 6,
+                warmup = 500,
+                nshifts_start = 0,
+                nshifts_end = 67,
+                init_r_val = 0.1,
+                start_round = 443,
+                end_round = 511,
+                prev_perf_season = 13,
+                target_folder = "c:/testversleutel/FITS/"
+                )
+shift <- 67
+model_data <- Create_model_data_for_TS2(NL_ALL[round >= fit_pars$start_round & 
+                                                       round < (fit_pars$end_round + fit_pars$nshifts_start + shift)], # in-sample
+                                              NL_ALL[season == fit_pars$prev_perf_season], # prev_perf
+                                              NL_ALL[round == (fit_pars$end_round + fit_pars$nshifts_start + shift)]) # prediction
+
+```
+
+Figure 2 shows the distribution of goal differences, both of the actual data, as well as predicted by the dynamic Skellam model (This figure is adapted from [@karlis_bayesian_2009-1]). This figure is constructed by pooling all posterior predictive distributions for the goal difference (one distribution of size $M$ draws for each of $N$ matches) and creating a histogram that is normalized by $M$. This gives a visual impression of model calibration. 
+
+
+```{r echo = FALSE, fig.width=5, fig.height=3, fig.cap="Predicted distribution of goal differences versus actual distribution. Shown are the predictions for the Skellam model. "}
+
+# did not save the in sample goal differences: refit last sd model, save all variables
+sd_67 <- FitStanModel(stan_model_file = "models/skellam_dynamic.stan",
+                      fit_pars = fit_pars,
+                      model_data = model_data,
+                      output_file = "FITS/sd_67_full.rds",
+                      fullrun = fullrun,
+                      n_samples = 1000)
+
+score_diff_rep <- extract(sd_67, "goal_difference_rep")
+
+# save memory
+rm(sd_67)
+
+gp <- games_predicted_vs_actual_intervals_simple(model_data$goal_difference, 
+                                                 score_diff_rep, diff_limits = c(-8,8)) + 
+  theme_light()
+gp
+```
+
+Figure 3 shows for the $t$-distribution model the estimated latent team abilities over time for Ajax and Feyenoord. 
+Panel A shows the abilities for the no pooling model (team-specific random walk variance), Panel B with partial pooling (multilevel random walk variance).
+As expected, the multilevel model leads to smoothed ability estimates.
+
+
+
+```{r, echo = FALSE,  fig.width=5, fig.height=6, fig.cap="Estimated team abilities: effect of partial pooling of the team-specific random walk variance. The model was fitted on the dataset used to predict the final round of the 4th season (2016/2017)."}
+
+if(fullrun) {
+  epl_np_67 <- FitStanModel(stan_model_file = "models/epl_model_no_pooling.stan",
+                      fit_pars = fit_pars,
+                      model_data = model_data,
+                      output_file = "FITS/epl_np_67.rds",
+                      fullrun = fullrun,
+                      n_samples = 1000)
+
+  a_sims <- extract(epl_np_67, "a")
+  
+  source("code/array_to_table.R")
+  # a_sims$a is a 3d array with dimensions 3000 x 135 x 23 = 9M numbers
+ 
+  ma_sims <- array_to_data_table(a_sims$a)
+
+  setnames(ma_sims, 2, "iterations")
+  setnames(ma_sims, 3, "nweek")
+  setnames(ma_sims, 4, "nteam")
+  
+  saveRDS(ma_sims, "output/a_sims_np.rds")
+} else {ma_sims <- readRDS("output/a_sims_np.rds")}
+
+id_lut <- model_data$id_lut
+
+gp1 <- MakeTimeSeriesPlot(ma_sims, title = "T-distribution base model: no pooling", 
+                          id_lut, subset = c("Ajax", "Feyenoord")) + 
+  ylim(c(-3,3)) + theme_bw()
+
+rm(ma_sims)
+
+if(fullrun) {
+  epl_67 <- FitStanModel(stan_model_file = "models/epl_model.stan",
+                      fit_pars = fit_pars,
+                      model_data = model_data,
+                      output_file = "FITS/fitX_67.rds",
+                      fullrun = fullrun,
+                      n_samples = 1000)
+  a_sims <- extract(epl_67, "a")
+
+  # a_sims$a is a 3d array with dimensions 3000 x 135 x 23 = 9M numbers
+ 
+  ma_sims <- array_to_data_table(a_sims$a)
+
+  setnames(ma_sims, 2, "iterations")
+  setnames(ma_sims, 3, "nweek")
+  setnames(ma_sims, 4, "nteam")
+  
+  saveRDS(ma_sims, "output/a_sims_p.rds")
+} else {ma_sims <- readRDS("output/a_sims_p.rds")}
+
+id_lut <- model_data$id_lut
+
+gp2 <- MakeTimeSeriesPlot(ma_sims, title = "T-distribution base model: partial pooling", 
+                          id_lut, subset = c("Ajax", "Feyenoord")) + 
+  ylim(c(-3,3)) + theme_bw()
+
+rm(ma_sims)
+
+plot_grid(gp1, gp2, labels = c("A", "B"), nrow = 2, align = "v")
+```
+
+
+We also compare the quality of our model predictions against the bookmaker odds.
+For this we use the Ranked probability score for each match, and aggregate by week to compare over time (Figure 4), as well as by match type (Figure 5).
+
+For the comparison over time, we compare the best model (Skellam model without zero inflation) with the Bet365 odds. Figure 4A shows that the average quality of the forecasts between statistical model and bookmaker odds correlate strongly, and Figure 4B shows that there is no time / seasonal trend or structural break visible over time. The vertical line marks the first week of the second out-of-sample season. Figure 4B contains a local polynomial regression fit to smooth the time series (blue line). 
+
+```{r figtimeShowdown, echo = FALSE, fig.width=5, fig.height=4, fig.cap="Bet365 vs best Skellam model: A) weekly averaged Ranked Probability Scores over time, for all playing rounds in seasons 2015/2016 and 2016/2017. B) Difference between the values plotted in A) over time, with a polynomial smoothing fit to visualize possible time trends. The vertical line marks the first week of season 2016/2017."}
+tmp <- melt(res_time[model_nr %in% c(7,12), .(round, model_nr, arps)], measure.vars = "arps")
+tmp <- dcast(tmp, round ~ model_nr)
+tmp <- tmp[, diff := `7` - `12`]
+# 3is no AT, 10 is with AT
+min_round <- min(tmp$round)
+gp1 <- ggplot(res_time[model_nr %in% c(7,12),], aes(x = (round - min_round), y = arps, group = name,
+                                                     col = name)) +
+  geom_point() + geom_line() + theme_bw() + geom_vline(xintercept = 34) + 
+  theme(legend.position="bottom") + xlab("Round number") + ylab("RPS")  
+
+gp2 <- ggplot(tmp, aes(x = (round - min_round), y = diff)) +
+  geom_point() + geom_line() + geom_smooth() + xlab("Round number") + ylab("delta RPS") + ylim(c(-0.05, 0.05)) + geom_vline(xintercept = 34) + theme_bw()
+
+plot_grid(gp1, gp2, labels = c("A", "B"), nrow = 2, align = "v")
+```
+
+We expect that matches where the team abilities are similar are more difficult to predict. Based on a two-season league table, we label each team as relatively "strong" when it ranks in the upper halve of the league table, and as relatively "weak" when it ends up in the lower halve of the ranking. With these labels, we then classify each match as a match between two strong teams, a match between a weak and a strong team, or a match between two weak team. For each of the three match types we calculate the average RPS for each model. We show results for the best Skellam model (no zero inflation) and for the best $t$-distribution model, and compare against the Bet365 odds as well as the equal probability reference forecasts.
+
+```{r figTdist, echo = FALSE, fig.width=5, fig.height=3, fig.cap="Average Ranked probability scores: models vs. bookmakers, stratified by relative team strength."}
+res_tmp <- rbind(data.table(res_upper_lower[model_nr == 1,], grouping = 1), # t-dist
+             data.table(res_upper_lower[model_nr %in% c(12,13),], grouping = 2),
+             data.table(res_upper_lower[model_nr == 7,], grouping = 3) # skellam
+             )
+
+ggplot(res_tmp, 
+       aes(x= factor(ul_type_name), y = arps,
+           group = factor(short_name), shape = factor(grouping), col = factor(name))) + geom_point(aes( size = sqrt(N)),  position = position_dodge(width = .5)) + 
+  scale_size_area(range(0, 100)) +
+#scale_size_continuous(range = c(1, 5)) + # min max size after transformation
+  coord_flip() + theme_bw() + theme(legend.position="bottom") + theme(legend.title = element_blank()) +guides(shape = FALSE, size = FALSE) + ylab("average RPS") + xlab("")
+```
+
+# Results: In-sample parameter estimates of the home advantage and artifical turf advantage parameters
+
+Figure 6 shows the median posterior value, as well as the 90% plausible intervals of both the regular home advantage as well as the artificial turf advantage. Figure 6A displays the $t$-distribution based models, Figure 6B displays the Skellam based models.
+
+```{r figInsample, echo = FALSE, fig.width=6, fig.height=8, fig.cap="Home advantage & AT advantage during window expansion, including data up to week t."}
+gp1 <- ggplot(tidy_coef_res[model_nr %in% c(1, 2) & L1 %in% c("home_advantage", "art_turf_effect"),], 
+       aes(x=shift_nr, y = Q50, group = paste(name, L1), col = name))  +
+         geom_ribbon(aes(ymin = Q5, ymax = Q95, group = paste(name, L1)), col = NA, fill = "grey70", alpha = 0.3) + 
+  #geom_line() + 
+  geom_point() + facet_wrap(~ L1, ncol = 1) + xlab("Week number") + ylab("parameter value") +
+  geom_hline(yintercept = 0) + theme_bw() + theme(legend.position="bottom") 
+
+gp2 <- ggplot(tidy_coef_res[model_nr %in% c(3, 10) & L1 %in% c("home_advantage", "art_turf_effect"),], 
+       aes(x=shift_nr, y = Q50, group = paste(name, L1), col = name))  +
+         geom_ribbon(aes(ymin = Q5, ymax = Q95, x=shift_nr, group = paste(name, L1)), col = NA, fill = "grey70", alpha = 0.3) + 
+  #geom_line() + 
+  geom_point() + facet_wrap(~ L1, ncol = 1) + xlab("Week number") + ylab("parameter value") +
+  geom_hline(yintercept = 0) + theme_bw() + theme(legend.position="bottom") 
+
+plot_grid(gp1, gp2, labels = c("A", "B"), nrow = 2, align = "v")
+```
+
+In both model variants the median posterior value of the artificial turf (AT) advantage parameter starts to increase after including the 20th playing round of the first out-of-sample season (2015/2016) in the expanding window. After round 36 (The beginning of the second out-of-sample season) for the $t$-distribution model, the median value of the artificial turf advantage stabilizes at around 0.2, with the 90% credible intervals displaying a lot of uncertainty, including a value of zero. The increase in the AT advantage value correlates with a smaller decrease in the home advantage value. 
+The Skellam model displays the same patterns over time, but the median posterior value remains close to zero, with a lot of uncertainty. 
+
+Note that our models do not allow the artificial turf advantage to vary over time, here we estimate an average effect over the full in-sample period, that changes as we expand the window of data included in the estimation. We also like to point out that the AT effect values cannot be directly compared between both model variants, because of different marginal effects of the dummy variable on the goal difference $Y$. The Skellam model has an exponential link function that shifts the expected value of the Poisson distribution, whereas the $t$-distribution model has a linear link function that directly shifts the center of the $t$-distribution.
+
+
+# Results: out-of-sample predictive accuracy
+
+Table 1 shows the main result of the paper, the averaged RPS for each model over two seasons of Eredivisie match outcomes (N = 608 matches). Four matches could not be predicted because a newly promoted team (not present in the training data up to that point) was playing for the first time at home or away.
+We use the Diebold-Mariano test statistic to test the null hypothesis that two models have equal predictive accuracy. For this we assume that the difference $d$ in RPS value for match $i$ between models $m$ and $m'$, $d_{i, m, m'} = RPS_{i, m} - RPS_{i, m'}$, is normally distributed around zero. The DM-test statistic is then simply the t-statistic for the intercept of a regression of the RPS values of model $m$ on the RPS values of model $m'$. We use as reference model the model with the lowest average RPS, which are the Bet365 betting odds. The test-statistics and p-values are displayed in Table 1:
+
+```{r echo = FALSE}
+tab <- result_by_model[!(model_nr %in% c(8,9)),.(name, dist, aRPS, DMstat_12, DMpval_12)]
+tab <- tab[, DMstat_12 := signif(DMstat_12, 2)]
+tab <- tab[, DMpval_12 := signif(DMpval_12, 2)]
+setnames(tab, "name", "Model")
+setnames(tab, "dist", "distribution")
+setnames(tab, "DMstat_12", "DM statistic")
+setnames(tab, "DMpval_12", "DM p-value")
+
+knitr::kable(tab[order(aRPS), ], digits = 4)
+```
+
+It is clear that on average, no model has outperformed the bookmakers predictions. As expected, the reference model of fixed equal probabilities has the worst performance.
+Two elements clearly matter for the quality of the forecasts:
+Including the regular home advantage, and including the multilevel model for the time evolution of the team abilities.
+Apart from these observations, we find that for the remaining models we cannot reject the null hypothesis of equal predictive accuracy. Surprisingly, a relatively simple model ($t$-distribution with partial pooling and team strength as a single ability) gives a similar performance compared to a more complex Poisson-based model with attack- and defense parameters. The zero-inflation component does not noticably improve the model accuracy, as was previously found by [@karlis_bayesian_2009-1, @lit_time-varying_2016]. In retrospect, this is not surprising as it adds a fixed amount of probability density to the Draw outcome, irrespective of which teams are playing. 
+
+# Conclusions
+
+This paper analyses the possibility of an artificial turf advantage in the Dutch Eredivisie, where a team that plays its home matches on artificial turf has an additional advantage against the away team that plays its home matches on natural grass. We report both in-sample model estimates as well as out-of-sample predictive accuracy to learn about the effect. Given the recently reported large point estimate of +0.5 extra goals and the large number of matches that satisfy the artificial turf advantage conditions, we had expected to find a substantial beneficial effect in predictive accuracy of statistical forecasts. However, we find that only the regular home advantage, as well as a multilevel modeling approach have a strong effect on the predictive accuracy. In-sample, for models that are fitted on data consisting of the four most recent seasons, we find for the $t$-distribution model variant a point estimate of around +0.24 for the artificial turf advantage, with a 90% credible interval that includes 0. For the Skellam model variant, we find a point estimate of +0.06 with a 90% credible interval that includes 0. We conclude therefore that a strong, convincing signal is absent from the data and thus we remain uncertain about the magnitude and degree of variability of a artificial turf advantage in recent Dutch Eredivisie league play.
+
+# License
+
+Code 2018, Gertjan Verhoeven, licensed under GPL 3.
+Text 2018, Gertjan Verhoeven, licensed under CC-BY-NC 4.0.
+
+Cite using Zenodo: DOI
+
+
+# References
+
+

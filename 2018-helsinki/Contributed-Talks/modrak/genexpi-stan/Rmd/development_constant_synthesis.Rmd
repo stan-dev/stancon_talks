@@ -1,0 +1,58 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r setup}
+library(rstan)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+library(tidyverse)
+library(bayesplot)
+library(shinystan)
+```
+
+TODO: synthesis/degradation je asymptota, dává smysl na ní mít normal prior.
+
+```{r}
+csynth_model <- stan_model(file = 'constant_synthesis.stan')
+```
+
+```{r}
+data <- simulate_constant_synthesis(seq(1,31,by = 3), 0.2, 0.2)
+
+
+fit <- sampling(csynth_model, data = data$observed, control = list(adapt_delta = 0.95))
+evaluation_summary(rstan::extract(fit, c("initial_condition","synthesis_over_degradation","degradation")), data$true, printParamsResults = TRUE)
+ summary(fit)$summary[,c("n_eff","Rhat")] %>% as.data.frame() %>% summarise(min_n_eff = min(n_eff),max_Rhat = max(Rhat))
+
+num_samples <- 100
+main_geom <- geom_line(alpha = 0.2)
+samples_to_show <-  sample(1:4000, num_samples)
+
+
+samples_expression <- rstan::extract(fit,"predicted_expression")$predicted_expression[samples_to_show,]
+print(ggmatplot(data$observed$measurement_times, t(samples_expression), main_geom = main_geom) +
+  geom_line(data = data.frame(x = data$observed$measurement_times,  y = data$true$expression), aes(x=x, y=y), inherit.aes = FALSE, color = "black") + 
+  geom_point(data = data.frame(x = data$observed$measurement_times,  y = data$observed$expression), aes(x=x, y=y), inherit.aes = FALSE, color = "#ba1b1d", size = 3) )
+
+
+```
+```{r}
+np_style <- parcoord_style_np(div_alpha = 0.6)
+
+mcmc_parcoord(as.array(fit, pars = c("coeffs","degradation","sensitivity","initial_condition","w","b_raw","intercept_raw")), np = nuts_params(fit), np_style = np_style)
+
+mcmc_parcoord(as.array(fit, pars = c("coeffs","initial_condition","b_raw","intercept_raw")), np = nuts_params(fit), np_style = np_style)
+
+
+target <- 3
+expression_data <- as.array(fit, pars = c("predicted_expression"))
+target_data <- expression_data[,,seq(1,(dim(tt)[3]), by = 3) - 1 + target]
+mcmc_parcoord(target1_data, np = nuts_params(fit), np_style = np_style)
+
+
+mcmc_parcoord(as.array(fit, pars = c("predicted_regulator_expression")), np = nuts_params(fit), np_style = np_style)
+
+```
+
