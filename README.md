@@ -549,7 +549,7 @@ DOI link image goes here
 Links: 
 
 * [Video](https://www.youtube.com/watch?v=wcpjZC9AV84&t=1h44m33s)
-* [Notebook, code, slides](2018-helsinki/Contributed-Talks/01_lastname) 
+* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/weber/stancon18-master) 
 
 
 
