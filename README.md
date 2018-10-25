@@ -678,6 +678,20 @@ Links:
 * [Video](https://www.youtube.com/watch?v=pKZLJPrZLhU&t=2h18m48s)
 * [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/hammill) 
 
+**_Getting more out of Stan: some ideas from the Haskell bindings_** 
+
+* Authors: Nielsen, Thomas A. (Tweag I/O), Steinitz, Dominic (Tweag I/O) and Nilsson, Henrik (School of Computer Science, University of Nottingham)
+
+We present draft bindings to Stan in Haskell, a purely functional programming language. Unlike in most bindings, our models are encoded as a data type the host language. We show how this can be used to widen the range of computations that can be done based on the Stan model definition. For instance, predictions, posterior predictive checks and residual calculations can be done based on a single model definition.
+
+DOI link image goes here
+
+Links: 
+
+* [Video](https://www.youtube.com/watch?v=pKZLJPrZLhU&t=5h05m28s)
+* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/nielsen) 
+
+
 **_Title_** 
 
 * Authors: Names (Affiliations)
@@ -692,7 +706,21 @@ Links:
 * [Notebook, code, slides](2018-helsinki/Contributed-Talks/01_lastname) 
 
 
+**_Title_** 
+
+* Authors: Names (Affiliations)
+
+Blurb goes here
+
+DOI link image goes here
+
+Links: 
+
+* Video
+* [Notebook, code, slides](2018-helsinki/Contributed-Talks/01_lastname) 
+
   
+
 ### 2018 Helsinki Invited talks 
 
 **_Title_**
