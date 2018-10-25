@@ -579,6 +579,24 @@ Links:
 * [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/blob/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/buerkner/buerkner_notebook.Rmd) 
 
 
+**_Are shots predictive of soccer results?_** 
+
+* Authors: L.Egidi, F.Pauli, N.Torelli - University of Trieste, Italy
+
+Predicting the outcome of a soccer match is the subject of much debate, and several models based on different assumptions 
+have been proposed for modeling the numbers of goals scored by two competing teams. In this case study we adopt a different perspective and propose a Bayesian hierarchical model consisting of three nested multiple outcomes: 
+**number of scores**, **number of shots on target** and **number of total shots**. We model the number of scores and the number of shots on target with  <span style="color:red">two binomial 
+distributions</span> respectively, whereas the total shots follow a negative binomial distributon. Our dataset consists of nine seasons of the English Premier League (EPL): eight seasons---from 2008/2009 to 2015/2016, 3040 matches---represent the train set, whereas the nineth season, 2016/2017 (with the remaining 380 matches), is our test set, used for out-of sample prediction. 
+
+
+DOI link image goes here
+
+Links: 
+
+* [Video](https://www.youtube.com/watch?v=pKZLJPrZLhU&t=4h15m39s)
+* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/egidi/egidi) 
+
+
 **_Title_** 
 
 * Authors: Names (Affiliations)
@@ -591,6 +609,7 @@ Links:
 
 * Video
 * [Notebook, code, slides](2018-helsinki/Contributed-Talks/01_lastname) 
+
 
 
 
