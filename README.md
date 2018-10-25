@@ -565,6 +565,35 @@ Links:
 * Video not available
 * [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/weber/stancon18-master) 
 
+**_Define Custom Response Distributions with brms_** 
+
+* Authors: Bürkner, Paul (University of Münster)
+
+The **brms** package (Bürkner, 2017a, 2017b) implements Bayesian regression models using the probabilistic programming language **Stan** (Carpenter et al., 2016) behind the scenes. It has grown to be one of the most flexible R packages when it comes to multilevel regression modelling. A wide range of response distributions are supported, allowing users to fit -- among others -- linear, robust linear, count data, survival, response times, ordinal, zero-inflated, hurdle, and even self-defined mixture models all in a multilevel context. Predictor terms can be specified with a simple yet powerful formula syntax. Thanks to **Stan**, even very complex models tend to converge well in a reasonable amount of time. While **brms** comes with a lot of built-in response distributions (usually called *families* in R), there is still a long list of distributions which are not natively supported. The present notebook will explain how to specify such *custom families* in **brms**. By doing that, users can benefit from the modeling flexibility and post-processing options of **brms** even when applying self-defined response distributions.
+
+DOI link image goes here
+
+Links: 
+
+* [Video](https://www.youtube.com/watch?v=FoaxA7sJi7w&t=2h13m03s)
+* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/blob/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/buerkner/buerkner_notebook.Rmd) 
+
+
+**_Title_** 
+
+* Authors: Names (Affiliations)
+
+Blurb goes here
+
+DOI link image goes here
+
+Links: 
+
+* Video
+* [Notebook, code, slides](2018-helsinki/Contributed-Talks/01_lastname) 
+
+
+
 
 
 **_Title_** 
