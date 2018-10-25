@@ -528,7 +528,7 @@ Links:
 ### 2018 Helsinki Peer reviewed contributed talks
 
 
-**_Title_** 
+**_Solving ODEs in the wild: Scalable pharmacometrics with Stan_** 
 
 * Authors: Weber, Sebastian (Novartis)
 
@@ -549,6 +549,20 @@ DOI link image goes here
 Links: 
 
 * [Video](https://www.youtube.com/watch?v=wcpjZC9AV84&t=1h44m33s)
+* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/weber/stancon18-master) 
+
+**_Analysis of repeated measures data in RStan_** 
+
+* Authors: Munda, Marco (Pharmalex)
+
+We illustrate the analysis of repeated measures data in the Bayesian framework using RStan.
+In addition to the modelling itself, we further show how to make inference on the primary effect based on a probability of success, and how to predict the longitudinal profile of a future patient, two difficult (if not impossible) tasks from a frequentist perspective.
+
+DOI link image goes here
+
+Links: 
+
+* Video not available
 * [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/weber/stancon18-master) 
 
 
