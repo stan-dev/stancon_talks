@@ -1,0 +1,216 @@
+---
+title: "A Hierarchical extension to Ornstein-Uhlenbeck-type Student's t-processes"
+author: |
+  | Ville Laitinen & Leo Lahti
+  | [Open Research Labs](http://openresearchlabs.github.io)
+  | University of Turku, Finland
+  | <velait@utu.fi>
+date: "`r Sys.Date()`"
+header-includes:
+
+output:
+pdf_document:
+  latex_engine: xelatex
+word_document:
+  fig_caption: yes
+bookdown::html_document2:
+  fig_caption: yes
+bookdown::word_document2:
+  fig_caption: yes
+bibliography: OU_StanCon.bib
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(cache = TRUE)
+options(mc.cores = parallel::detectCores())
+
+library(rstan)
+library(shinystan)
+library(tidyverse)
+library(reshape2)
+library(magrittr)
+library(knitr)
+library(gridExtra)
+library(captioner)
+library(bookdown)
+
+theme_set(theme_bw(40))
+set.seed(11235)
+
+tbls <- captioner(prefix="Table")
+figs <- captioner(prefix="Fig.")
+subblck <- captioner(prefix="Supplementary Chunk")
+# subtbls <- captioner(prefix="Supplementary Table")
+# subfigs <- captioner(prefix="Supplementary Fig.")
+
+source("functions.R")
+source("OU.source.R")
+
+```
+
+## Introduction
+
+This work investigates probabilistic time series models that are motivated by applications in statistical ecology. In particular, we investigate variants of the mean-reverting and stochastic Ornstein-Uhlenbeck (OU) process. We provide a hierarchical extension for joint analysis of multiple (short) time series, validate the model, and analyze its performance with simulations. The works extends the recent Stan implementation of the OU process [@Goodman2018], where parameter estimates of a Student-t type OU process are obtained based on a single (long) time series. We have added a level of hierarchy, which allows joint inference of the model parameters across multiple time series.
+
+Motivation for this work comes from the analysis of human gut microbiome dynamics. It has been reported that on average the abundance of many gut bacteria remains relatively stable over long time periods [@david_host_2014]. However, on a shorter (daily) time scale these abundances can exhibit considerable fluctuations. A number of cross-sectional studies of the human microbiome have characterized the diversity and variation of the gut microbiome between individuals [e.g. @hmp_huttenhower; @Qin2009]. The temporal dynamics of microbial organisms within individuals is, however, less well understood [@faust_metagenomics_2015]. Given the complex and highly individual nature of the gut ecosystem, exact dynamical models fail to capture the rich stochastic dynamics that these systems have been reported to exhibit.
+
+The OU-type processes provide non-parametric means to characterize key properties of system dynamics, such as the location and resilience of the potential wells, when the data-generating mechanisms are unknown. Variants of the OU process provide rigorous and justified methods for modeling stochastic dynamics in mean-reverting time series. The methodology itself is very generic, and its potential applications naturally reach beyond population dynamics. Apart from [@Goodman2018] we are not aware of applications of these models in the context of human microbiome studies. One of the contemporary challenges in this field is that the currently available time series are often short, sparse and noisy, limiting robust inference of dynamical models. When data for individual time series is limited, aggregating information across multiple time series can potentially help to obtain more robust estimates of the model parameters and to analyze individual variation in the overall population context. Hierarchical modes provide a natural framework for such analysis. In the following, we describe the OU process and the hierarchical extension, validate the implementation, analyze model performance, and conclude with discussion on the encountered challenges and further work.
+
+
+```{r oup_example_plots, fig.width=12}
+library(latex2exp)
+#grid.arrange(oup_example_plot + 
+#               ggtitle(TeX("$\\mu = 5; \\sigma = 0.1$")),
+#             oup_example_plot2 + 
+#               ggtitle(TeX("$\\mu = 5; \\lambda = 0.1$")), 
+#	     nrow=2)
+
+grid.arrange(oup_example_plot + 
+               ggtitle(TeX("$\\mu = 5; \\sigma = 0.1$")) + scale_color_discrete(name = "$\\lambda$", labels = unname(c(TeX("$\\lambda = 0.01$"), TeX("$\\lambda=0.1$"), TeX("$\\lambda=1$")))),
+             oup_example_plot2 + 
+               ggtitle(TeX("$\\mu = 5; \\lambda = 0.1$")) + scale_color_discrete(name = "$\\sigma$", labels = unname(c(TeX("$\\sigma = 0.05$"), TeX("$\\sigma=0.1$"), TeX("$\\sigma=0.2$")))),
+	     nrow=2)
+
+```
+
+`r figs(name="oup_example_plots","Effects of the mean-reversion rate $\\lambda$ and stochasticity parameter $\\sigma$ on time series shape. Simulated data generated with the function $\\texttt{generate_n_series}$.")`
+
+
+## Ornstein-Uhlenbeck process
+
+The Ornstein-Uhlenbeck process, also known as the Langevin equation in physics and Vasicek model in finance, is a stochastic process with a wide range of applications [@Iacus_SDE]. It has been used to model systems with a steady state that recover from perturbations by returning to the long term mean (Fig. `r figs("oup_example_plot",display="num")`). 
+
+The OU process is defined by the stochastic differential equation $$dX_t = \lambda (\mu - X_t)dt + \sigma dZ_t,$$
+where $X_t$ is the state of the system at time t and $Z$ a stochastic process. Unlike with an ordinary differential equation, the solutions of the stochastic counterpart are nowhere differentiable and non-unique as they are different for different realizations of the noise term. Averaging over these solutions recovers the deterministic solution.
+
+The first term on the right hand side ("drift") describes the deterministic behavior and the second term ("dispersion") characterises the stochasticity of the system. The parameters have natural interpretations as long-term mean ($\mu$), mean-reversion rate ($\lambda$), and scale of stochastic fluctuations ($\sigma$). The expected half life of a perturbation is given by $T_{1/2} = \frac{\log2}{\lambda}$.
+
+The standard OU process uses (Gaussian) white noise to characterize the stochastic variation. In practice, however, requiring $Z_t$ to be Brownian motion with Gaussian transition density is often too a limiting assumption as this does not allow large enough fluctuations and thus is less robust against outliers than more heavy-tailed models [@solin_sarkka]. A more general choice is to use the Student-*t* process. This allows a greater stochastic variation between consecutive points. The process $f$ is a Student-t process, $f \sim \mathcal{ST}(\nu, \mu, K)$, with $\nu$ degrees of freedom, mean parameter $\mu$ and covariance kernel $K$, if any finite set of values is multivariate Student-*t* distributed. A vector $\bar{y} \in \mathbb{R}^n$ is multivariate Student-t distributed, $\bar{y} \sim \mathcal{ST}_n(\nu, \mu, K)$ if it has density
+
+$$p(\bar{y}) = \frac{\Gamma(\frac{\nu + n}{2})}{((\nu-2)\pi)^{\frac{n}{2}}\Gamma(\frac{\nu}{2})}|K|^{-\frac{1}{2}}\times\Big(1 + \frac{(\bar{y}-\bar{\mu})^T K^{-1}(\bar{y}-\bar{\mu})}{\nu - 2}\Big)^{- \frac{\nu+n}{2}}$$.
+  
+In general, this model assumes that the process density is unimodal and likelihood of a point decreases as the distance to the mode increases. This assumption ensures that the model satisfies the relatively simple dynamical nature of a single potential well. Elliptically symmetric processes have such properties and the Student-t processes are the largest subset of elliptically symmetric process that have an analytical solution [@shah_student-t]; this is a convenient choice also in the sense that the Gaussian process can be obtained as a special case [@solin_sarkka].
+
+Transition density $X_t|X_0$ of a Gaussian OU process is normally distributed with mean $\mu - (\mu - X_0)e^{-\lambda t}$ and variance $\kappa(1-e^{-2\lambda t})$. From these expressions we can obtain the long term mean, $\mu$, and variance, $\sigma$, as $t \to \infty$. Covariance between two time points is given by
+
+$$\textrm{Cov}[X_t, X_{t+\Delta t}]= \frac{\sigma^2}{\lambda} e^{-\lambda\Delta t}.$$
+
+Now let us recall that if $X \sim \mathcal{N}(\mu, \sigma^2),$ then the random variable $X + \epsilon \sigma$, where $\epsilon \sim \mathcal{N}(0,1)$ is Student-t distributed with $\nu=1$ degrees of freedom. Thus we get an expression relating the error terms $\epsilon_i$ and process values $X_i$ at times $t_i$ and $t_{i-1}$, $\Delta t=t_i-t_{i-1}$:
+$$X_1 = \mu + \epsilon_1 \frac{\sigma}{\sqrt{\lambda}}$$ and 
+$$X_i = \mu - (\mu-X_{i-1})e^{-\lambda \Delta  t} + \epsilon_i \sigma \sqrt{\frac{1-e^{-2\lambda \Delta t}}{\lambda}},$$
+for $i=2, \ldots,n.$
+
+Conditional expression for the density of error terms can be derived from Lemma 3 in [@shah_student-t] 
+$$\epsilon_i | \epsilon_{1},\ldots, \epsilon_{i-1} \sim \textrm{MVT}_1 \Big(\nu+i-1, 0, \frac{\nu -2 + \sum_{k=1}^{i-1}\epsilon_k^2}{\nu -3 + i} \Big), $$
+which reduces to
+
+$$p(\epsilon_i| \epsilon_{1},\ldots, \epsilon_{i-1}) \propto \Gamma(\tfrac{\nu+i}{2})\Gamma(\tfrac{\nu+i-1}{2})^{-1}\big(\nu -2 + \sum_{k=1}^{i-1}\epsilon_{k}^{2}\big)^{-\frac{1}{2}} \Big(1+ \frac{\epsilon_i^2}{\nu -2+\sum_{k=1}^{i-1}\epsilon_k^2} \Big)^{-\frac{\nu + i}{2}}.$$
+
+We use this expression in the Stan code model block to increment the log density. For implementation details, see the Rmarkdown source file in the [project repository](https://github.com/velait/OU).
+
+
+## Hierarchical extension
+
+The model outlined above describes the Ornstein-Uhlenbeck driven t-process as implemented in [@Goodman2018]. Our novel contribution that we present now is to equip the model with hierarchical structure and testing the robustness of the extended implementation. Let $\mathcal{X} = \{\bar{X_i}, i \in \{1, \ldots, N\}\}$ be a set of OU process values, with $n_i$ observations in each, each $i$ representing e.g. a different measurement site. We assume a hierarchical structure for the parameters $\lambda, \mu$ and $\sigma$,
+
+$$dX_{j,t} = \lambda_j (\mu_j - X_{j,t})dt + \sigma_jdZ_t,$$
+
+for all $j \in \{1, \ldots, n_i\}$.
+
+
+For a general and simplified treatment of the OU process we assume our observations to be directly generated from the OU process and use uniform time intervals. It is relatively straightforward to modify the implementation to incorporate unequal time intervals. Additional models for observation noise provide interesting opportunities for further extensions. In ecological studies, that motivate our work, the observation noise is often modeled with a Gaussian or Poisson distribution, where the rate parameter is obtained from the OU process which is transformed into via  exponentiation. This so called stochastic Gompertz model is frequently used in ecological time-series analysis [@dennis_2014]. For OU process implementation of the Gompertz model in the context of a single time series, see [@Goodman2018].
+
+We have implemented the [hierarchical extension with RStan](https://github.com/velait/OU/blob/master/fixed_parameter_hierarchical_noncentered.stan). In summary, the idea of the Stan code is as follows. After declaring the data and model parameters, error terms $\epsilon_i$ and latent values $X_i$ are related in the transformed data block. In the model block parameters and conditional densities for the error terms are incremented to the log density and the observations $Y_{ji}$ are sampled from a normal distribution with $X_i$ as the mean and small variance. Adding a level of hierarchy to the existing implementation is relatively straightforward as the model likelihood in the extended version equals the product of transition densities of individual series $$\prod_{i=1}^N\prod_{j=1}^{n_i} p(\epsilon_{i,j}| \epsilon_{i,1},\ldots, \epsilon_{i,j-1})$$ 
+
+Here, we have used a non-centered parameterization with error terms $\epsilon_i$. In our initial experiments the centered parameterization resulted in less accurate results and more divergent transitions. This is in agreement with [@stan_manual, p.145] where it is mentioned that hierarchical models tend to perform better with non-centered parameterizations, especially when the sample size is limited.
+
+
+## Model validation
+
+A full OU process model would allow the inference of all three model parameters $\mu$, $\lambda$, and $\sigma$. In our experiments, we achieved successful inference for $\mu$ and $\lambda$ but the $\sigma$ parameter has persisting convergence problems that currently forms a bottleneck for inferring all model parameters simultaneously. In this work, we focus on the analysis of the $\lambda$ parameter, as empirical estimates for mean reversion ($\lambda$) are often more difficult to obtain than for the mean parameter ($\mu$). Moreover, the mean reversion parameter is often specifically interesting in ecological applications as it quantifies the resilience of a dynamical system. Assuming that the system is in a stationary state and the time series is sufficiently long, the mean of the data provides an empirical approximation for the mean parameter $\mu$. The stochastic $\sigma$ parameter behaves symmetrically, and the analysis may be robust to variations in the scale of this parameter, although this is to be tested systematically. In the present analysis, we assume that $\mu$ and $\sigma$ are fixed to known values. We are continuing the work towards joint inference of all model parameters in the hierarchical setting and these will be posted in the [model repository](https://github.com/velait/OU/) as they become available.
+
+Hence, we investigate the robustness of the mean reversion parameter $\lambda$ to variations in sample size and time series lengths based on simulated data. In particular, we test the model on simulated data generated by the sampling scheme in Lemma 2.2 [@solin_sarkka]: if $\bar{y}|\gamma \sim \mathcal{N}(\mathbf{\mu}, \gamma K)$, where $\gamma$ is inverse gamma distributed $\gamma \sim  \textrm{IG}(\nu/2, (\nu-2)/2)$, then  marginally $\bar{y} \sim \textrm{MTV}_n(\mu, K, \nu).$  The function ```generate_n_series``` returns a list of n series with the given parameter values. We have fixed the parameters to the following values, unless otherwise noted. Mean reversion rate $\lambda=0.1$ corresponds to a half-life of about seven units of time so it is reasonable in terms of time resolution. The selected demonstration values allow the occurrence of both the deterministic and stochastic effects, and generate time series whose characteristics resemble those of real microbial time series. We have used 4000 iterations in sampling and two chains per stan call in order to keep the sampling times practically limited. 
+
+```{r parameters}
+lambda <- 0.1
+sigma <- 0.1
+mu <- 5
+t.df <- 7
+```
+
+### Standard model with a single time series 
+
+In order to assess how many samples are needed for a reliable inference of a single series we test the model with simulated data with different sample sizes. In Fig. `r figs("single_series_plots",display="num")`A, the posterior means and 50% interquartile ranges are plotted against time series length. As expected, the estimates converge to the simulation value as sample size increases and with very few observation the estimates are inaccurate. Based on this test around 20 samples are needed for a reliable inference with the given parameter values. Running times grow linearly with sample size (Fig. `r figs("single_series_plots",display="num")`B).
+
+```{r single_series_plots, fig.width=8, fig.height=3, out.width="800px", fig.show="keep"}
+library(cowplot)
+p <- plot_grid(single_series_plots[[1]] + labs(y="Posterior estimate", x="Time points (n)"),  running_times_plot, labels = c("A", "B"), rel_widths = c(4, 5))
+print(p)
+```
+
+`r figs(name="single_series_plots","**A** Means and 50% interquartile ranges of the posteriors for lambda against length of the series. Dashed line marks the simulation value 0.1. More systematic analysis with multiple seires can be found in the next chapter. **B** Sampling times in minutes for the simulation data sets on a basic laptop (1,3GHz, 4 cores).")`
+
+
+### Hierarchical extension with multiple time series 
+
+As the first validation of the hierarchical implementation, we demonstrate that a model with two simulated time series converges to their known long-term mean values (Fig. `r figs("add_new_plot_here",display="num")`). This indicates that the hierarchical model works as expected regarding the inference of the mean reversion parameter $\lambda$. We also performed initial experiments in order to compare convergence rates between the individual versus joint (hierarchical) modeling of the time series but observed no significant differences in the convergence rate and accuracy of $\lambda$ with the current parameter ranges (data not shown).
+
+```{r two_series_plot, fig.width=5, fig.height=5, out.width="300px"}
+print(two_series_plot)
+```
+
+`r figs(name="two_series_plot","The simulated time series converge to their (known) long-term mean values in the hierarchical model as expected.")`
+
+
+As a second test, we increased the number of time series and varied the amount of observations to assess how the number of time series affects the inference in the hierarchical model. As expected and evident in the previous sections there is improvement in accuracy as series length is increased. However, our current results indicate that additional series seem to make only minor improvements in the model performance (Fig. `r figs("single_series_results",display="num")`). This is unexpected since, theoretically, both time series length and numbers should provide equally valuable extra information for the joint modeling, and hence result in improved posterior inference. This hints at shortcomings in the hierarchical implementation. 
+
+
+```{r single_series_results, fig.width=10, fig.height=2.4, out.width="900px"}
+print(short_series_plots)
+```
+
+`r figs(name="single_series_results","Number of time series (x-axis) versus the posterior mean of the $\\lambda$ parameter. The title in each panel denotes the number of observations per time series. The dashed line represents the known simulation value of lambda. The observations suggest that the posterior inference improves with increasing time series length but not with increasing number of time series.")`
+
+
+
+## Discussion
+
+The main objective of this work has been to provide a hierarchical version of the Ornstein-Uhlenbeck driven Student-t process in Stan, motivated by contemporary applications in statistical ecology. For instance, a recently published HITChip Atlas data set [@TippingElements], consists of microbiome profiling from stool samples with 2-5 time points per subject. Joint analysis of the multiple time series is expected to provide information on the typical, universal abundance ranges and resilience of the different microbial organisms in the human gut ecosystem that are shared across the population. Although a more comprehensive analysis of the possible parameter ranges will be valuable, our results indicate that 20 time points or more may be needed for reliable inference with the current implementation. Aggregating information across multiple time series did not improve posterior inference as expected but solving this issue might allow reliable inference also based on shorter time series.
+
+Whereas we have in this work focused on the inference of the mean reversion parameter $\lambda$, the expected benefits of a hierarchical model will become more clearly visible with the full and more complex model where all parameters are inferred simultaneously. One of the potential advantages of the hierarchical model is that joint analysis of multiple time series can allow more rapid convergence of the parameter estimates with low sample sizes when the parameters follow the same prior distribution. We did not, however, observe significant differences in the convergence rates of $\lambda$, compared to separate modeling of each individual time series. 
+
+In summary, we have implemented a hierarchical extension of the OU process model and demonstrated that it can successfully infer known mean reversion parameters in simulated data sets. However, the hierarchical implementation still suffers from convergence problems with the stochastic $\sigma$ parameter, which forms currently a severe limitation for practical application. The tests executed here provide a preliminary results of the model capabilities. For a complete picture an extensive probing of different parameter ranges and (hyper)priors should be undertaken. Alternative parameterizations should be tested to see if some perform better with different sample sizes. This would allow the analysis of time series with missing values and eliminate the need for interpolation and forcing even observation times, techniques that have traditionally been used in these situations.  
+
+## Supplementary
+
+The following example displays how to simulate two OU process time series and sample form the posterior of the hierarchical model.
+
+```{r example, echo=TRUE}
+# simulate two time series and combine to make a set suitable for the stan model
+example_data <- generate_n_series(n=2, sigma=0.1, lambda=0.1, mu=5, intervals = 1:50, t.df = Inf, fix_mu = 5, fix_kappa_log = log(0.1), seed = 1) %>% concatenate_series()
+
+# stan model
+# fixed_par_model <- stan_model("fixed_parameter_hierarchical_noncentered.stan")
+
+# sample
+example_samples <- sampling(fixed_par_model, example_data, chains=2)
+
+# launch shiny stan to view results
+# launch_shinystan(example_samples)
+
+```
+
+
+
+## Licencing and Acknowledgements
+
+Code and text © 2018, Ville Laitinen & Leo Lahti, licensed under CC BY
+4.0. This work has been supported by Academy of Finland (grants 295741
+and 307127). 
+
+## Bibliography
+
+
