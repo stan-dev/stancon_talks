@@ -623,6 +623,26 @@ Links:
 * [Video](https://www.youtube.com/watch?v=pKZLJPrZLhU&t=4h40m34s)
 * [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/verhoeven/artificial_turf_predictive-master) 
 
+**_ODE Model of Gene Regulation_** 
+
+* Authors: Modrák, Martin 
+
+In this notebook we fit time series of gene expression data with a 
+non-linear ODE-based model. Splines are used to model noisily observed 
+regulator expression. The ODE is not solved explicitly, it is instead 
+transformed to a definite integral and integrated via the trapezoid 
+rule. Some interesting reparametrizations are introduced to make the 
+model well identified.
+
+DOI link image goes here
+
+Links: 
+
+* [Video](https://www.youtube.com/watch?v=wcpjZC9AV84&t=1h24m10s)
+* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/modrak/genexpi-stan) 
+
+
+
 **_Title_** 
 
 * Authors: Names (Affiliations)
@@ -635,7 +655,6 @@ Links:
 
 * Video
 * [Notebook, code, slides](2018-helsinki/Contributed-Talks/01_lastname) 
-
 
 
 
