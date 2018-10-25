@@ -597,7 +597,7 @@ Links:
 * [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/egidi/egidi) 
 
 
-**_Self-tuning_Holidays-presented_** 
+**_Self-tuning Holidays_** 
 
 * Authors: Braylan, Alex 
 
