@@ -715,6 +715,37 @@ Links:
 * [Video](https://www.youtube.com/watch?v=wcpjZC9AV84&t=1h24m10s)
 * [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/weber/stancon18-master) 
 
+**_Dose-finding clinical trial designs in Stan with trialr_** 
+
+* Authors: Brock, Kristian 
+
+My notebook illustrates two different methods for conducting dose-finding clinical trials.
+The first, CRM, escalates dose according to toxicity outcomes only, assuming implicitly that higher doses are more likely to benefit the patient.
+The second, EffTox, escalates dose according to efficacy and toxicity outcomes, thus addressing the potential that higher may not always mean better.
+These models are implemented in the trialr R-package using Stan.
+
+DOI link image goes here
+
+Links: 
+
+* [Video](https://www.youtube.com/watch?v=FoaxA7sJi7w&t=2h32m49s)
+* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/brock) 
+
+**_"The implementation of a model of choice: the (truncated) linear ballistic accumulator._** 
+
+* Authors: Nicenboim, Bruno 
+
+It is very common in cognitive science and psychology to use experimental tasks that involve making a fast choice among a restricted number of alternatives.  In this notebook, I focus on one influential and relatively simple model that belongs to the class of sequential-sampling models: the linear ballistic accumulator with a drift rate drawn from a normal distribution (restricted to positive values) (S. D. Brown and Heathcote 2008; Heathcote and Love 2012). First, I discuss the motivation for fitting this model using the Stroop task (Stroop 1935) as a case study. Then, I discuss the challenges in the implementation of the model in (R)Stan (Stan Development Team 2017), which might also apply to other hierarchical models with complex likelihood functions. Finally, I show some results that exemplify how the linear ballistic accumulator can be used for examining individual differences.
+
+
+DOI link image goes here
+
+Links: 
+
+* [Video](https://www.youtube.com/watch?v=pKZLJPrZLhU&t=1h46m05s)
+* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/nicenboim) 
+
+  
 
 **_Title_** 
 
