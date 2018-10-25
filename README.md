@@ -665,6 +665,19 @@ Links:
 * [Video](https://www.youtube.com/watch?v=pKZLJPrZLhU&t=4h02m50s)
 * [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/blob/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/auerbach_jones_winstanley/auerbach_jones_winstanley_notebook.Rmd) 
 
+**_Analyzing Brain Taxonomy Trees_** 
+
+* Authors: Hammill, Chris and Lerch, Jason
+
+This talk and notebook introduce the idea of analyzing brain anatomy as a taxonomy of structures, defined by containment, using Stan. This taxonomy imposes dependence between model coefficients for structures and their enclosing structure. The slides and notebook compare this approach to other hierarchical modelling strategies using the mouse brain for illustration.
+
+DOI link image goes here
+
+Links: 
+
+* [Video](https://www.youtube.com/watch?v=pKZLJPrZLhU&t=2h18m48s)
+* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/hammill) 
+
 **_Title_** 
 
 * Authors: Names (Affiliations)
@@ -677,7 +690,6 @@ Links:
 
 * Video
 * [Notebook, code, slides](2018-helsinki/Contributed-Talks/01_lastname) 
-
 
 
   
