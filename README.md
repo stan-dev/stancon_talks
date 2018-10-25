@@ -758,6 +758,20 @@ Links:
 * [Video](https://www.youtube.com/watch?v=pKZLJPrZLhU&t=2h05m53s)
 * [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/laitinen) 
 
+**_GPU Optimized Math Routines in the Stan Math Library_** 
+
+* Rok &#268;e&#353;novar, Davor Sluga, Jure Dem&#353;ar, Steve Bronder, Erik &#352;trumbelj
+
+The Stan Math library's Hamilton Monte Carlo (HMC) sampler has computationally expensive draws while usually searching the target distribution more efficiently than alternative MCMC methods with fewer iterations. The bottleneck within draws makes Stan a prime candidate for GPU optimizations within samples. This project implements GPU optimizations for the Cholesky decomposition and it's derivative in the Stan Math library [@stanmath2015]. This work is the first known open source implementation of the Cholesky decomposition with a GPU in an HMC setting. Furthermore, the GPU kernels use OpenCL which allows the use of these methods across any brand of GPU. While results show that GPU optimizations are not optimal for small $N\times M$ matrices, large matrices can see speedups of 7.8x while retaining the same precision as models run purely on a CPU.
+
+DOI link image goes here
+
+Links: 
+
+* [Video](https://www.youtube.com/watch?v=pKZLJPrZLhU&t=5h46m00s)
+* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/Bronder) 
+
+ 
 **_Title_** 
 
 * Authors: Names (Affiliations)
