@@ -597,18 +597,18 @@ Links:
 * [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/egidi/egidi) 
 
 
-**_Title_** 
+**_Self-tuning_Holidays-presented_** 
 
-* Authors: Names (Affiliations)
+* Authors: Braylan, Alex 
 
-Blurb goes here
+We develop a flexible, portable, and interpretable Bayesian model of cyclical holiday effects on time series. Our model uses five parameters for each possible holiday that capture the general shape, magnitude, and peak location offset of each holiday effect. Choice of priors prevents the model from overfitting while still achieving considerable flexibility. We experiment on simulated and real data from Google Trends and demonstrate the model's performance on held-out data.
 
 DOI link image goes here
 
 Links: 
 
-* Video
-* [Notebook, code, slides](2018-helsinki/Contributed-Talks/01_lastname) 
+* [Video](https://www.youtube.com/watch?v=FoaxA7sJi7w&t=18m15s)
+* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/braylan) 
 
 
 
