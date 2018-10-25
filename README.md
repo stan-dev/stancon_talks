@@ -745,7 +745,18 @@ Links:
 * [Video](https://www.youtube.com/watch?v=pKZLJPrZLhU&t=1h46m05s)
 * [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/nicenboim) 
 
-  
+**_Hierarchical Ornstein-Uhlenbeck type t-processes_** 
+
+* Authors: Laitinen, Ville & Lahti, Leo (Open Research Labs, University of Turku)
+
+This work investigates probabilistic time series models that are motivated by applications in statistical ecology. In particular, we investigate variants of the mean-reverting and stochastic Ornstein-Uhlenbeck (OU) process. We provide a hierarchical extension for joint analysis of multiple (short) time series, validate the model, and analyze its performance with simulations. The works extends the recent Stan implementation of the OU process (A 2018), where parameter estimates of a Student-t type OU process are obtained based on a single (long) time series. We have added a level of hierarchy, which allows joint inference of the model parameters across multiple time series.
+
+DOI link image goes here
+
+Links: 
+
+* [Video](https://www.youtube.com/watch?v=pKZLJPrZLhU&t=2h05m53s)
+* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/laitinen) 
 
 **_Title_** 
 
@@ -760,7 +771,7 @@ Links:
 * Video
 * [Notebook, code, slides](2018-helsinki/Contributed-Talks/01_lastname) 
 
-  
+ 
 
 ### 2018 Helsinki Invited talks 
 
