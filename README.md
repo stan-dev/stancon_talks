@@ -610,6 +610,33 @@ Links:
 * [Video](https://www.youtube.com/watch?v=FoaxA7sJi7w&t=18m15s)
 * [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/braylan) 
 
+**_Artificial Turf Advantage and Predictive Accuracy in Dutch Football_** 
+
+* Authors: Verhoeven, Gertjan 
+
+This submission uses Stan to learn about the so-called artificial turf advantage in Dutch football. Two model variants are used to model match outcomes. One of the models is the model from Milad Kharratzadeh presented at Stancon 2017, the other is new to Stan (a dynamic Skellam model). I use out-of-sample forecasts together with the Ranked Probability Score (a proper scoring rule) to learn whether including the artificial turf advantage increases predictive accuracy. Bookmakers odds are used as a benchmark to check the quality of our forecasts.
+
+DOI link image goes here
+
+Links: 
+
+* [Video](https://www.youtube.com/watch?v=pKZLJPrZLhU&t=4h40m34s)
+* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/verhoeven/artificial_turf_predictive-master) 
+
+**_Title_** 
+
+* Authors: Names (Affiliations)
+
+Blurb goes here
+
+DOI link image goes here
+
+Links: 
+
+* Video
+* [Notebook, code, slides](2018-helsinki/Contributed-Talks/01_lastname) 
+
+
 
 
 
