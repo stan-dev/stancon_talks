@@ -692,18 +692,28 @@ Links:
 * [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/nielsen) 
 
 
-**_Title_** 
+**_Solving ODEs in the wild: Scalable pharmacometrics with Stan_** 
 
-* Authors: Names (Affiliations)
+* Authors: Weber, Sebastian, Siivola, Eero (Statistical Methodology Group, Novartis Pharma AG)
 
-Blurb goes here
+Pharmacometric modeling involves nonlinear hierarchical models, which
+are most naturally expressed as forced ordinary differential equations
+(ODEs). These class of models lead to a number of challenges which
+complicate a practical modeling work-flow in Stan mostly due to long
+model execution times. This contribution demonstrates at the example
+of the drug Warfarin how forced ODEs can be written efficiently in
+Stan leading to a doubling in model evaluation speed for the presented
+example. Finally, it is demonstrated how the new `map_rect` facility
+in Stan can be used to make models scalable to large data sets leading
+to substantial speedups in model evaluation time and most importantly
+this enables to *scale* Stan's performance as needed.
 
 DOI link image goes here
 
 Links: 
 
-* Video
-* [Notebook, code, slides](2018-helsinki/Contributed-Talks/01_lastname) 
+* [Video](https://www.youtube.com/watch?v=wcpjZC9AV84&t=1h24m10s)
+* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/weber/stancon18-master) 
 
 
 **_Title_** 
