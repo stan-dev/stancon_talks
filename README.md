@@ -530,7 +530,7 @@ Links:
 
 **_Solving ODEs in the wild: Scalable pharmacometrics with Stan_** 
 
-* Authors: Weber, Sebastian (Novartis)
+* Authors: Sebastian Weber (Novartis)
 
 Pharmacometric modeling involves nonlinear hierarchical models, which
 are most naturally expressed as forced ordinary differential equations
@@ -555,7 +555,7 @@ Links:
 
 **_Analysis of repeated measures data in RStan_** 
 
-* Authors: Munda, Marco (Pharmalex)
+* Authors: Marco Munda (Pharmalex)
 
 We illustrate the analysis of repeated measures data in the Bayesian framework using RStan.
 In addition to the modelling itself, we further show how to make inference on the primary effect based on a probability of success, and how to predict the longitudinal profile of a future patient, two difficult (if not impossible) tasks from a frequentist perspective.
@@ -571,7 +571,7 @@ Links:
 
 **_Define custom response distributions with brms_** 
 
-* Authors: Bürkner, Paul (University of Münster)
+* Authors: Paul Bürkner (University of Münster)
 
 The **brms** package (Bürkner, 2017a, 2017b) implements Bayesian regression models using the probabilistic programming language **Stan** (Carpenter et al., 2016) behind the scenes. It has grown to be one of the most flexible R packages when it comes to multilevel regression modelling. A wide range of response distributions are supported, allowing users to fit -- among others -- linear, robust linear, count data, survival, response times, ordinal, zero-inflated, hurdle, and even self-defined mixture models all in a multilevel context. Predictor terms can be specified with a simple yet powerful formula syntax. Thanks to **Stan**, even very complex models tend to converge well in a reasonable amount of time. While **brms** comes with a lot of built-in response distributions (usually called *families* in R), there is still a long list of distributions which are not natively supported. The present notebook will explain how to specify such *custom families* in **brms**. By doing that, users can benefit from the modeling flexibility and post-processing options of **brms** even when applying self-defined response distributions.
 
@@ -587,7 +587,7 @@ Links:
 
 **_Are shots predictive of soccer results?_** 
 
-* Authors: L.Egidi, F.Pauli, N.Torelli - University of Trieste, Italy
+* Authors: Leonardo Egidi, Francesco Pauli, Nicola Torelli (University of Trieste)
 
 Predicting the outcome of a soccer match is the subject of much debate, and several models based on different assumptions 
 have been proposed for modeling the numbers of goals scored by two competing teams. In this case study we adopt a different perspective and propose a Bayesian hierarchical model consisting of three nested multiple outcomes: 
@@ -606,7 +606,7 @@ Links:
 
 **_Flexible models of holiday lift_** 
 
-* Authors: Braylan, Alex 
+* Authors: Alex Braylan, Dan Marthaler (Revionics)
 
 We develop a flexible, portable, and interpretable Bayesian model of cyclical holiday effects on time series. Our model uses five parameters for each possible holiday that capture the general shape, magnitude, and peak location offset of each holiday effect. Choice of priors prevents the model from overfitting while still achieving considerable flexibility. We experiment on simulated and real data from Google Trends and demonstrate the model's performance on held-out data.
 
@@ -621,7 +621,7 @@ Links:
 
 **_Artificial turf advantage and predictive accuracy in Dutch football_** 
 
-* Authors: Verhoeven, Gertjan 
+* Authors: Gertjan Verhoeven 
 
 This submission uses Stan to learn about the so-called artificial turf advantage in Dutch football. Two model variants are used to model match outcomes. One of the models is the model from Milad Kharratzadeh presented at Stancon 2017, the other is new to Stan (a dynamic Skellam model). I use out-of-sample forecasts together with the Ranked Probability Score (a proper scoring rule) to learn whether including the artificial turf advantage increases predictive accuracy. Bookmakers odds are used as a benchmark to check the quality of our forecasts.
 
@@ -636,7 +636,7 @@ Links:
 
 **_ODE model of gene regulation_** 
 
-* Authors: Modrák, Martin 
+* Authors: Martin Modrák (Czech Academy of Sciences)
 
 In this notebook we fit time series of gene expression data with a 
 non-linear ODE-based model. Splines are used to model noisily observed 
@@ -656,7 +656,7 @@ Links:
 
 **_Predicting New York City school enrollment_** 
 
-* Authors: Auerbach, Jonathan, Jones, Timothy and Winstanley, Robin (Columbia University)
+* Authors: Jonathan Auerbach, Timothy Jones, Robin Winstanley (Columbia University)
 
 We propose a Bayesian hierarchical Age-Period-Cohort model to predict elementary 
 school enrollment in New York City. We demonstrate this model using student 
@@ -679,7 +679,7 @@ Links:
 
 **_Analyzing brain taxonomy trees_** 
 
-* Authors: Hammill, Chris and Lerch, Jason
+* Authors: Chris Hammill, Jason Lerch
 
 This talk and notebook introduce the idea of analyzing brain anatomy as a taxonomy of structures, defined by containment, using Stan. This taxonomy imposes dependence between model coefficients for structures and their enclosing structure. The slides and notebook compare this approach to other hierarchical modelling strategies using the mouse brain for illustration.
 
@@ -695,7 +695,7 @@ Links:
 
 **_Getting more out of Stan: some ideas from the Haskell bindings_** 
 
-* Authors: Nielsen, Thomas A. (Tweag I/O), Steinitz, Dominic (Tweag I/O) and Nilsson, Henrik (School of Computer Science, University of Nottingham)
+* Authors: Thomas A. Nielsen (Tweag I/O), Dominic Steinitz (Tweag I/O), Henrik Nilsson (University of Nottingham)
 
 We present draft bindings to Stan in Haskell, a purely functional programming language. Unlike in most bindings, our models are encoded as a data type the host language. We show how this can be used to widen the range of computations that can be done based on the Stan model definition. For instance, predictions, posterior predictive checks and residual calculations can be done based on a single model definition.
 
@@ -710,7 +710,7 @@ Links:
 
 **_Dose-finding clinical trial designs in Stan with trialr_** 
 
-* Authors: Brock, Kristian 
+* Authors: Kristian Brock (University of Birmingham)
 
 My notebook illustrates two different methods for conducting dose-finding clinical trials.
 The first, CRM, escalates dose according to toxicity outcomes only, assuming implicitly that higher doses are more likely to benefit the patient.
@@ -728,7 +728,7 @@ Links:
 
 **_"The implementation of a model of choice: the (truncated) linear ballistic accumulator._** 
 
-* Authors: Nicenboim, Bruno 
+* Authors: Bruno Nicenboim (University of Potsdam)
 
 It is very common in cognitive science and psychology to use experimental tasks that involve making a fast choice among a restricted number of alternatives.  In this notebook, I focus on one influential and relatively simple model that belongs to the class of sequential-sampling models: the linear ballistic accumulator with a drift rate drawn from a normal distribution (restricted to positive values) (S. D. Brown and Heathcote 2008; Heathcote and Love 2012). First, I discuss the motivation for fitting this model using the Stroop task (Stroop 1935) as a case study. Then, I discuss the challenges in the implementation of the model in (R)Stan (Stan Development Team 2017), which might also apply to other hierarchical models with complex likelihood functions. Finally, I show some results that exemplify how the linear ballistic accumulator can be used for examining individual differences.
 
@@ -743,7 +743,7 @@ Links:
 
 **_Hierarchical Ornstein-Uhlenbeck type t-processes_** 
 
-* Authors: Laitinen, Ville & Lahti, Leo (Open Research Labs, University of Turku)
+* Authors: Ville Laitinen, Leo Lahti (University of Turku)
 
 This work investigates probabilistic time series models that are motivated by applications in statistical ecology. In particular, we investigate variants of the mean-reverting and stochastic Ornstein-Uhlenbeck (OU) process. We provide a hierarchical extension for joint analysis of multiple (short) time series, validate the model, and analyze its performance with simulations. The works extends the recent Stan implementation of the OU process (A 2018), where parameter estimates of a Student-t type OU process are obtained based on a single (long) time series. We have added a level of hierarchy, which allows joint inference of the model parameters across multiple time series.
 
