@@ -788,8 +788,28 @@ Links:
 
 ### 2018 Helsinki Invited talks 
 
-**_Title_**
+**_Hierarchical modelling of galaxy clusters for cosmology_**
     
-* Presenter: Name (Affiliation)
-* Video
-* [Slides](2018/Invited-Talks/lastname) 
+* Presenter: Maggie Lieu (European Space Agency)
+* [Video](https://youtu.be/wcpjZC9AV84?t=890)
+* [Slides](2018/Invited-Talks/lieu.pdf) 
+
+
+**_Bad data, big models & statistical methods for studying evolution_**
+    
+* Presenter: Richard McElreath (Max Planck Institute for Evolutionary Anthropology)
+* [Video](https://youtu.be/FoaxA7sJi7w?t=3581)
+* [Slides](2018/Invited-Talks/mcelreath.pdf) 
+
+**_Identifying the effect of public holidays on daily demand for gas_**
+    
+* Presenter: Sarah Heaps (Newcastle University)
+* [Video](https://www.youtube.com/watch?v=pKZLJPrZLhU&t=585s)
+* [Slides](2018/Invited-Talks/heaps.pdf) 
+
+
+**_Esther Williams in the Harold Holt Memorial Swimming Pool_**
+    
+* Presenter: Daniel Simpson (University of Toronto)
+* [Video](https://youtu.be/pKZLJPrZLhU?t=26305)
+* [Slides](2018/Invited-Talks/simpson.pdf) 
