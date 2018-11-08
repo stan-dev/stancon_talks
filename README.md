@@ -823,8 +823,8 @@ DOI link image goes here
 
 Links: 
 
-* Video
-* [Notebook, code, slides](2018-helsinki/Contributed-Talks/01_lastname) 
+* [Video](https://www.youtube.com/watch?v=FoaxA7sJi7w&t=0m00s)
+* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/blob/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/Sundin.pdf) 
 
 
 ### 2018 Helsinki Invited talks 
