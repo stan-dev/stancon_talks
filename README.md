@@ -771,11 +771,53 @@ Links:
 
 <br>
  
-**_Title_** 
+**_Relating Disparate Measures of Coagulapathy Using Unorthodox Data: A Hybrid
+  Mechanistic-Statistical Approach_** 
 
-* Authors: Names (Affiliations)
-
+* Authors: Arya A. Pourzanjani, Tie Bo Wu, Benjamin B. Bales, Linda R. Petzold (University
+  of California, Santa Barbara)
+  
 Blurb goes here
+
+DOI link image goes here
+
+Links: 
+
+* [Video](https://www.youtube.com/watch?v=wcpjZC9AV84&t=1h02m58s)
+* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/arya) 
+
+ 
+<br>
+ 
+**_Modeling the Effects of Nutrition with Mixed-Effect Bayesian Network_** 
+
+* Authors: Jari Turkia
+
+This work proposes Mixed-Effect Bayesian Network (MEBN) as a method for modeling the effects of nutrition. It allows identifying both typical and personal correlations between nutrients and their bodily responses. Predicting a personal network of nutritional reactions would allow interesting applications at personal diets and in understanding this complex system. Brief theory of MEBN is first given, followed by the implementation in R and Stan. A real life dataset from a nutritional study (Sysdimet) is then analyzed with this method and the results are visualized with a responsive JavaScript-visualization.
+
+DOI link image goes here
+
+Links: 
+
+* [Video](https://www.youtube.com/watch?v=FoaxA7sJi7w&t=39m11s)
+* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/Turkia) 
+
+<br>
+ 
+**_Using counterfactual queries to improve models for decision-support_** 
+
+* Authors: Sundin, Iiris(1) Peter Schulam(2) Eero Siivola(1) Aki Vehtari(1) Suchi Saria(2) Samuel Kaski(1)
+1 Department of Computer Science, Aalto University, Espoo, Finland
+2 Department of Computer Science, Johns Hopkins University
+
+In this extended abstract, we generalize active learning to tasks where a human has to choose which action a to take for a target after observing its covariates x ̃ and predicted outcomes p( ̃y|x, a  ̃ ).
+An example case is personalized medicine and the decision of which treatment to give to a pa-
+tient. We show that standard active learning, which is not aware of the final task, would be
+very inefficient, and we introduce a new problem of decision-making-aware active learning. We for-
+mulate the problem as finding the query with the highest information gain for the specific decision-
+making task, assuming a rational decision-maker. The problem can be solved particularly efficiently
+assuming an expert able to answer queries about counterfactuals. We demonstrate the effective-
+ness of the proposed method in a binary outcome decision-making task using simulated data, and in a continuous-valued outcome task on the medical dataset IHDP with synthetic treatment outcomes. The outcomes are predicted using Gaussian processes.
 
 DOI link image goes here
 
@@ -784,7 +826,6 @@ Links:
 * Video
 * [Notebook, code, slides](2018-helsinki/Contributed-Talks/01_lastname) 
 
- 
 
 ### 2018 Helsinki Invited talks 
 
