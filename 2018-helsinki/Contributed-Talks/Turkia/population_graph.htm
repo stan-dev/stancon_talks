@@ -1,0 +1,253 @@
+<link rel="stylesheet" href="visualization/css/jquery.mobile-1.4.5.min.css">
+<script src="visualization/js/jquery.js"></script>
+<script src="visualization/js/jquery.mobile-1.4.5.min.js"></script>
+
+<!-- START SIGMA IMPORTS -->
+<script src="visualization/src/sigma.core.js"></script>
+<script src="visualization/src/conrad.js"></script>
+<script src="visualization/src/utils/sigma.utils.js"></script>
+<script src="visualization/src/utils/sigma.polyfills.js"></script>
+<script src="visualization/src/sigma.settings.js"></script>
+<script src="visualization/src/classes/sigma.classes.dispatcher.js"></script>
+<script src="visualization/src/classes/sigma.classes.configurable.js"></script>
+<script src="visualization/src/classes/sigma.classes.graph.js"></script>
+<script src="visualization/src/classes/sigma.classes.camera.js"></script>
+<script src="visualization/src/classes/sigma.classes.quad.js"></script>
+<script src="visualization/src/classes/sigma.classes.edgequad.js"></script>
+<script src="visualization/src/captors/sigma.captors.mouse.js"></script>
+<script src="visualization/src/captors/sigma.captors.touch.js"></script>
+<script src="visualization/src/renderers/sigma.renderers.canvas.js"></script>
+<script src="visualization/src/renderers/sigma.renderers.webgl.js"></script>
+<script src="visualization/src/renderers/sigma.renderers.svg.js"></script>
+<script src="visualization/src/renderers/sigma.renderers.def.js"></script>
+<script src="visualization/src/renderers/webgl/sigma.webgl.nodes.def.js"></script>
+<script src="visualization/src/renderers/webgl/sigma.webgl.nodes.fast.js"></script>
+<script src="visualization/src/renderers/webgl/sigma.webgl.edges.def.js"></script>
+<script src="visualization/src/renderers/webgl/sigma.webgl.edges.fast.js"></script>
+<script src="visualization/src/renderers/webgl/sigma.webgl.edges.arrow.js"></script>
+<script src="visualization/src/renderers/canvas/sigma.canvas.labels.def.js"></script>
+<script src="visualization/src/renderers/canvas/sigma.canvas.hovers.def.js"></script>
+<script src="visualization/src/renderers/canvas/sigma.canvas.nodes.def.js"></script>
+<script src="visualization/src/renderers/canvas/sigma.canvas.edges.def.js"></script>
+<script src="visualization/src/renderers/canvas/sigma.canvas.edges.curve.js"></script>
+<script src="visualization/src/renderers/canvas/sigma.canvas.edges.arrow.js"></script>
+<script src="visualization/src/renderers/canvas/sigma.canvas.edges.curvedArrow.js"></script>
+<script src="visualization/src/renderers/canvas/sigma.canvas.edgehovers.def.js"></script>
+<script src="visualization/src/renderers/canvas/sigma.canvas.edgehovers.curve.js"></script>
+<script src="visualization/src/renderers/canvas/sigma.canvas.edgehovers.arrow.js"></script>
+<script src="visualization/src/renderers/canvas/sigma.canvas.edgehovers.curvedArrow.js"></script>
+<script src="visualization/src/renderers/canvas/sigma.canvas.extremities.def.js"></script>
+<script src="visualization/src/renderers/svg/sigma.svg.utils.js"></script>
+<script src="visualization/src/renderers/svg/sigma.svg.nodes.def.js"></script>
+<script src="visualization/src/renderers/svg/sigma.svg.edges.def.js"></script>
+<script src="visualization/src/renderers/svg/sigma.svg.edges.curve.js"></script>
+<script src="visualization/src/renderers/svg/sigma.svg.labels.def.js"></script>
+<script src="visualization/src/renderers/svg/sigma.svg.hovers.def.js"></script>
+<script src="visualization/src/middlewares/sigma.middlewares.rescale.js"></script>
+<script src="visualization/src/middlewares/sigma.middlewares.copy.js"></script>
+<script src="visualization/src/misc/sigma.misc.animation.js"></script>
+<script src="visualization/src/misc/sigma.misc.bindEvents.js"></script>
+<script src="visualization/src/misc/sigma.misc.bindDOMEvents.js"></script>
+<script src="visualization/src/misc/sigma.misc.drawHovers.js"></script>
+<!-- END SIGMA IMPORTS -->
+
+<script src="visualization/plugins/sigma.parsers.gexf.min.js"></script>
+<script src="visualization/plugins/dagre.js"></script>
+<script src="visualization/plugins/sigma.layout.dagre.js"></script>
+<script src="visualization/plugins/sigma.renderers.edgeLabels/sigma.canvas.edges.labels.confband.js"></script>
+<style type="text/css">
+    #sigmacontainer {
+        max-width: 100%;
+        height: 80vh;
+        margin: auto;
+        box-shadow: 3px 3px 1px #AAAAAA;
+    }
+</style>
+
+<script>
+/* custom confidence band edge renderer */
+
+sigma.utils.pkg("sigma.canvas.edges");
+sigma.canvas.edges.confband = function (edge, source, target, context, settings) {
+    var color = edge.color,
+        prefix = settings("prefix") || "",
+        edgeColor = settings("edgeColor"),
+        defaultNodeColor = settings("defaultNodeColor"),
+        defaultEdgeColor = settings("defaultEdgeColor"),
+        cp = {},
+        size = edge[prefix + "size"] || 1,
+        count = edge.count || 0,
+        tSize = target[prefix + "size"],
+        sX = source[prefix + "x"],
+        sY = source[prefix + "y"],
+        tX = target[prefix + "x"],
+        tY = target[prefix + "y"],
+        aSize = Math.max(size * 5.5, settings("minArrowSize")),
+        d,
+        aX,
+        aY,
+        vX,
+        vY;
+
+    if (!color)
+        switch (edgeColor) {
+            case "source":
+                color = source.color || defaultNodeColor;
+                break;
+            case "target":
+                color = target.color || defaultNodeColor;
+                break;
+            default:
+                color = defaultEdgeColor;
+                break;
+        }
+
+    //context.strokeStyle = color;
+    //context.lineWidth = size;
+
+    var meanvalue = edge.attributes.att1;
+    var l95CI = edge.attributes.att2;
+    var u95CI = edge.attributes.att3;
+    var b_sigma = edge.attributes.att4;
+
+    var draw_confbands = true;
+
+    if (draw_confbands) {
+		
+		var shades = ["#eeeeee", "#dddddd", "#cccccc", "#bbbbbb", "#aaaaaa", "#999999", "#888888"];
+		var r_shades = ["#ffeeee", "#eedddd", "#ddcccc", "#ccbbbb", "#bbaaaa", "#aa9999", "#998888"];
+		var b_shades = ["#eeeeff", "#ddddee", "#ccccdd", "#bbbbcc", "#aaaabb", "#9999aa", "#888899"];
+		var s = 0;
+		
+		if (b_sigma > 0.11) {
+			s = 4;
+		} else if (b_sigma > 0.10) {
+			s = 3;
+		} else if (b_sigma > 0.096) {
+			s = 2;
+		} else if (b_sigma > 0.090) {
+			s = 1;
+		} else if (b_sigma > 0.080) {
+			s = 1;
+		} else {
+			s = 0;
+		}
+	
+        var CI_width = b_sigma * 90;
+
+		if (meanvalue > 0) {
+			context.strokeStyle = String(r_shades[s]);
+		} else {
+			context.strokeStyle = String(b_shades[s]);		
+		}
+				
+        //context.lineWidth = Math.log(Math.abs(meanvalue)) * 300 + CI_width;
+        context.lineWidth = Math.abs(meanvalue) * 200 + CI_width;
+        context.beginPath();
+        context.moveTo(sX, sY);
+        context.lineTo(tX, tY);
+        context.stroke();
+		
+		console.log(b_sigma);
+		console.log(s);
+		console.log(context.strokeStyle);
+    }
+
+    // mean
+
+    if (meanvalue > 0) {
+        context.strokeStyle = "#ef5209"; // red
+    } 
+	else
+	{
+		context.strokeStyle = "#36b7db"; //blue
+    } 
+
+    //context.lineWidth = Math.log(Math.abs(meanvalue)) * 300;
+    context.lineWidth = Math.abs(meanvalue) * 200;
+    context.beginPath();
+    context.moveTo(sX, sY);
+    context.lineTo(tX, tY);
+    context.stroke();
+
+    // arrow head
+    if (false) {
+        cp = sigma.utils.getQuadraticControlPoint(sX, sY, tX, tY, count);
+
+        d = Math.sqrt(Math.pow(tX - cp.x, 2) + Math.pow(tY - cp.y, 2));
+        aX = cp.x + (tX - cp.x) * (d - aSize - tSize) / d;
+        aY = cp.y + (tY - cp.y) * (d - aSize - tSize) / d;
+        vX = (tX - cp.x) * aSize / d;
+        vY = (tY - cp.y) * aSize / d;
+
+        context.fillStyle = color;
+        context.beginPath();
+        context.moveTo(aX + vX, aY + vY);
+        context.lineTo(aX + vY * 0.6, aY - vX * 0.6);
+        context.lineTo(aX - vY * 0.6, aY + vX * 0.6);
+        context.lineTo(aX + vX, aY + vY);
+        context.closePath();
+        context.fill();
+    }
+
+    // Call edge label renderer
+    //sigma.canvas.edges.labels.confband(edge, source, target, context, settings)
+};
+/* custom edge renderer */
+
+     var p = new DOMParser();
+     var gexf_dom = p.parseFromString(sysdimet_graph, 'application/xml');
+
+    sigma.parsers.gexf(gexf_dom, {
+        container: "sigmacontainer",
+        settings: {
+            defaultNodeColor: "#ec5148",
+            defaultEdgeType: "arrow",
+            defaultNodeType: "circle",
+			eventsEnabled: false,
+			mouseEnabled: false,
+			touchEnabled: false
+        },
+        renderer: {
+            container: "sigmacontainer",
+            type: "canvas"
+        }
+    },
+    function (s) {
+        s.graph.nodes().forEach(function (node, i, a) {
+            node.type = node.viz.shape;
+        });
+
+        s.graph.edges().forEach(function (e) {
+
+            // work around for bug in write.gexf
+            if (e.attributes.att2)
+                e.type = "confband";
+            else
+                e.type = "arrow";
+
+            //console.log(e);
+        })
+
+        s.refresh();
+
+        var config = {
+            rankdir: "LR",
+            ranksep: "5000",
+            nodesep: "400",
+            edgesep: "20"
+        };
+
+        // Start the dagre algorithm for topological layout
+        var listener = sigma.layouts.dagre.configure(s, config);
+        sigma.layouts.dagre.start(s);
+		
+		// Save HTML5 canvas as image
+			
+		//var dataURL = sigma.canvas.toDataURL();
+		//graphImage.src = dataURL;
+    });
+</script>
+
+
+
