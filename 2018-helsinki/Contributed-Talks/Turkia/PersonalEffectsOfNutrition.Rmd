@@ -1,0 +1,427 @@
+---
+title: "Modeling the Effects of Nutrition with Mixed-Effect Bayesian Network"
+author:
+- Jari Turkia, jari.turkia@cgi.com
+- CGI
+- University of Eastern Finland
+bibliography: biblio.bib
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
+abstract: This work proposes Mixed-Effect Bayesian Network (MEBN) as a method for
+  modeling the effects of nutrition. It allows identifying both typical and personal
+  correlations between nutrients and their bodily responses. Predicting a personal
+  network of nutritional reactions would allow interesting applications at personal
+  diets and in understanding this complex system. Brief theory of MEBN is first given,
+  followed by the implementation in R and Stan. A real life dataset from a nutritional 
+  study (Sysdimet) is then analyzed with this method and the results are visualized
+  with a responsive JavaScript-visualization.
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(echo = TRUE, fig.align="center")
+
+Sys.setenv(TZ="Europe/Helsinki")
+
+# Load common MEBN package
+source("mebn\\MEBN.r")
+```
+
+## The Effects of Nutrition
+
+Nutrition experts have known for a long by their experience that people can react very differently to the same nutrition. Typical reactions are quite well known from existing nutritional studies, but personal reactions may differ from them. Are some people more sensitive to some nutrients than the others? If this information could be systematically quantified, it would allow us to create personal models of reaction types. This in turn, would open up a lot of new applications in personal dietary recommendations and in personal health care.
+
+I am proposing a Mixed-Effect Bayesian Network (MEBN) as a method for modeling the effects of nutrition in both population and personal level. By the effects of nutrition we mean the way how people react to different levels of nutrients at their diets. There have been studies of these effects on specific cases, like personal glucose metabolism [@Zeevi2015], but MEBN would allow more general modeling.   
+
+The Bayesian Networks (BN) are directed acyclic graphical models that can contain both observed and latent random variables as vertices and edges as indicators of connection. In the setting of nutritional modeling the observed variables are nutrients at person's diet and their corresponding bodily responses, like blood characteristics. The connections, and especially the indirect connections, between these variables can be very complex and the BN seems to be an intuitively appealing method for modeling such a system. The latent variables at the graph correspond to both typical and personal variables indicating the significance of these connections.
+
+For capturing these personal variances we need a set of data that contains several repeated measurements from number of persons. The measurements from each person are correlated with each other and a general method for modeling this kind of correlations is a hierarchical, or mixed-effect, model. Previously BNs have been considered mainly for uncorrelated observations [@Scutari2014, @Scutari2013, @Aussem2010], but in this work we are using Mixed-Effect Bayesian Network parameterization [@Bae2016] that allows combining hierarchical modeling to Bayesian networks.
+
+This presentation covers first briefly the theory of graphical models and how it can be expanded to correlated observations. Then it is shown how this modeling can be implemented with Stan and what benefits that fully Bayesian estimation can offer in understanding the uncertainty at the model. 
+
+## Mixed-Effects Bayesian Network
+
+Let us denote the graph of interconnected nutrients and responses with $G$. We can then formulate the modeling problem as finding the graph $G$ that is the most probable given the data $D$
+
+\begin{align}
+{P}({G}|{D})
+\end{align}
+
+By using the Bayes' Rule we can be split this probability into proportions of the data likelihood of the given graph and any prior information we might have about suitable graphs 
+
+\begin{align}
+\label{prop_bayes_theorem}
+{P}({G}|{D}) \propto {P}({D}|{G}) {P}({G})
+\end{align}
+
+Now the problem is converted into a search of the maximum likelihood graph for the given data. If all the graphs are equally probable then \(P(G)\) is a constant and does not affect the search, but it can be also beneficial to use it to guide the search towards meaningful graphs [@Bishop:2006:PRM:1162264, @Scutari2013].
+
+**Decomposition of the likelihood.** Bayesian network factorizes into local distributions according to \textit{local Markov property} stating that a variable \(X_i\) is independent of its non-descendants given its parents at the graph. The \textit{global Markov property} states that a variable is independent of all the remaining variables in the graph conditionally on its \textit{Markov blanket} that consists its parents and child nodes at the graph, and additional parents of the child nodes [@Bae2016, @Koller:2009:PGM:1795555]. With this decomposition, the joint probability of the graph can be calculated with sum and product rules of probability as a product of the independent local graphs \(G_i\). The graph structure depends also on the parameters \(\phi_i\) describing the dependencies, and they should also be taken into account at the structure estimation. We assume that \(\phi_i\) is a set that pools all the parameters that describe the relationship.
+
+Likelihood of the data is then
+
+\begin{align}
+\begin{split}
+\label{likelihood}
+{P}({D}|{G}) = \prod_{i=1}^{v} {P(X_i|pa(X_i), \phi_i, G_i)P(\phi_i|G_i)}  
+\end{split}
+\end{align}
+
+assuming that we have \(v\) independent local distributions at the graph. The notation $pa(X_i)$ denotes the parent variables of variable $X_i$ according to graph structure $G_i$. Since the probability of data in the graph depends on the parameters of the local distributions, \(\phi_i\), they have to be integrated out from the equation to make the probability of graph independent of any specific choice of parameters 
+
+\begin{align}
+\begin{split}
+\label{joint_probability}
+\prod_{i=1}^{v} \int {P(X_i|pa(X_i), \phi_i, G_i)P(\phi_i|G_i)} d\phi_i
+= \prod_{i=1}^{v} {P(X_i|pa(X_i), G_i)P(G_i)} 
+\end{split}
+\end{align}
+
+Besides the Markov properties, we also assume  _global independence of the parameters_ 
+
+\begin{align}
+\label{global_independence}
+{\phi_i} \neq {\phi_j}, {i} \neq {j}
+\end{align}
+
+and for the Bayesian estimation we assume _hyper-Markov law_ [@dawid1993] for ensure that these decompositions are indeed independent.
+
+
+**Linear dependency between variables.** As we are more interested in the system as a whole and less considered about the details of any specific nutritional response, we consider it adequate to model the dependency between the nutrients and the bodily responses with an approximate linear model. However, a simple linear model is not enough, as we need a parameterization that is able to reflect the correlations between observations and to express the amount of variability between persons since the data consists of several repeated measurements from different persons.
+
+<center>
+
+```{r, out.width = "600px", echo=FALSE, message=FALSE, fig.cap="This is an example MEBN as a graphical model. The grey nodes are the observed variables of nutrients (N) and blood tests (B). The white beta and b nodes are the latent nodes to be estimated. Red, blue and dark grey correspond to the colors used in the visualization at figure 2."}
+include_graphics("PGM.png", auto_pdf=TRUE)
+```
+
+</center>
+</br>
+
+Generally, the local probability distributions can be from exponential family of distributions, but in this case we consider only normally distributed response variables. The subset of parent variables, that we assume containing personal variance, is denoted with $pa_Z(X_i)$. For the mixed-effect modeling we need to estimate parameters \(\phi_i = \{\beta_i, b_i\}\) for expressing the typical and personal reaction types. In a multivariate normal model the uncertainty is furthermore defined by variance-covariance matrix $V_i$
+
+\begin{align}
+\begin{split}
+\label{Normal LME}
+{P}({X_i}|{pa(X_i), \phi_i, G_i}) = N({X_i} | pa(X_i)\beta_i + pa_Z(X_i)b_i, V_i)
+\end{split}
+\end{align}
+
+This theory motivates our search for the optimal graph with Stan. By decomposing the joint likelihood into local probability distributions according to Markov properties, it is possible to find the optimal graph by estimating one local distributions one by one.
+
+## Estimating the Hierarchical Local Distributions with Stan
+
+In the mixed-effect modeling, the goal is to explain some of the model's variance in $V_i$ with the latent personal effect variables $b_i$. These in turn offer us a way to detect and express the personal variations at the nutritional effects. Let us assume that matrix $Z$ is a design matrix of the personal effects. Then variance-covariance matrix is defined by
+
+\begin{align}
+\label{variance_matrix}
+{V = Z D Z' + R}
+\end{align}
+
+where $R$ is a variance-covariance matrix of residuals and $D$ is a variance-covariance matrix of personal, or random-effects,
+
+\begin{align}
+\label{ranef_varcov_matrix}
+{D = \mathcal{T} C \mathcal{T}'}
+\end{align}
+
+where $\mathcal{T}$ is a diagonal matrix of personal effect variances and $C$ is correlation matrix that can be divided into Cholesky decompositions as
+
+\begin{align}
+\label{ranef_corr_matrix}
+{C = L L'}
+\end{align}
+
+and with $L$ we can define the personal effects as
+
+\begin{align}
+\label{personal_effects}
+{b = L u, u \sim N(0, I)}
+\end{align}
+
+as we assume for now that the personal random-effects are drawn from Normal distribution.
+
+This is implemented in Stan as follows
+
+```
+transformed parameters {
+  // ...
+  // Create diagonal matrix from sigma_b and premultiply it with L
+  D = diag_pre_multiply(sigma_b, L); 
+  
+  // Group-level effects are generated by multipying D with z that has standard normal distribution
+  for(j in 1:J) 
+    b[j] = D * z[j];   
+}
+```
+
+The actual model with Normal distribution having the linear mixed-effect likelihood is defined below. Notice that instead of matrix $V$, in Stan we are using vectors `group` and scalar `sigma_e`.
+
+```
+model { 
+  // ...
+  // Standard normal prior for random effects
+  for (j in 1:J)
+    z[j] ~ normal(0,1);
+
+  // Likelihood 
+  // - link function (identity function for Normal dist.) for typical correlation
+  mu = temp_Intercept + Xc * beta;
+
+  // - add personal (group) effects
+  for (i in 1:N) 
+  {
+     mu[i] = mu[i] + Z[i] * b[group[i]];
+  }
+
+  // Y and mu are vectors, sigma_e is a scalar that is estimated for whole vector
+  Y ~ normal(mu, sigma_e);
+}
+```
+
+## Constructing the Population Level Graph of Nutrional Effects
+
+The dataset in this example comes from Sysdimet study [@pmid21901116] that studied altogether 106 men and women with impaired glucose metabolism. The original study is a randomized control trial, but each of the control groups are assumed to react to the nutrition basically at the same way. The only prior knowledge about the difference in reactions is related to the cholesterol medication. After taking this variable into account it is possible to use all the persons from the study in this modeling.
+
+For each person we have four observations from their nutritional diary and from blood tests. The blood tests are taken a week after the diet observation. We have picked few interesting variables indicating person's diet, blood test results and personal information, like gender and medication. Altogether we have 22 variables of personal and dietary information, and 5 variables from blood tests. 
+
+There exist plenty of general algorithms for constructing BNs, but for this special case we can constrain the search to biologically plausible reaction graphs. We assume that all possible graphs are directed bipartite graphs with nutrients and personal information as root nodes and blood tests as targets.
+
+```{r load_data, echo=TRUE, message=FALSE}
+
+# Read the data description
+datadesc <- read.csv(file="Data description.csv", header = TRUE, sep = ";")
+
+# Read the actual data matching the description
+sysdimet <- read.csv(file="data\\SYSDIMET_diet.csv", sep=";", dec=",")
+
+# Define how to iterate through the graph
+assumedpredictors <- datadesc[datadesc$Order==100,]    
+assumedtargets <- datadesc[datadesc$Order==200,] 
+
+```
+
+**Pruning the edges.** We start the graph construction from a fully connected graph, but for gaining the nutritional knowledge of significant connections, it is necessary to prune out the insignificant connections from the graph. This also factorizes the joint likelihood of BN as formulated earlier. 
+
+For pruning we use shrinkage prior on beta coefficients to push the insignificant coefficients towards zero. Especially, we use regularized horseshoe prior [@Piironen2017a] that allows specifying the number of non-zero coefficients for each target. In the nutritional setting this provides a way for specifying prior knowledge about the relevant nutrients for each response. For now, we approximate that one third of the predictive nutrients are relevant, but finer approximation will be done based on the previous nutritional research. See [@Piironen2017a] for detailed information on the shrinkage parameters.
+
+```{r shrinkage_parameters, echo=TRUE, message=FALSE}
+shrinkage_parameters <- within(list(),
+{
+    scale_icept  <- 1         # prior std for the intercept
+    scale_global <- 0.01821   # scale for the half-t prior for tau: 
+                              # (p0=6) / (D=22-6)*sqrt(n=106*4)
+    nu_global    <- 1         # degrees of freedom for the half-t priors for tau
+    nu_local     <- 1         # degrees of freedom for the half-t priors for lambdas
+    slab_scale   <- 1         # slab scale for the regularized horseshoe
+    slab_df      <- 1         # slab degrees of freedom for the regularized horseshoe           
+})
+```
+
+If the shrinkage prior does not shrink the coefficients to exactly zero, we are pruning out the insignificant connections with following test. Notice that in the population level graph we are keeping the connections that have large variance between persons even though they are not typically relevant. Personal random-effect variance means that the connection is relevant for someone.
+
+The effect of shrinkage can be studied by using an alternative with Stan model "BLMM.stan" that omits the shrinkage. 
+
+```{r, echo=TRUE}
+
+my.RanefTest <- function(localsummary, PredictorId)
+{
+  abs(localsummary$fixef[PredictorId]) > 0.001 || localsummary$ranef_sd[PredictorId] > 0.05
+}
+```
+
+To assure that this pruning does not affect predictive accuracy of the model, a projection method [@Piironen2017b] could be also used here. In the projection approach the edges are removed if the removal doesn't affect the distance from the true model measured with the KL-divergence.
+
+**Construction of the graph.** The data structure of the graph is based on iGraph package. The process of BN construction starts by adding a node for every observed variable at the dataset.
+
+```{r, echo=TRUE, message=FALSE}
+# Add data columns describing random variables as nodes to the graph
+# - initial_graph is iGraph object with only nodes and no edges 
+initial_graph <- mebn.new_graph_with_randomvariables(datadesc)
+```
+
+For estimating the typical MEBN graph, we iterate the hierarchical Stan-model through all the assumed predictors and targets. This builds up the joint distribution of MEBN, one local distribution at a time. These local distributions correspond to the hierarchical regression models that are estimated with Stan and the resulting HMC samplings are cached to files.
+
+The result is an iGraph object that contains a directed bipartite graph with nutrients as predictors and blood test results as targets. We normalize all the values to unit scale and center before the estimation. Instead of sampling, it is also possible to estimate the same model with Stan's implementation of variational Bayes by switching the local_estimation-paramter.
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+sysdimet_graph <- mebn.typical_graph(reaction_graph = initial_graph, 
+                                   inputdata = sysdimet,
+                                   predictor_columns = assumedpredictors, 
+                                   assumed_targets = assumedtargets, 
+                                   group_column = "SUBJECT_ID",
+                                   local_estimation = mebn.sampling,
+                                   local_model_cache = "models", 
+                                   stan_model_file = "mebn\\BLMM_rhs.stan",
+                                   edge_significance_test = my.RanefTest, 
+                                   normalize_values = TRUE, 
+                                   reg_params = shrinkage_parameters)
+```
+
+Sampling may still cause some divergent transitions and errors on estimating correlation matrix that is quite restricted data type. Estimations of then parameters seem nevertheless realistic.  
+
+Now "sysdimet_graph" is a Mixed Effect Bayesian Network for whole sample population. We can store it in GEXF-format and load to visualization for general inspection. The visual nature of the Bayesian Networks, and the graphical models in general, provide a useful framework for creating visualizations. In comparison to the schematic figure (fig. 1), the coefficients and latent variables are removed and denoted by different colors. Blue edge denotes typically negative correlation, red edge denotes positive correlation and gray shade denotes the amount of personal variation at the correlation. 
+
+The shrinkage leaves still quite a few subtle connections at the graph and to remove the clutter we will only visualize the few most relevant of them, having either typically large effect or having large personal variance. In that case it might be relevant to some individuals, but not for all.
+
+```{r, echo=FALSE, message=FALSE}
+sysdimet_visgraph <- mebn.visualization_graph(sysdimet_graph)
+
+# Filter only the most significant edges having large typical effect or large personal variance
+alledges <- E(sysdimet_visgraph)
+top_neg_edges <- head(alledges[order(alledges$weight)], 15)
+top_pos_edges <- head(alledges[order(-alledges$weight)], 15)
+top_pers_edges <- head(alledges[order(-alledges$b_sigma)], 15)
+
+# Comment out this row to see all the connections at the model
+sysdimet_visgraph <- delete.edges(sysdimet_visgraph, alledges[-c(top_neg_edges, top_pos_edges, top_pers_edges)])
+
+# Write the MEBN in GEXF format for visualization
+mebn.write_gexf(sysdimet_visgraph, "sysdimet.gexf")
+
+# Load the graph stored in gexf-file as pass it to JavaScript visualization as a string
+gexf_file <- file("sysdimet.gexf") 
+graph_string <- paste(readLines(gexf_file), collapse = "")
+```
+
+<script>
+  var sysdimet_graph = '`r graph_string`';
+</script>
+
+<!-- the graph is drawn in this container. variable 'sysdimet_graph' is hard coded to contain the gexf-string -->
+<div id="sigmacontainer"></div>
+![Visualization of the typical reaction graph with edge thickness and color indicating the level of effect (beta coefficient). Grey shade at the edge indicates the amount of variance between personal effects (sigma_b). Notice that less significant connections have been filtered out for clarity.](visualization.png)
+
+```{r, echo=FALSE, message=FALSE}
+# Load the graph drawing JavaScript
+htmltools::includeHTML("population_graph.htm")
+```
+</br>
+
+A few observations raise from this visualization: Women tend to have typically higher HDL-cholesterol levels than men, but lower blood insulin levels. On the other hand saturated fats (safa) lower HDL-cholesterol, but raise the blood insulin. One interesting correlation can be also found between protein and blood insulin. It has typically very little positive correlation, but there is a quite large variance between persons. This has also new clinical support.
+
+It can be also seen from the visualization that many of the nutrients affect to several responses. This multiresponse effect is not yet implemented to the model, but should be taken into account. It allows, for example, to gain knowledge about responses that have missing measurements for some persons, but have known connections to other responses and predictors. Besides the visual inspection, we can also do a numerical inference on the graph.
+
+## Inference
+
+The generated graph object allows us to query some interesting insights. We can, for example, investigate the most significant typical reactions by quering largest beta coefficients  
+
+```{r, echo=TRUE, eval=TRUE}
+
+# Let's query the graph for beta coefficients that denote typical effects, (see beta nodes in fig 1)
+allnodes <- V(sysdimet_graph)
+beta <- allnodes[allnodes$type=="beta"]
+
+# Separate data frame is constructed for printing
+typical_effects<-data.frame(matrix(NA, nrow=length(beta), ncol=0))
+
+# - let's translate the names of beta-nodes with the data description metadata  
+typical_effects$effect <- unlist(lapply(strsplit(gsub("beta_","", beta$name), "_"), function(x) paste0(toString(datadesc[datadesc$Name==x[1],]$Description)," -> ", toString(datadesc[datadesc$Name==x[2],]$Description))))
+
+# - sort most positive and negative values
+typical_effects$value <- round(beta$value,3)
+largest_typical_negative <- typical_effects[order(typical_effects$value),]
+largest_typical_positive <- typical_effects[order(-typical_effects$value),]
+```
+
+**Largest typical negative effects**
+
+```{r, echo=FALSE}
+head(largest_typical_negative, 7)
+```
+
+**Largest typical positive effects**
+
+```{r, echo=FALSE}
+head(largest_typical_positive, 7)
+```
+
+As the visualization showed, females have typically higher levels of HDL cholesterol. Also the cholesterol medication, besides of lowering the cholesterol levels, also raises the blood insulin level.
+
+What we are really interested in, though, are the variations between persons. For this, we can query the largest variances of random-effects..
+
+```{r, echo=TRUE, eval=TRUE}
+# Query the graph for personal variances, denoted by b_sigma-nodes
+b_sigma <- allnodes[allnodes$type=="b_sigma"]
+
+# Again, a separate data frame is constructed for printing
+personal_variances<-data.frame(matrix(NA, nrow=length(b_sigma), ncol=0))
+
+personal_variances$effect <- unlist(lapply(strsplit(gsub("b_sigma_","", b_sigma$name), "_"), function(x) paste0(toString(datadesc[datadesc$Name==x[1],]$Description)," -> ", toString(datadesc[datadesc$Name==x[2],]$Description))))
+
+personal_variances$variance <- round(b_sigma$value,3)
+largest_personal_variance <- personal_variances[order(-personal_variances$variance),]
+```
+
+**Largest personal variance**
+
+The variance value here is the variance of the random-effect denoted with _sigma_b_ in the Stan code. It can be interpreted as the amount of variability in reactions between persons.
+
+```{r, echo=FALSE}
+head(largest_personal_variance, 10)
+```
+
+So, there seems to be a large variance in how the energy intake affects to insulin and cholesterol levels. Also the effect of protein to insulin levels is interesting. As the visualization hinted, the protein typically increases the insulin level a bit and there is a quite large personal variance in the effect. 
+
+**Confidence of the personal variances**
+
+Relevance of these estimations can be inspected from their posterior distributions. Let us consider the estimated variance (sigma_b) in the personal effect from the protein level in diet to the blood insulin level (fsins).
+
+```{r, echo=FALSE}
+ggplot2::theme_set(bayesplot::theme_default(base_size = getOption("bayesplot.base_size", 6),
+  base_family = getOption("bayesplot.base_family", "serif")))
+```
+
+
+```{r, echo=TRUE, message=FALSE}
+library("bayesplot")
+
+# Local distribution for fsins
+fsins_blmm <- mebn.get_localfit("fsins")
+
+# Index of predictor 'protein' -- this is sigma_b[4] at the posterior plot
+id <- match("prot", datadesc$Name)
+
+posterior <- as.array(fsins_blmm)
+mcmc_intervals(posterior, pars = c(paste0("sigma_b[",id,"]")), prob_outer = 0.95) +
+  xlab("The variance between persons (sigma_b) at the protein's effect to blood insulin") +
+  ylab("Probability")
+```
+
+```{r, echo=FALSE, message=FALSE}
+mcmc_areas(
+  posterior, 
+  pars = c(paste0("sigma_b[",id,"]")),
+  prob = 0.50, 
+  prob_outer = 0.95, 
+  point_est = "mean"
+) +
+  xlab("The variance between persons (sigma_b) at the protein's effect to blood insulin") +
+  ylab("Probability")
+```
+
+Figure 3: Posterior distribution of variance between persons at protein's effect to blood insulin. This hyperparameter corresponds to the thick grey shade at figure 2 between protein and blood insulin nodes. In 95% probability people have real differences in this reaction and this is one of the connections that may be used for personal nutrition. Variance between persons means a possibility for personalization.
+
+<br/>
+&nbsp;
+
+This shows that the there exists personal variance in how of protein level at diet affects to blood insulin levels as the 95% credible interval is above zero. The wide probability distribution shows that exact estimate is quite uncertain and we would need more observations or stricter prior information for more precise estimation. One can also observe the difference between typical choices of Bayesian point estimation; upper interval chart points at the posterior median, while the lower area chart shows the posterior mean and the MAP estimate at the high point of the probability.
+
+## Conclusions
+
+Mixed-effect Bayesian networks offer an appealing way to model the system of nutritional effects. By using the mixed-effect models as local probability distributions in the graph, we can estimate the effects in both population and personal level. Furthermore, the fully Bayesian estimation of the distributions allow direct means for adding the prior information to the model and also addressing the uncertainty of the estimates.
+
+The model could be enhanced by adding a correlation structure between observations. For longer time series, for example, a moving average or ARMA structure could be beneficial. This might level out some of the noise that human observations contain. For studying the indirect connections of the nutrients and bodily responses, a multiresponse modeling needs to be added. This might be effectively estimated only after the factorization of the graph is done and significant parents of the nodes are found.
+
+In my future work I will make a procedure that combines the personal predictions as a personal reaction graph, similar to the population level graph that we constructed in this notebook. With the previously estimated random-effect variances and covariances, this kind of personal reaction graph can be constructed with linear predictions from very limited data. These personal graphs allow inference on any of the variables resulting interesting new applications, for example, in personal diet recommendations and in personal health care.
+
+</br>
+
+## References
+
+
+
+
+

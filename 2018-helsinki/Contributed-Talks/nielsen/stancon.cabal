@@ -1,0 +1,34 @@
+Name:                stancon
+Version:             0.1.0.0
+Synopsis:
+Description:
+License:             MIT
+License-file:        LICENSE
+Author:              Tom Nielsen <tom.nielsen@tweag.io>
+Maintainer:          Tom Nielsen <tom.nielsen@tweag.io>
+build-type:          Simple
+Cabal-Version: 	     >= 1.8
+homepage:            https://github.com/glutamate/stancon
+bug-reports:         https://github.com/glutamate/stancon/issues
+category:            Web
+Tested-With:         GHC == 8.0.1
+
+source-repository head
+  type:     git
+  location: https://github.com/glutamate/stancon
+
+executable stancon
+   main-is: Stancon.hs
+   Build-depends:
+                 base                    >= 4.6 && < 5
+               , stanhs
+               , datasets
+               , text
+               , inliterate
+               , plotlyhs
+               , microlens
+               , containers
+               , lucid
+               , lucid-extras
+               , random-fu
+               , random-source

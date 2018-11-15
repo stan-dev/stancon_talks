@@ -1,0 +1,144 @@
+---
+title: "CMSB - Figure 2"
+output: html_notebook
+---
+```{r setup}
+library(rstan)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+#options(mc.cores = 3)
+library(tidyverse)
+library(loo)
+library(MVN)
+library(bayesplot)
+library(here)
+library(cowplot)
+devtools::load_all()
+```
+
+
+# Load the sigB data from GSE6865
+
+The original source of data: (https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE6865)
+
+```{r}
+#Try to download the data, if it was not already present on the computer
+
+data_dir <- here("local_data")
+if(! dir.exists(data_dir)) {
+  dir.create(data_dir)
+}
+data_file <- here("local_data","GSE6865_series_matrix.txt.gz")
+if(!file.exists(data_file)) {
+  download.file("ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE6nnn/GSE6865/matrix/GSE6865_series_matrix.txt.gz", data_file)
+}
+
+# Read and preprocess the data
+gse6865_raw_df = read.delim(gzfile(data_file), comment.char = "!") #Intermediate data frame representation
+
+# Raw profile data. We scale by 1000 to get to more wieldy values
+gse6865_raw = as.matrix(gse6865_raw_df[,2:15]) / 1000
+rownames(gse6865_raw) = gse6865_raw_df$ID_REF
+
+#Times (in minutes) for the individual samples
+gse6865_raw_time = c(0,5,10,15,20,25,30,40,50,60,70,80,90,100)
+colnames(gse6865_raw) <- sapply(gse6865_raw_time,  FUN = function(x) { paste0(x,"min")})
+
+# For the first measurement, we can expect the value to be 0 (the series are from germination)
+gse6865_raw[is.na(gse6865_raw[,1]),1] = 0
+
+# For the second measurement we will go with a linear interpolation
+na2 = is.na(gse6865_raw[,2])
+gse6865_raw[na2,2] = 0.5 * gse6865_raw[na2,1] + 0.5 * gse6865_raw[na2,3]
+
+#cleanup the intermediate results
+rm(gse6865_raw_df)
+rm(na2)
+rm(data_file)
+
+# Genes in the regulon according to http://subtiwiki.uni-goettingen.de/wiki/index.php/SigB_regulon as of 2017-02-09
+sigBRegulonNames = c("aag", "aldY", "bmr", "bmrR", "bmrU", "bofC", "cdd", "chaA", "clpC", "clpP", "corA", "csbA", "csbB", "csbC", "csbD", "csbX", "ctc", "ctsR", "cypC", "disA", "dps", "era", "gabD", "gsiB", "gspA", "gtaB", "guaD", "hpf", "iolW", "ispD", "ispF", "katE", "katX", "mcsA", "mcsB", "mgsR", "mhqO", "mhqP", "nadE", "nhaX", "ohrB", "opuE", "phoP", "phoR", "plsC", "radA", "rnr", "rpmEB", "rsbRD", "rsbV", "rsbW", "rsbX",  "sodA", "spo0E", "spoVC", "spx", "trxA", "yaaH", "yaaI", "yacL", "ybyB", "ycbP", "ycdF", "ycdG", "yceC", "yceD", "yceE", "yceF", "yceG", "yceH", "ydaD", "ydaE", "ydaF", "ydaG", "ydaJ", "ydaK", "ydaL", "ydaM", "ydaN", "ydaP", "ydaS", "ydaT", "ydbD", "ydeC", "ydhK", "yerD", "yfhD", "yfhE", "yfhF", "yfhK", "yfhL", "yfhM", "yfkD", "yfkH", "yfkI", "yfkJ", "yfkM", "yfkS", "yfkT", "yflA", "yflH", "yflT", "ygxB", "yhcM", "yhdF", "yhdN", "yhxD", "yitT", "yjbC", "yjgB", "yjgC", "yjgD", "yjzE", "ykgA", "ykgB", "ykuT", "ykzI", "ylxP", "ymzB", "yoaA", "yocB", "yocK", "yoxB", "yoxC", "ypuB", "ypuC", "ypuD", "yqhB", "yqhP", "yqhQ", "yqjL", "yraA", "ysdB", "ysnF", "ytaB", "ytkL", "ytxG", "ytxH", "ytxJ", "yugU", "yuzA", "yvaK", "yvgN", "yvgO", "yvrE", "ywiE", "ywjC", "ywlB", "ywmE", "ywmF", "ywsB", "ywtG", "ywzA", "yxaB", "yxbG", "yxiS", "yxjI", "yxjJ", "yxkO", "yxnA", "yxzF", "yycD", "yczO", "ydaC", "yebE", "yebG", "yflD", "yflB", "yisP", "ipi", "yjlB", "ykzN", "spo0E", "yktC", "ykzC", "rbfA", "ytkC", "ytiB", "menC", "menE", "yuzH", "yvbG", "yvzE", "ywsA", "ywjA", "yydC", "yyzG", "yyzH", "yybO")
+
+#Taken from Genexpi evaluation via 
+#rownames(gse6865_raw)[variousSplinesResult[[4]]$result$trueResults$tested]
+sigBRegulonInteresting <- c("clpP","csbB","csbD","csbX","ctc","ctsR","dps","gsiB","gspA","gtaB","guaD","katE","katX","mcsA","nadE","nhaX","rsbV","rsbW","rsbX","sodA","spo0E","spoVC","ybyB","ycdF","ycdG","yceD","ydaD","ydaE","ydaG","ydaP","ydaS","ydbD","ydhK","yfhD","yfhK","yfkJ","yflT","yhdN","yhxD","yjbC","yjgC","yjgD","ykgA","ykgB","ylxP","yocB","yoxC","ysnF","ytxG","ytxH","ytxJ","yvrE","ywjC","ywsB","ywzA")
+
+```
+```{r}
+regulated_model <- stan_model(file = here('stan','regulated.stan'))
+
+```
+
+
+## Set default parameters
+```{r}
+measurement_times = floor(gse6865_raw_time / 2) + 1
+smooth_time  <- seq(0,100, by = 2)
+expression_data <- gse6865_raw
+
+spline_df <- 7
+spline_basis <- bs(smooth_time, degree = 3, df = spline_df)
+sigB_spline_params <- spline_params(
+  spline_basis = spline_basis,
+  scale = 5
+)
+
+sigB_params_prior <-  params_prior(
+  initial_condition_prior_sigma = 2,
+  asymptotic_normalized_state_prior_sigma = 0.5,
+  degradation_prior_mean = -2,
+  degradation_prior_sigma = 1,
+  mean_regulatory_input_prior_sigma = 5,
+  sd_regulatory_input_prior_sigma =5,
+  intercept_prior_sigma = 2
+)
+
+measurement_sigma <- measurement_sigma_given(0.1,0.2)
+
+```
+
+```{r}
+source <- "sigB"
+
+data_source <- regulated_model_params(
+  measurement_times = measurement_times,
+  regulator_expression = expression_data[source,],
+  measurement_sigma = measurement_sigma,
+  spline_params = sigB_spline_params,
+  params_prior = sigB_params_prior
+)
+
+fit_no_target <- fit_regulated(data = data_source, model = regulated_model)
+
+plot1 <- fitted_regulator_plot(fit_no_target, data_source, name = "spline only", num_samples = 50)
+
+```
+
+
+```{r}
+source <- "sigB"
+#training_targets <- setdiff(sigBRegulonInteresting,c("clpP", "ctsR", "guaD", "mcsA", "spo0E", "yceD", "yfhD", "yhdN", "ylxP", "ctc", "spoVC", "yjbC","ykgA"))
+                            #c("ydaD","bmrU","bofC")
+training_targets <- c("ydaD","bmrU","bofC") 
+
+data_source <- regulated_model_params(
+  measurement_times = measurement_times,
+  target_expression = t(expression_data[training_targets,]),
+  regulator_expression = expression_data[source,],
+  measurement_sigma = measurement_sigma,
+  spline_params = sigB_spline_params,
+  params_prior = sigB_params_prior,
+  regulation_signs = matrix(1, 1, length(training_targets))
+)
+
+fit_source <- fit_regulated(data = data_source, model = regulated_model)
+
+plot2 <- fitted_regulator_plot(fit_source, data_source, name = "3 known targets", num_samples = 50)
+```
+
+```{r}
+plot = plot_grid(plot1, plot2)
+plot
+ggsave("training.eps", plot,height = 2,  device=cairo_ps, fallback_resolution = 600)
+```
+

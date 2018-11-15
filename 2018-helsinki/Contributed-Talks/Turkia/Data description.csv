@@ -1,0 +1,28 @@
+Name;Description;Order;Lowerbound;Upperbound;ScaleMin;ScaleMax;Unit;Distribution
+sukupuoli;gender (0 - male, 1 - female);100;;;;;;Bernoulli
+kolestrolilaakitys;chol. medication;100;;;;;;Bernoulli
+energia;energy;100;;;;;;Gaussian
+prot;protein;100;2000,00;2500,00;1500,00;3000,00;mg/d;Gaussian
+rasva;fat;100;1500,00;2000,00;1200,00;2300,00;mg/d;Gaussian
+safa;safa;100;1,48;7,63;;;pmol/l;Gaussian
+mufa;mufa;100;3,20;8,10;;;pmol/l;Gaussian
+pufa;pufa;100;3,30;4,90;;;pmol/l;Gaussian
+linoli;linoleic acid;100;0,71;1,53;;;pmol/l;Gaussian
+linoleeni;alpha lipoic acid;100;36,00;45,00;;;pmol/l;Gaussian
+kol;cholesterol;100;1,15;1,25;;;pmol/l;Gaussian
+hhydr;carb.hydr.;100;;;;;;Gaussian
+sakkar;sucrose;100;;;;;;Gaussian
+kuitu;fibre;100;;;;;;Gaussian
+sellul;cellulose;100;;;;;;Gaussian
+ligniini;lignin;100;;;;;;Gaussian
+alkoholi;alcohol;100;;;;;;Gaussian
+dvit;vitamin D;100;;;;;;Gaussian
+foolih;folic acid (vitamin B9);100;;;;;;Gaussian
+cvit;vitamin C;100;;;;;;Gaussian
+epa;EPA-fatty acid;100;;;;;;Gaussian
+dha;DHA-fatty acid;100;;;;;;Gaussian
+fshdl;HDL-cholesterol;200;;;;;;Gaussian
+fsldl;LDL-cholesterol;200;;;;;;Gaussian
+fsins;blood insulin;200;;;;;;Gaussian
+fskol;blood cholesterol;200;;;;;;Gaussian
+fpgluk;blood glucose;200;;;;;;Gaussian

@@ -1,0 +1,1063 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   viewBox="0 0 973.81132 962"
+   id="svg2"
+   version="1.1"
+   inkscape:version="0.91 r13725"
+   sodipodi:docname="hippocampal_tree.svg"
+   width="973.81128"
+   height="962">
+  <metadata
+     id="metadata426">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs424" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1533"
+     inkscape:window-height="895"
+     id="namedview422"
+     showgrid="false"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0"
+     inkscape:zoom="0.49064449"
+     inkscape:cx="242.45371"
+     inkscape:cy="538.22775"
+     inkscape:window-x="174"
+     inkscape:window-y="108"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="graph0" />
+  <g
+     id="graph0"
+     class="graph"
+     transform="translate(4,958)">
+    <title
+       id="title5">%0</title>
+    <g
+       id="edge22"
+       class="edge"
+       transform="matrix(1.1052797,0,0,1.0397364,188.71599,15.735632)">
+      <title
+         id="title276">18-&gt;19</title>
+      <path
+         d="m 363.1958,-396 c 10.0409,0 20.3849,0 30.7013,0"
+         id="path278"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="404.192,-396 394.1919,-392.5001 394.192,-399.5001 394.192,-399.5001 "
+         id="polygon280"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 1 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse12"
+       ry="18"
+       rx="46.383026"
+       cy="-369"
+       cx="48.929485" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text14"
+       font-size="14.00"
+       y="-456.39404"
+       x="39.109791"
+       transform="scale(1.2510802,0.79930929)">HPC</text>
+    <!-- 2 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse19"
+       ry="18"
+       rx="42.260445"
+       cy="-585"
+       cx="196.92258" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text21"
+       font-size="14.00"
+       y="-726.62732"
+       x="157.40205"
+       transform="scale(1.2510802,0.79930929)">GM</text>
+    <!-- 1&#45;&gt;2 -->
+    <g
+       id="edge1"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title24">1-&gt;2</title>
+      <path
+         d="m 37.554,-386.6762 c 16.5656,-37.8433 55.5453,-126.8907 75.1393,-171.6523"
+         id="path26"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="109.5719,-559.926 116.7882,-567.6833 115.9844,-557.119 109.5719,-559.926 "
+         id="polygon28"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 21 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse33"
+       ry="18"
+       rx="45.349369"
+       cy="-207"
+       cx="196.92258" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text35"
+       font-size="14.00"
+       y="-253.71907"
+       x="157.40205"
+       transform="scale(1.2510802,0.79930929)">WM</text>
+    <!-- 1&#45;&gt;21 -->
+    <g
+       id="edge2"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title38">1-&gt;21</title>
+      <path
+         d="m 39.7564,-351.9694 c 16.5556,28.3654 49.8825,85.4658 69.4056,118.9155"
+         id="path40"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="112.259,-234.6909 114.2771,-224.29 106.2134,-231.1624 112.259,-234.6909 "
+         id="polygon42"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 3 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse47"
+       ry="18"
+       rx="45.47662"
+       cy="-882"
+       cx="434.32278" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text49"
+       font-size="14.00"
+       y="-1098.1981"
+       x="347.15823"
+       transform="scale(1.2510802,0.79930929)">CA1</text>
+    <!-- 2&#45;&gt;3 -->
+    <g
+       id="edge3"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title52">2-&gt;3</title>
+      <path
+         d="m 126.532,-603.0996 c 5.3104,-38.8547 21.6639,-132.0615 62.5722,-197.9004 15.2691,-24.5744 39.9005,-46.5334 59.0537,-61.3672"
+         id="path54"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="246.1608,-865.2448 256.2528,-868.4699 250.3747,-859.6552 246.1608,-865.2448 "
+         id="polygon56"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 6 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse61"
+       ry="18"
+       rx="74.39904"
+       cy="-774"
+       cx="434.32278" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text63"
+       font-size="14.00"
+       y="-963.08148"
+       x="347.15823"
+       transform="scale(1.2510802,0.79930929)">CA2CA3</text>
+    <!-- 2&#45;&gt;6 -->
+    <g
+       id="edge4"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title66">2-&gt;6</title>
+      <path
+         d="m 132.8682,-602.4259 c 11.2458,-22.1899 32.4455,-61.1762 56.236,-90.5741 17.4434,-21.5547 40.5367,-42.8049 58.538,-58.1281"
+         id="path68"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="245.6048,-753.9874 255.5162,-757.7312 250.1028,-748.6237 245.6048,-753.9874 "
+         id="polygon70"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 9 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse75"
+       ry="18"
+       rx="67.991737"
+       cy="-666"
+       cx="434.32278" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text77"
+       font-size="14.00"
+       y="-827.96484"
+       x="347.15823"
+       transform="scale(1.2510802,0.79930929)">CA4DG</text>
+    <!-- 2&#45;&gt;9 -->
+    <g
+       id="edge5"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title80">2-&gt;9</title>
+      <path
+         d="m 145.4581,-596.2627 c 24.4585,-13.0619 65.1851,-34.8115 94.661,-50.5528"
+         id="path82"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="238.7892,-650.0731 249.259,-651.6966 242.0868,-643.8984 238.7892,-650.0731 "
+         id="polygon84"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 12 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse89"
+       ry="18"
+       rx="79.896187"
+       cy="-585"
+       cx="434.32278" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text91"
+       font-size="14.00"
+       y="-726.62732"
+       x="347.15823"
+       transform="scale(1.2510802,0.79930929)">subiculum</text>
+    <!-- 2&#45;&gt;12 -->
+    <g
+       id="edge6"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title94">2-&gt;12</title>
+      <path
+         d="m 151.4847,-585 c 17.5071,0 41.0214,0 62.9023,0"
+         id="path96"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="214.6298,-588.5001 224.6297,-585 214.6297,-581.5001 214.6298,-588.5001 "
+         id="polygon98"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 15 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse103"
+       ry="18"
+       rx="62.612919"
+       cy="-504"
+       cx="434.32278" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text105"
+       font-size="14.00"
+       y="-625.28986"
+       x="347.15823"
+       transform="scale(1.2510802,0.79930929)">stratum</text>
+    <!-- 2&#45;&gt;15 -->
+    <g
+       id="edge7"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title108">2-&gt;15</title>
+      <path
+         d="m 145.4581,-573.7373 c 24.6789,13.1795 65.9202,35.2041 95.4549,50.9768"
+         id="path110"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="242.8828,-525.6765 250.055,-517.8784 239.5852,-519.5018 242.8828,-525.6765 "
+         id="polygon112"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 18 -->
+    <!-- 2&#45;&gt;18 -->
+    <g
+       id="edge8"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title122">2-&gt;18</title>
+      <path
+         d="m 132.8682,-567.5741 c 11.2458,22.1899 32.4455,61.1762 56.236,90.5741 16.9933,20.9984 39.3485,41.7079 57.1343,56.93"
+         id="path124"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="248.6643,-422.6028 254.0532,-413.4808 244.1519,-417.2512 248.6643,-422.6028 "
+         id="polygon126"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 4 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse131"
+       ry="18"
+       rx="69.838203"
+       cy="-927.35291"
+       cx="808.6825" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text133"
+       font-size="14.00"
+       y="-1154.9384"
+       x="646.38745"
+       transform="scale(1.2510802,0.79930929)">left CA1</text>
+    <!-- 3&#45;&gt;4 -->
+    <g
+       id="edge12"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title136">3-&gt;4</title>
+      <path
+         d="m 303.8497,-888.5137 c 38.156,-8.9378 107.3299,-25.1413 154.14,-36.1062"
+         id="path138"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="457.3767,-928.071 467.9115,-926.944 458.9733,-921.2555 457.3767,-928.071 "
+         id="polygon140"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 5 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse145"
+       ry="18"
+       rx="78.040634"
+       cy="-882"
+       cx="795.14807" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text147"
+       font-size="14.00"
+       y="-1098.1981"
+       x="635.56927"
+       transform="scale(1.2510802,0.79930929)">right CA1</text>
+    <!-- 3&#45;&gt;5 -->
+    <g
+       id="edge13"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title150">3-&gt;5</title>
+      <path
+         d="m 305.7082,-882 c 35.3121,0 95.1794,0 140.3905,0"
+         id="path152"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="446.3785,-885.5001 456.3784,-882 446.3784,-878.5001 446.3785,-885.5001 "
+         id="polygon154"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 7 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse159"
+       ry="18"
+       rx="97.981621"
+       cy="-828"
+       cx="795.14807" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text161"
+       font-size="14.00"
+       y="-1030.6398"
+       x="635.56927"
+       transform="scale(1.2510802,0.79930929)">left CA2CA3</text>
+    <!-- 6&#45;&gt;7 -->
+    <g
+       id="edge14"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title164">6-&gt;7</title>
+      <path
+         d="m 316.4614,-783.4679 c 36.3848,-8.5229 90.2995,-21.152 131.4301,-30.7866"
+         id="path166"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="447.2531,-817.6996 457.7878,-816.5726 448.8496,-810.8841 447.2531,-817.6996 "
+         id="polygon168"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 8 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse173"
+       ry="18"
+       rx="106.96619"
+       cy="-774"
+       cx="795.14807" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text175"
+       font-size="14.00"
+       y="-963.08148"
+       x="635.56927"
+       transform="scale(1.2510802,0.79930929)">right CA2CA3</text>
+    <!-- 6&#45;&gt;8 -->
+    <g
+       id="edge15"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title178">6-&gt;8</title>
+      <path
+         d="m 323.8083,-774 c 30.1283,0 69.7563,0 104.4086,0"
+         id="path180"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="428.3194,-777.5001 438.3193,-774 428.3193,-770.5001 428.3194,-777.5001 "
+         id="polygon182"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 10 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse187"
+       ry="18"
+       rx="91.571495"
+       cy="-720"
+       cx="795.14807" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text189"
+       font-size="14.00"
+       y="-895.52319"
+       x="635.56927"
+       transform="scale(1.2510802,0.79930929)">left CA4DG</text>
+    <!-- 9&#45;&gt;10 -->
+    <g
+       id="edge16"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title192">9-&gt;10</title>
+      <path
+         d="m 313.8515,-674.8565 c 37.0139,-8.6703 93.8609,-21.9863 136.2359,-31.9124"
+         id="path194"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="449.4475,-710.2136 459.9822,-709.0866 451.044,-703.3981 449.4475,-710.2136 "
+         id="polygon196"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 11 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse201"
+       ry="18"
+       rx="99.774399"
+       cy="-666"
+       cx="795.14807" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text203"
+       font-size="14.00"
+       y="-827.96484"
+       x="635.56927"
+       transform="scale(1.2510802,0.79930929)">right CA4DG</text>
+    <!-- 9&#45;&gt;11 -->
+    <g
+       id="edge17"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title206">9-&gt;11</title>
+      <path
+         d="m 319.4033,-666 c 31.7122,0 75.5145,0 112.7725,0"
+         id="path208"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="432.4955,-669.5001 442.4955,-666 432.4954,-662.5001 432.4955,-669.5001 "
+         id="polygon210"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 13 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse215"
+       ry="18"
+       rx="104.25886"
+       cy="-612"
+       cx="795.14807" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text217"
+       font-size="14.00"
+       y="-760.40649"
+       x="635.56927"
+       transform="scale(1.2510802,0.79930929)">left subiculum</text>
+    <!-- 12&#45;&gt;13 -->
+    <g
+       id="edge18"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title220">12-&gt;13</title>
+      <path
+         d="m 324.9318,-590.726 c 31.998,-3.7477 74.3484,-8.7078 110.1064,-12.8958"
+         id="path222"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="435.0792,-607.1505 445.4185,-604.8376 435.8935,-600.198 435.0792,-607.1505 "
+         id="polygon224"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 14 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse229"
+       ry="18"
+       rx="112.4613"
+       cy="-558"
+       cx="795.14807" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text231"
+       font-size="14.00"
+       y="-692.84821"
+       x="635.56927"
+       transform="scale(1.2510802,0.79930929)">right subiculum</text>
+    <!-- 12&#45;&gt;14 -->
+    <g
+       id="edge19"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title234">12-&gt;14</title>
+      <path
+         d="m 324.9318,-579.274 c 30.7951,3.6068 71.1788,8.3366 106.0465,12.4203"
+         id="path236"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="431.6032,-570.3045 441.1281,-565.6649 430.7889,-563.352 431.6032,-570.3045 "
+         id="polygon238"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 16 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse243"
+       ry="18"
+       rx="86.195808"
+       cy="-504"
+       cx="795.14807" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text245"
+       font-size="14.00"
+       y="-625.28986"
+       x="635.56927"
+       transform="scale(1.2510802,0.79930929)">left stratum</text>
+    <!-- 15&#45;&gt;16 -->
+    <g
+       id="edge20"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title248">15-&gt;16</title>
+      <path
+         d="m 316.1976,-504 c 34.2958,0 84.3046,0 124.4614,0"
+         id="path250"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="440.9051,-507.5001 450.905,-504 440.905,-500.5001 440.9051,-507.5001 "
+         id="polygon252"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 17 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse257"
+       ry="18"
+       rx="95.180069"
+       cy="-450"
+       cx="795.14807" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text259"
+       font-size="14.00"
+       y="-557.73151"
+       x="635.56927"
+       transform="scale(1.2510802,0.79930929)">right stratum</text>
+    <!-- 15&#45;&gt;17 -->
+    <g
+       id="edge21"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title262">15-&gt;17</title>
+      <path
+         d="m 311.5575,-495.6808 c 36.5578,8.5634 94.1086,22.0443 137.232,32.1456"
+         id="path264"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="449.6492,-466.9286 458.5874,-461.2401 448.0527,-460.1131 449.6492,-466.9286 "
+         id="polygon266"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 19 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse271"
+       ry="18"
+       rx="160.34395"
+       cy="-396"
+       cx="795.14807" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text273"
+       font-size="14.00"
+       y="-490.17319"
+       x="635.56927"
+       transform="scale(1.2510802,0.79930929)">left Mammillary bodies</text>
+    <!-- 18&#45;&gt;19 -->
+    <!-- 20 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse285"
+       ry="18"
+       rx="168.54561"
+       cy="-342"
+       cx="795.14807" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text287"
+       font-size="14.00"
+       y="-422.61487"
+       x="635.56927"
+       transform="scale(1.2510802,0.79930929)">right Mammillary bodies</text>
+    <!-- 18&#45;&gt;20 -->
+    <g
+       id="edge23"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title290">18-&gt;20</title>
+      <path
+         d="m 333.6201,-382.5128 c 30.3357,7.1059 67.8539,15.8943 100.1849,23.4676"
+         id="path292"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="434.7204,-362.4256 443.6585,-356.7371 433.1238,-355.6101 434.7204,-362.4256 "
+         id="polygon294"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse117"
+       ry="18"
+       rx="135.97908"
+       cy="-398.88235"
+       cx="455.94049" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text119"
+       font-size="14.00"
+       y="-493.77927"
+       x="364.43747"
+       transform="scale(1.2510802,0.79930929)">Mammillary bodies</text>
+    <!-- 22 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse299"
+       ry="18"
+       rx="59.918732"
+       cy="-234"
+       cx="434.32278" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text301"
+       font-size="14.00"
+       y="-287.49823"
+       x="347.15823"
+       transform="scale(1.2510802,0.79930929)">Alveus</text>
+    <!-- 21&#45;&gt;22 -->
+    <g
+       id="edge9"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title304">21-&gt;22</title>
+      <path
+         d="m 152.1878,-211.9522 c 21.7228,-3.867 52.3748,-9.3234 77.7502,-13.8406"
+         id="path306"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="229.6301,-229.2929 240.0888,-227.5998 230.857,-222.4013 229.6301,-229.2929 "
+         id="polygon308"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 25 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse313"
+       ry="18"
+       rx="65.313988"
+       cy="-180"
+       cx="434.32278" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text315"
+       font-size="14.00"
+       y="-219.9399"
+       x="347.15823"
+       transform="scale(1.2510802,0.79930929)">Fimbria</text>
+    <!-- 21&#45;&gt;25 -->
+    <g
+       id="edge10"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title318">21-&gt;25</title>
+      <path
+         d="m 152.1878,-202.0478 c 21.0463,3.7465 50.4744,8.9851 75.3646,13.4159"
+         id="path320"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="228.3163,-192.051 237.5481,-186.8525 227.0894,-185.1593 228.3163,-192.051 "
+         id="polygon322"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 28 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse327"
+       ry="18"
+       rx="57.252888"
+       cy="-72"
+       cx="434.32278" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text329"
+       font-size="14.00"
+       y="-84.823242"
+       x="347.15823"
+       transform="scale(1.2510802,0.79930929)">Fornix</text>
+    <!-- 21&#45;&gt;28 -->
+    <g
+       id="edge11"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title332">21-&gt;28</title>
+      <path
+         d="m 141.1798,-192.0368 c 26.48,23.569 78.0866,69.5023 109.2164,97.2099"
+         id="path334"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="253.0757,-97.1275 258.2185,-87.8645 248.4217,-91.8987 253.0757,-97.1275 "
+         id="polygon336"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 23 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse341"
+       ry="18"
+       rx="84.283447"
+       cy="-288"
+       cx="795.14807" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text343"
+       font-size="14.00"
+       y="-355.05655"
+       x="635.56927"
+       transform="scale(1.2510802,0.79930929)">left Alveus</text>
+    <!-- 22&#45;&gt;23 -->
+    <g
+       id="edge24"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title346">22-&gt;23</title>
+      <path
+         d="m 310.555,-242.0843 c 37.5222,-8.7894 97.9879,-22.953 141.8505,-33.2276"
+         id="path348"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="451.7999,-278.7647 462.3346,-277.6377 453.3964,-271.9492 451.7999,-278.7647 "
+         id="polygon350"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 24 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse355"
+       ry="18"
+       rx="92.484947"
+       cy="-234"
+       cx="795.14807" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text357"
+       font-size="14.00"
+       y="-287.49823"
+       x="635.56927"
+       transform="scale(1.2510802,0.79930929)">right Alveus</text>
+    <!-- 22&#45;&gt;24 -->
+    <g
+       id="edge25"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title360">22-&gt;24</title>
+      <path
+         d="m 314.6279,-234 c 33.4399,0 82.6381,0 122.8528,0"
+         id="path362"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="437.4961,-237.5001 447.4961,-234 437.4961,-230.5001 437.4961,-237.5001 "
+         id="polygon364"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 26 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse369"
+       ry="18"
+       rx="88.89547"
+       cy="-180"
+       cx="795.14807" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text371"
+       font-size="14.00"
+       y="-219.9399"
+       x="635.56927"
+       transform="scale(1.2510802,0.79930929)">left Fimbria</text>
+    <!-- 25&#45;&gt;26 -->
+    <g
+       id="edge26"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title374">25-&gt;26</title>
+      <path
+         d="m 317.7896,-180 c 33.8983,0 82.3563,0 121.6889,0"
+         id="path376"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="439.5271,-183.5001 449.527,-180 439.527,-176.5001 439.5271,-183.5001 "
+         id="polygon378"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 27 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse383"
+       ry="18"
+       rx="97.098846"
+       cy="-126"
+       cx="795.14807" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text385"
+       font-size="14.00"
+       y="-152.38158"
+       x="635.56927"
+       transform="scale(1.2510802,0.79930929)">right Fimbria</text>
+    <!-- 25&#45;&gt;27 -->
+    <g
+       id="edge27"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title388">25-&gt;27</title>
+      <path
+         d="m 312.8254,-171.3838 c 36.3644,8.5181 92.5758,21.6852 135.1042,31.6472"
+         id="path390"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="448.9387,-143.095 457.8769,-137.4065 447.3422,-136.2795 448.9387,-143.095 "
+         id="polygon392"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 29 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse397"
+       ry="18"
+       rx="81.61525"
+       cy="-72"
+       cx="795.14807" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text399"
+       font-size="14.00"
+       y="-84.823242"
+       x="635.56927"
+       transform="scale(1.2510802,0.79930929)">left Fornix</text>
+    <!-- 28&#45;&gt;29 -->
+    <g
+       id="edge28"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title402">28-&gt;29</title>
+      <path
+         d="m 313.081,-72 c 35.2744,0 89.0555,0 130.9719,0"
+         id="path404"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="444.1622,-75.5001 454.1622,-72 444.1622,-68.5001 444.1622,-75.5001 "
+         id="polygon406"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+    <!-- 30 -->
+    <ellipse
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.25108016"
+       id="ellipse411"
+       ry="18"
+       rx="89.817528"
+       cy="-18"
+       cx="795.14807" />
+    <text
+       sodipodi:linespacing="100%"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20.00000191px;line-height:100%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans, Normal';text-align:center;writing-mode:lr-tb;text-anchor:middle;fill:#000000"
+       id="text413"
+       font-size="14.00"
+       y="-17.264906"
+       x="635.56927"
+       transform="scale(1.2510802,0.79930929)">right Fornix</text>
+    <!-- 28&#45;&gt;30 -->
+    <g
+       id="edge29"
+       class="edge"
+       transform="matrix(1.5652016,0,0,1,2.2608064,0)"
+       style="">
+      <title
+         id="title416">28-&gt;30</title>
+      <path
+         d="m 309.5634,-64.1479 c 36.841,8.6297 96.6361,22.6363 140.7007,32.9581"
+         id="path418"
+         inkscape:connector-curvature="0"
+         style="fill:none;stroke:#000000" />
+      <polygon
+         points="451.3185,-34.5376 460.2567,-28.8491 449.7219,-27.7221 451.3185,-34.5376 "
+         id="polygon420"
+         style="fill:#000000;stroke:#000000" />
+    </g>
+  </g>
+</svg>

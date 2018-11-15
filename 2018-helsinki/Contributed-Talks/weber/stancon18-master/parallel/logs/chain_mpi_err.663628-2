@@ -1,0 +1,34 @@
+Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
+Exception: Error during MPI evaluation.  (in '/home/weberse2/work/stan/stancon18/parallel/warfarin_pd_tlagMax_2par_generated_218.stan' at line 225)
+
+If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
+but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
+
+Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
+Exception: Error during MPI evaluation.  (in '/home/weberse2/work/stan/stancon18/parallel/warfarin_pd_tlagMax_2par_generated_218.stan' at line 225)
+
+If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
+but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
+
+Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
+Exception: Error during MPI evaluation.  (in '/home/weberse2/work/stan/stancon18/parallel/warfarin_pd_tlagMax_2par_generated_218.stan' at line 225)
+
+If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
+but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
+
+Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
+Exception: Error during MPI evaluation.  (in '/home/weberse2/work/stan/stancon18/parallel/warfarin_pd_tlagMax_2par_generated_218.stan' at line 225)
+
+If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
+but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
+
+Informational Message: The current Metropolis proposal is about to be rejected because of the following issue:
+Exception: Error during MPI evaluation.  (in '/home/weberse2/work/stan/stancon18/parallel/warfarin_pd_tlagMax_2par_generated_218.stan' at line 225)
+
+If this warning occurs sporadically, such as for highly constrained variable types like covariance matrices, then the sampler is fine,
+but if this warning occurs often then your model may be either severely ill-conditioned or misspecified.
+
+
+real	3m14.936s
+user	6m28.612s
+sys	0m0.355s

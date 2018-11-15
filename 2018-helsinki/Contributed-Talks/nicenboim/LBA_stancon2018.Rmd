@@ -1,0 +1,1042 @@
+---
+title: "The implementation of a model of choice: the (truncated) linear ballistic accumulator."
+author: 
+  - name: B. Nicenboim ^[Thanks to Henrik Singmann and Andrew Heathcote for their assistance in reverse engineering the R package rtdists and thanks to Gabriel Tillman for his helpful advice on the parameters of the LBA. Thanks also to Shravan Vasishth for his comments. ]
+date: 
+output:
+  html_document:
+    toc: true
+    number_sections: true
+    fig_caption: true
+    css: styles.css
+bibliography: bibliography.bib
+---
+
+<script type="text/x-mathjax-config">
+MathJax.Hub.Config({
+  TeX: { equationNumbers: { autoNumber: "AMS" } }
+});
+</script>
+
+
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(tidy = FALSE, cache = TRUE)
+```
+
+```{r echo=FALSE}
+# From http://stackoverflow.com/questions/37116632/rmarkdown-html-number-figures
+#Determine the output format of the document
+outputFormat   = knitr::opts_knit$get("rmarkdown.pandoc.to")
+
+#Figure and Table Caption Numbering, for HTML do it manually
+capTabNo = 1; capFigNo = 1;
+
+#Function to add the Table Number 
+capTab = function(x){
+  if(outputFormat == 'html'){
+    x = paste0("Table ",capTabNo,". ",x)
+    capTabNo <<- capTabNo + 1
+  }; x
+}
+
+#Function to add the Figure Number
+capFig = function(x){
+  if(outputFormat == 'html'){
+    x = paste0("Figure ",capFigNo,". ",x)
+    capFigNo <<- capFigNo + 1
+  }; x
+} 
+```
+
+```{r, include = FALSE, echo = FALSE}
+#List of needed libraries
+library(tidyverse)
+library(magrittr)
+library(stringr)
+library(ggplot2)
+library(brms)
+library(bayesplot)
+library(latex2exp)
+library(extraDistr)
+library(rstan)
+library(bayesplot)
+```
+
+
+## Abstract {-}
+
+It is very common in cognitive science and psychology to use experimental tasks that involve making a fast choice among a restricted number of alternatives. While a class of choice models, the so-called sequential-sampling models, can give an accurate account of the relationship between the accuracy of the choice and the time it took to respond, it is fairly common to ignore the tradeoff between accuracy and response times and analyze them as if they were independent. The reason for this is that sequential-sampling models are mathematically and computationally difficult to apply. In this notebook, I focus on one influential and relatively simple model that belongs to the class of sequential-sampling models: the linear ballistic accumulator with a drift rate drawn from a normal distribution (restricted to positive values) [@BrownHeathcote2008;@HeathcoteLove2012]. Even though this model has been proved to be  well-suited for tasks that elicit a speeded response (out of any number of possible choices), its hierarchical version is  difficult to implement and fit. First, I discuss the motivation for fitting this model using the Stroop task [@Stroop1935] as a case study. Then, I discuss the challenges in the implementation of the model in (R)Stan [@RStan2018], which might also apply to other hierarchical models with complex likelihood functions. Finally, I show some results that exemplify how the linear ballistic accumulator can be used for examining individual differences.
+
+# Introduction
+
+Examining fast decisions that do not require long deliberation can uncover automatic cognitive processes, since these decisions are taken before more complex strategies have time to kick in. This is a reason for the popularity of tasks that involve making decisions under time pressure in cognitive science and psychology; some examples are the Stroop task [@Stroop1935], Eriksen flanker task [@Eriksen1974], lexical decision tasks, speeded acceptability judgments, and so forth. This type of task is characterized by yielding two measures: the accuracy of the decision made and the time it took to respond. These two measures, however, are not independent since participants can answer faster sacrificing accuracy, or be more cautious decreasing response times but increasing accuracy.
+
+## The problems of ignoring the relationship between response times and accuracy: Individual differences in the Stroop task
+
+I illustrate the problems of ignoring the relationship between response times and accuracy using the Stroop task as a case study. I will focus on a subset of the data of 3337 participants that undertook one variant of the Stroop task, as part of the battery of tasks run in @ManyLabs3. There are many variations of the Stroop task, in this particular case, participants were presented with one word at the center of the screen, which was either "red", "blue", and "green" (`word`) written in either red, blue, or green font (`color`). In one third of the trials the word matched the color of the text ("congruent" condition) and in the rest of the trials it did not match ("incongruent" condition). Participants were instructed to only pay attention to the color, and press `1` if the color of the word was red, `2` if it was blue, and `3` if it was green. The Stroop effect, that is, the difficulty in identifying the color when it mismatches the word in the incongruent condition (e.g., green in color blue) in comparison to a baseline condition, here, the congruent condition (e.g., green in color green) is extremely robust across variations of the task. The most robust finding is that correct responses in the incongruent condition take longer than in the congruent condition (or any baseline condition). 
+
+To speed up computation, I subset 25 participants of the original dataset (containing 3337 participants). 
+
+```{r readcsv, message=FALSE, results='hide'}
+set.seed(42)
+library(tidyverse)
+library(magrittr)
+library(stringr)
+library(ggplot2)
+
+dstroop <- read_csv("data/StroopCleanSet.csv")  %>%
+            # rename unintuitive column names:
+            rename(correct= trial_error, 
+                    RT = trial_latency,
+                    condition = congruent) %>% 
+            # Create word and color column names
+              mutate(subject = session_id %>% as.factor %>% as.numeric, 
+                     word = str_match(trial_name,"(.*?)\\|")[,2] %>%
+                            str_to_lower,
+                     color = str_match(block_name,"(.*?)\\|")[,2] %>%
+                             str_to_lower,
+                     cond = if_else(condition == "Congruent", -1, 1))
+
+# To speed thing up, I select the first 25 subjects out
+# the 3337 of the original study.
+dstroop_25 <- dstroop %>% filter(subject <= 25)
+
+dstroop_25 %>% filter(correct==1) %>% 
+            group_by(condition) %>% 
+            summarize(mean(RT))
+```
+I show the estimate of the delay between incongruent and congruent conditions calculated with a log-linear mixed model using the `brms` package [@brms]:
+
+```{r brmsrt, message=FALSE, results='hide'}
+
+library(brms)
+options(mc.cores = parallel::detectCores())
+
+priors <- c(set_prior("normal(0,10)", class = "Intercept"),
+           set_prior("normal(0,2)", class = "b"),
+           set_prior("normal(0,1)", class = "sigma"),
+           set_prior("lkj(2)", class = "cor"),
+           set_prior("normal(0,1)", class = "sd"))
+
+
+m_rt <- brm(RT ~ cond + (cond | subject), filter(dstroop_25, correct==1), 
+  family=lognormal(), prior = priors, control = list (adapt_delta = .9))
+m_rt
+```
+
+```{r brmsrt-show, message=FALSE, echo=FALSE}
+m_rt
+```
+
+Below I show the effect on milliseconds:
+
+```{r estimatesrt}
+estimates_rt <- posterior_samples(m_rt, pars= c("b") ) %>%
+# Stroop effect in milliseconds:
+  mutate(stroop_effect_ms = exp(b_Intercept + b_cond) - 
+          exp(b_Intercept - b_cond))
+
+mean(estimates_rt$stroop_effect_ms)
+quantile(estimates_rt$stroop_effect_ms,c(0.025,.5,.975))
+```
+
+
+```{r plotrt, message=FALSE, warning=FALSE, fig.cap=capFig("The figure shows the estimate of the difference in response times between incongruent and congruent conditions.")}
+library(bayesplot)
+mcmc_hist(estimates_rt, pars="stroop_effect_ms") + xlab("Difference in response time in milliseconds.")
+```
+
+Even though the accuracy is almost at ceiling in both congruent and incongruent conditions, it is generally found that accuracy in incongruent conditions is lower than in congruent conditions. This is also the case for the subsetted data, as it is shown in the following hierarchical logistic regression:
+
+```{r fit-acc, message=FALSE, results= 'hide'}
+dstroop_25 %>% group_by(condition) %>% 
+            summarize(mean(correct))
+
+priors <- c(set_prior("normal(0,10)", class = "Intercept"),
+           set_prior("normal(0,2)", class = "b"),
+           set_prior("lkj(2)", class = "cor"),
+           set_prior("normal(0,1)", class = "sd"))
+
+m_acc <- brm(correct ~ cond + (cond | subject), data = dstroop_25, 
+             family = bernoulli(), prior = priors, 
+             control = list(adapt_delta = .9))
+m_acc
+```
+```{r brmsacc-show, message=FALSE, echo=FALSE}
+m_acc
+```
+
+Below I show the effect on percentages:
+
+```{r}
+b_acc <- posterior_samples(m_acc, pars= "b" ) %>%
+# Stroop effect in percentage:
+  mutate(stroop_effect_per = (plogis(b_Intercept + b_cond) - 
+        plogis(b_Intercept - b_cond)) * 100) 
+
+mean(b_acc$stroop_effect_per)
+quantile(b_acc$stroop_effect_per,c(0.025,.5,.975))
+
+```
+
+```{r plotacc, message=F, warning=FALSE, fig.cap=capFig("The figure shows the estimate of the difference in accuracy (in percentage) between incongruent and congruent conditions.")}
+mcmc_hist(b_acc, pars="stroop_effect_per") + xlab("Difference in accuracy in percentage.")
+```
+
+For this specific dataset, it does not matter whether we choose response times or accuracy as our dependent variable (since both of them yield the same result). However, things get more complicated if we want to look at the individual differences between the participants. One reason to do this is that Stroop effect is generally linked to cognitive control or executive functions [e.g., @Botvinicketal2001], and cognitive control seems to play a role in a variety of phenomena, such as cognitive development, age-related decline in cognitive abilities [@friedman2008individual], language-related abilities [@novick2010broca], attention-deficit/hyperactivity disorder [@lansbergen2007stroop], to name a few.  However, here, the way we would rank the participants on cognitive control would depend on whether we choose response times or accuracy. For example, participant `1` seems to show a longer difference between conditions in response times, but a smaller difference in accuracy than participant `10`. 
+
+```{r}
+indiv_CC <- tibble(subject=1:25, 
+                  CC_ms = exp(fixef(m_rt)["Intercept", "Estimate"] +
+                          fixef(m_rt)["cond", "Estimate"] +
+                          ranef(m_rt)$subject[, "Estimate", "Intercept"] + 
+                          ranef(m_rt)$subject[, "Estimate", "cond"])  -
+                          exp(fixef(m_rt)["Intercept", "Estimate"] +
+                          - fixef(m_rt)["cond", "Estimate"] +
+                          ranef(m_rt)$subject[, "Estimate", "Intercept"] + 
+                          - ranef(m_rt)$subject[, "Estimate", "cond"]),
+                  `CC_%` = (plogis(fixef(m_acc)["Intercept", "Estimate"] +
+                          fixef(m_acc)["cond", "Estimate"] +
+                          ranef(m_acc)$subject[, "Estimate", "Intercept"] + 
+                          ranef(m_acc)$subject[, "Estimate", "cond"])  -
+                          plogis(fixef(m_acc)["Intercept", "Estimate"] +
+                          - fixef(m_acc)["cond", "Estimate"] +
+                          ranef(m_acc)$subject[, "Estimate", "Intercept"] + 
+                          - ranef(m_acc)$subject[, "Estimate", "cond"]))* 100)                              
+
+
+indiv_CC %>%  print(n = 25)
+```
+
+Furthermore, the following plot shows very clearly that the ranking according to response times is not correlated with the ranking according to accuracy.
+
+
+```{r plottank, message=F, warning=FALSE, fig.cap=capFig("The figure shows the ranking of the participants according to their response times (x axis) and their accuracy (y axis).")}
+indiv_CC$rank_ms <- rank (indiv_CC$CC_ms)
+indiv_CC$`rank_%` <- rank(indiv_CC$`CC_%`)
+ggplot(aes(x=rank_ms, y=`rank_%`,label=subject),data=indiv_CC)+geom_text()
+```
+
+
+**How can we assess the differences in in the cognitive control of the participants?**
+
+This problem can be resolved by fitting a model that can account for how accuracy and response times scale relative to each other.
+There is a number of models, called sequential-sampling models, that can account for these two dependent variables simultaneously. The idea behind these models is that a decision is made based on the accumulation of noisy evidence until it reaches a decision criterion or threshold representing a choice. This type of model includes the drift diffusion model [@Ratcliff1978;@Ratcliff1981], the leaky competing accumulator model [@UsherMcClelland2001], the linear ballistic accumulator [LBA: @BrownHeathcote2008; @HeathcoteLove2012] and its variations [@terry2015generalising], and others [see @ratcliff2016diffusion for a short overview with focus on the drift diffusion model].
+
+## The difficulty of fitting sequential-sampling models
+
+With some exceptions, the sequential-sampling models have been mainly used in very simple tasks (such as deciding whether dots move the right or the left) with the objective of theorizing about the psychological processes that govern decision making itself or their connection to neurological processes [e.g., @forstmann2008striatum].  Decision making processes have been the focus of detailed study for over half a century starting with @Stone1960, and theories of choice have been usually tested on their ability to accommodate empirical patterns of accuracy and response times.
+
+However, while sequential-sampling models are also models of the influence of variables of interest onto the decision-making process and have the added benefit that their parameters have a psychological interpretation, with some exceptions [e.g., @tillman2017evidence] they have been rarely used in this way.
+
+One of the reasons for this is that there are not always analytical solutions for these models, but even when they exist (as for the drift diffusion model and all the variants of the LBA), parameter  estimation is relatively demanding, in terms of effort of the user and the amount of data needed. 
+These models have a relatively large number of parameters that tend to be correlated, and while non-hierarchical models are easier and faster to fit, they require fitting the model to individual subjects, which might entail   a prohibitively large number of trials per participant.
+
+<!--  or 
+
+quantile maximum products
+estimation (QMPE; Heathcote & Brown, 2004
+ -->
+
+While there are Bayesian hierarchical implementations of some sequential-sampling models, these are based on hand-crafted samplers and tailored to specific experiments [e.g., @RouderEtAl2014; @tillman2017evidence]. To my knowledge, two exceptions exists: (i) a Stan implementation of the LBA [@annis2017bayesian], and (ii) a `brms` function (that using Stan) allows for the estimation of a 4-parameter diffusion model [@wabersich2014rwiener]. One problem with the Stan implementation of the LBA is that it includes strong assumptions that cannot be relaxed in a straightforward way, such as shared parameters for all the accumulators, and drift drawn from a normal distribution (rather than from a truncated normal distribution).  One limitation of the diffusion model, in comparison with the LBA, is that it is able to fit only tasks with two responses. In addition, in my experience, both implementations can show convergence problems in realistic data sets.
+
+## The linear ballistic accumulator (LBA)
+
+The motivation for fitting the LBA [@BrownHeathcote2008] with drifts drawn from a truncated normal distribution restricted to positive values [@HeathcoteLove2012] is that while it is a greatly simplified instance of sequential sampling, it can still account for response time distribution shapes and speed--accuracy tradeoffs and it has
+analytic solutions for the predicted distributions and probabilities. In contrast to Ratcliff's drift diffusion  model, the LBA can be fit to any number of responses and  it  typically requires less parameters. 
+
+The LBA model represents a choice between a number of alternatives, $N$, using $N$ 
+different evidence accumulators, one for each response. In the case of the Stroop task previously presented, for example, there would be three accumulators, one for the choice of  "red", one for  "blue", and one for "green". Each  accumulator begins each  trial, $i$, with a
+starting amount of evidence $p_{i,\{red,blue,green\}}$ that increases at a speed given by each "drift rate", $v_{i,\{red,blue,green\}}$. The first accumulator to reach its threshold of evidence, $b_{i,\{red,blue,green\}}$, determines the response given, and the time taken to reach the threshold determines the response time together with some extra time for non-decision processes, $t_0$.
+
+Two sources of between-trial randomness make the process non-deterministic: 
+
+\begin{align}
+p_{i,\{\text{red},\text{blue},\text{green}\}} &\sim Uniform(0, A_{i,\{\text{red},\text{blue},\text{green}\}}) \label{eq:k} \\
+v_{i,\{\text{red},\text{blue},\text{green}\}} &\sim Normal_+(\nu_{i,\{\text{red},\text{blue},\text{green}\}}, s_{i,\{\text{red},\text{blue},\text{green}\}}) \label{eq:v}
+\end{align}
+
+The variant of the LBA presented here assumes that drifts are drawn from a truncated normal distribution with mean $\nu$ (the Greek letter nu) and standard deviation $s$. The time to reach the threshold is the distance to be traveled, $b-p$, divided by rate of travel, $v$. The response time is determined by the time of the fastest accumulator together with the extra time $t_0$. The main motivation for sampling the drifts from a truncated normal distributions is to obtain decision times that are always positive, and to keep mathematical tractability. (Other variants of the LBA that assume Gamma, Lognormal, and Frechet distributions also exist; @terry2015generalising, but their cumulative function and probability density functions are much more complex.)
+
+
+
+```{r drawing, echo=FALSE,fig.cap=capFig("The figure depicts the parameters for one linear ballistic accumulator.")}
+library(latex2exp)
+b <- 1.3
+A <- 0.5
+p <- 0.2
+ggplot() + geom_hline(yintercept=b, linetype = 2) + 
+          annotate("text",x=.1, y= b+.05, label=TeX('Threshold',output='character'), parse=TRUE)+
+          annotate("rect",xmin=0,ymin=0, xmax=.025, ymax= A, fill="gray",color="black")+
+          annotate("text",x=.6, y=  .8, label=TeX('Drift rate $v \\sim Normal_+(\\nu,s)$',output='character'), parse=TRUE)+
+          annotate("segment",x=0, y=p, xend=1, yend= .9, color="black",arrow= arrow(length = unit(0.03, "npc")) )+
+          annotate("text",x=.2, y= .18, label=TeX('Initial state $p \\sim Uniform(0, A)$',output='character'), parse=TRUE)+
+          scale_x_continuous(limits=c(0,1.1),expand = c(0, 0),breaks=0, name=TeX("Decision time\nResponse time = Decision time $+$ $t_0$"))+
+          scale_y_continuous(limits=c(0,1.5),expand = c(0, 0),breaks=c(0,p, A, b),labels=c(0,"p","A","b")  , name="Evidence") +
+          theme(axis.text = element_text(size = rel(1)))
+
+```
+
+It is easy to see how the LBA would work by implementing a function that generates outputs from a race between accumulators (`rLBA`). We use this function in section [2.3.1](#synthetic-data-of-one-participant-performing-the-stroop-task) to generate synthetic data.
+
+```{r}
+library(extraDistr)
+rLBA <- function(n, nu, A, b, s, t_0){
+  # Load extra distributions for the truncated normal distribution
+  # Number of accumulators
+  ncols <- c(ncol(nu), ncol(A), ncol(b), ncol(s), ncol(t_0))
+  N_acc <- ifelse(!is.null(ncols), max(ncols),
+                  # In case there are no matrices
+                  max(length(nu), length(A), length(b), 
+                  length(s), length(t_0)))
+  # Validation of the parameters
+  validate <- function(par){
+    if(is.matrix(par)) {
+      #nothing
+     } else  if(length(par) == 1) {
+      par <- matrix(rep(par, n * N_acc), ncol = N_acc, byrow = TRUE)
+    } else if(length(par) == N_acc) {
+      par <- matrix(rep(par, n), ncol = N_acc, byrow = TRUE)
+    } else {
+      stop("Error wrong size of a parameter")
+    }
+    return(par)
+  }
+  nu <- validate(nu)
+  A <- validate(A)
+  b <- validate(b)
+  s <- validate(s)
+  t_0 <- validate(t_0)
+
+  # Draws matrix of drift rates v
+  v <- rtnorm(n * N_acc, nu, s, a = 0) %>% 
+      matrix(nrow = n,ncol = N_acc)
+  # Draws matrix of initial state of evidence
+  p <- runif(n * N_acc, 0, A) %>% 
+      matrix(nrow = n,ncol = N_acc)
+  # distance    
+  d <-  b - p
+  # Matrix of times taken to reach the threshold 
+  # for each accumulator
+  rt_acc <- d/v + t_0
+  # Time taken for the fastest accumulator in each trial
+  RT <- apply(rt_acc, 1, min)
+  # The fastest accumulator in each trial determines the response
+  response <- apply(rt_acc, 1, which.min)
+  out <- tibble(RT = RT, response = response)
+  return(out)
+}
+
+
+```
+
+@BrownHeathcote2008 and @HeathcoteLove2012 show that the cumulative distribution function, $F$, and probability density function, $f$, for the finishing time, $t$, of the accumulator, $j$, when the drifts are drawn from a truncated normal distribution are given by the following equations. While all the parameters can in principle be different for each accumulator and each trial, one parameter needs to be fixed. In addition, the design of the experiment and some assumptions reduce the total number of parameters; see sections 2.3.2 and 2.3.3 for details.
+
+
+
+\begin{align}
+F(t) &= \frac{1}{\Phi\left(\nu / s \right)} \left[1 + \frac{b - A - t \nu}{A} \Phi\left(\frac{b - A - t \nu}{t s}\right) -
+\frac{b - t \nu}{A} \Phi\left(\frac{b - t \nu}{t s}\right) +
+\frac{t s}{A} \phi\left(\frac{b - A - t \nu}{ts}\right) -
+\frac{t s}{A} \phi\left(\frac{b - t \nu}{ts}\right)\right] \label{eq:Fj} \\ 
+f(t) &= \frac{1}{A \Phi(\nu/s)} \left[ -\nu\Phi(\frac{b-A-t\nu}{ts})+
+s\phi(\frac{b-A-t\nu}{t s})+
+\nu\Phi\left(\frac{b - t \nu}{t s}\right)-
+s \phi\left(\frac{b- A - t \nu}{t s}\right) \right] \label{eq:fj}
+\end{align}
+
+where $\Phi$ and $\phi$ are the cumulative distribution function and the probability density function of the standard normal distribution respectively.
+
+In order to calculate the likelihood of a given choice, $c$, in a given response time, $t$, we need the probability density function  for the accumulator $c$ being the first to reach the threshold in a certain time. This is given by:
+
+\begin{equation}
+PDF_c(t) = f_c(t)\prod_{c\neq j} (1 - F_j(t))  \label{eq:PDFc}
+\end{equation}
+
+# A Stan implementation of the LBA
+
+The main challenge in the Stan implementation of the log-transformed cumulative distribution function, $F$, and probability density function, $f$, given by equations \\eqref{eq:Fj} and \\eqref{eq:fj}  is
+the finite-precision arithmetic rounding errors and potential over/underflows: Some of the terms of the functions include divisions by $A$, which might make those terms very large or overflow during the sampling, other terms include multiplications by $\phi$ or $\Phi$, which might put the terms in very different scales. Together with that, $\Phi$ will underflow to $0$ for values below $-37.5$ and overflow to $1$ for values above $8.25$. While choosing  the starting values of the sampler carefully might alleviate these problems, it is still an issue with hierarchical implementations where each parameter is free to vary by condition, accumulator, and participant.
+
+First, I show the approximations used to ameliorated these problems, and then I show the implementation of the log-transformed $F$, $f$, and $1-F$, that I used to calculate the likelihood, $PDF_c$ (as given in Equation \\eqref{eq:PDFc}).
+
+## Approximations used in the implementation
+
+### An approximation of the cumulative distribution function of the standard normal ($\Phi$)
+
+Instead of $\Phi$, it is possible to use an approximation in log-scale, `nlcdf_approx()`, which is more robust in the tails [@Bowlingetal2009]. For convenience, I also define a log-transformed $\phi$, `nlpdf()`.
+
+```
+  real nlcdf_approx(real x) {
+    return log_inv_logit(0.07056 * x^3 + 1.5976* x);
+  }  
+  real nlpdf(real x) {
+    return normal_lpdf(x | 0, 1);
+  }
+```
+
+### A stable computation of the logarithm of sums and subtractions 
+
+Given that the terms of $F$ and $f$ are either summed or subtracted
+depending on the value of the parameters ($\nu$ can be positive, negative or zero, and while $b - A$ must be strictly positive, $b-  A - t \nu$ can have any sign or be zero), the use of the Stan built-in function `log_sum_exp` and `log_diff_exp` is problematic. My solution was to implement `log_calc_exp`
+as a stable computation of the logarithm of the sums and subtractions of exponents, and apply it to $F$ and $f$ (using a similar logic to `log_sum_exp` and `log_diff_exp`). The following listing shows the function, which takes an array of "terms", where each term is in turn an array that indicates with its first position whether the exponent of the second position should be summed or subtracted (or ignored if zero):
+
+```
+  real log_calc_exp(real[,] terms) {
+    // Each term in the calculation is represented by an array of length two, t,
+    // t[1] > 0 indicates that exp(t[2]) should be summed 
+    // t[1] < 0 indicates that exp(t[2]) should be subtracted 
+    // t[1] == 0 indicates that exp(t[2]) should be ignored 
+    real out;
+    real c = max(terms[, 2]);
+    int nterms = dims(terms)[1];
+    real expterms[nterms];
+    if(dims(terms)[2] > 2) print("The extra dimensions in log_calc_exp will be ignored.")
+    for(t in 1:nterms){
+      real sign = terms[t, 1];
+      if(sign == 0)
+        expterms[t] = 0;
+      else if(sign > 0 )
+        expterms[t] = exp(terms[t, 2] - c);
+      else if(sign < 0 )
+        expterms[t] = -exp(terms[t, 2] - c);
+    }
+    out = c + log(sum(expterms));
+    return out;
+  }
+```
+
+## Log-likelihood and auxiliary functions
+
+The log-likelihood function, $PDF_c$, is based on log of $f$, log of $F$, and the log of $1-F$ that I show in the following listings.
+
+### Log-probability density function, $log(f)$
+
+The log-probability density function of the accumulator $j$ for $t$ given the parameters $A$, $b$, $\nu$, and $s$ is defined in a (relatively) straightforward way following Equation \\eqref{eq:fj} and using `log_calc_exp`:
+
+```
+  real tLBA_lpdf(real t, real A, real b, real nu, real s){
+    real bAt = (b - A - t * nu)/(t * s);
+    real bt = (b - t * nu)/(t * s);
+    real prod_term = - log(A) - nlcdf_approx(nu/s); 
+    real terms[4, 2] = {{nu, log(fabs(nu)) + nlcdf_approx(bt)},
+                      {1, log(s) + nlpdf(bAt)},
+                      {-nu, log(fabs(nu)) + nlcdf_approx(bAt)},
+                      {-1, log(s) + nlpdf(bt)}};
+
+    real lpdf = log_calc_exp(terms) + prod_term; 
+    if(is_nan(lpdf)) reject("Negative PDF!!")
+    return lpdf;
+  }    
+```
+
+### Log-cumulative distribution function, $log(F)$
+
+For the implementation of the log of the cumulative distribution function of the accumulator $j$ for $t$ given the parameters  $A$, $b$, $\nu$, and $s$, I also need to take care of errors of approximation that might bring the function to values that are not permitted: the cumulative distribution function is bounded between 0 and 1 and thus its log is bounded between -Inf and 0:
+
+```
+  real tLBA_lcdf(real t, real A, real b, real nu, real s){
+    real bmte = b - t * nu;
+    real bmAte = bmte - A;
+    real bt = bmte/(t * s);
+    real bAt = bmAte/(t * s);
+    real logs = log(s);
+    real logt = log(t);
+    real logA = log(A);
+    real logb = log(b);
+    real prod_term = -nlcdf_approx(nu/s); 
+    real lcdf;
+    real terms[4, 2] = {{-bmAte, log(fabs(bmAte)) + nlcdf_approx(bAt)},
+                        {-1, logt + logs + nlpdf(bAt)},
+                        {bmte,log(fabs(bmte)) + nlcdf_approx(bt)},
+                        {1, logt + logs + nlpdf(bt)}};
+
+    real calc = log_calc_exp(terms) - logA ;
+    // log(calc) should be between 0 and 1
+    // We need lcdf =< 0  (exp(lcdf) is between 0 and 1)
+    if(is_nan(calc))  
+      // This happens when calc = log(x < 0)
+      // This is because of approximation errors, and in this case
+      // lcdf should can be set as 0
+      lcdf = 0;
+    else if(calc >= 0 )  
+      // If calc on the raw scale is larger than 1,
+      // also because of approx errors log(1 - x), with x > 1
+      // then cdf should be 0 and lcdf is -Inf.
+      lcdf = negative_infinity();
+    else 
+      lcdf = log1m_exp(calc) + prod_term;
+      // lcdf can't be larger than zero
+      lcdf = lcdf > 0 ?  0 : lcdf;
+    return lcdf;
+  } 
+```
+
+### Log-complementary cumulative distribution function, $log(1 - F)$
+
+The implementation of the log of the complementary cumulative distribution function of the accumulator $j$ for $t$ given the parameters  $A$, $b$, $\nu$, and $s$ is defined as follows:
+
+```
+  real tLBA_lccdf(real t, real A, real b, real nu, real s){
+    real lcdf = tLBA_lcdf(t|A, b, nu, s);
+    real lccdf;
+    if(lcdf == 0) {
+      lccdf =  negative_infinity() ;
+    } else if(lcdf == negative_infinity()) {
+      lccdf =  0;
+    } else{
+      lccdf = log1m_exp(tLBA_lcdf(t | A, b, nu, s));
+    }
+    if(is_nan(lccdf)) 
+      reject("lccdf is NaN, with parameters t:", t,", A:", A,", b:",b,", nu:", nu:", s:",s);                      
+    return(lccdf);
+  }  
+```
+
+
+### Log-likelihood function
+
+Finally, in order to calculate the likelihood of the parameters for a given choice, $c$ (`response`), in a given response time, $t$, I implemented the log-transformed probability density function for the accumulator $c$ being the first to reach the threshold in a certain time, $PDF_c$, following Equation \\eqref{eq:PDFc}. This implementation takes into account the non-decision time $t_0$ that also needs to be estimated:
+
+
+```
+  real tLBA(int response, real RT, vector A, vector b, 
+            vector nu, vector s, real t_0){
+    
+    real log_lik = 0;
+    int N_acc = num_elements(eta);
+    for(c in 1:N_acc){
+      // Warnings:
+      if (s[c]<=0)
+        reject("s[",c,"] <= 0; found s[",c,"] = ", s[c])
+      if (A[c]<=0)
+        reject("A[",c,"] <= 0; found A[",c,"] = ", A[c])
+      if (b[c]<=A[c])
+        reject("b[",c,"] <= A[",c,"]; found A[",c,"] = " , A[c], "b[",c,"] = ",b[c])
+      if (RT<=t_0)
+        reject("RT <= t_0; found RT = ", RT, "t_0 = ",t_0)
+      if (t_0<=0)
+        reject("t_0 <= 0; found t_0 = ", t_0)
+      if (RT<=0)
+        reject("RT <= 0; found RT = ", RT)
+      // end of Warnings
+      if(c == response)
+        log_lik = log_lik + tLBA_lpdf(RT - t_0|A[c], b[c], nu[c], s[c]);
+        else 
+        log_lik = log_lik + tLBA_lccdf(RT - t_0|A[c], b[c], nu[c], s[c]); 
+    }
+    return(log_lik);
+    }
+```    
+
+## Test of the LBA on the Stroop task
+
+I test this implementation by fitting the synthetic data of a single subject that performs 300 trials of the Stroop task aforementioned. There are several theories used to explain the Stroop effect [see @macleod1991half for a review], for simplicity and ease of exposition, I will assume that there is a drift associated with the accumulation of evidence for the color, $\beta_{color}$, and one associated with the accumulation of evidence for the identity of the written word $\beta_{word}$. The color-drift, $\beta_{color}$, represents the task-relevant accumulation of evidence, and the word-drift, $\beta_{color}$
+represents the task-irrelevant accumulation of evidence. Thus a larger value in the latter indicates lower cognitive control, which will lead to stronger Stroop effects (i.e., larger differences between congruent and incongruent conditions). This entails that in congruent trials both drifts would act in an additive way, and in incongruent trials the two drifts would be assigned to different accumulators. (It is also possible to have a more complex implementation where there is a different color-drift for each one of the three colors, and a different word-drift for each one of the three presented word).
+
+When the word red is presented in color red (congruent trial), for example, the average drift for each accumulator would be the following:
+
+\begin{equation}
+\begin{aligned}
+\nu_{red} &= \beta_{color} + \beta_{word}\\
+\nu_{blue} &= 0\\
+\nu_{green} &= 0
+\end{aligned}
+\end{equation}
+
+When the word red is presented in color green (incongruent trial), for example, the average drift for each accumulator would be the following:
+
+\begin{equation}
+\begin{aligned}
+\nu_{red} &= \beta_{word}\\
+\nu_{blue} &= 0\\
+\nu_{green} &= \beta_{color}
+\end{aligned}
+\end{equation}
+
+
+### Synthetic data of one participant performing the Stroop task 
+
+The following listing shows the code for generating the fake data of one participant:
+
+```{r fake_data, message = FALSE}
+# Number of trials
+ns <- 300
+single_subj <- tibble(color = rep(c("red", "blue", "green"), ns/3),
+                      word = rep(c("red", "blue", "green"),each = ns/3) ) %>%
+                mutate(condition = if_else(color == word, "Congruent",
+                                                          "Incongruent"),
+                      cond = if_else(color == word, -1, 1),
+                      ncolor = as.numeric(as.factor(color)),
+                      nword = as.numeric(as.factor(word)))
+# One accumulator for each response                
+N_acc <- 3
+# True parameters
+t_0 <- 0.3 
+A <- c(1.1, 0.9, 1.3)
+b <- c(1.3, 1.25, 1.55)
+s <-  1
+# Drifts associated with evidence for color and word:
+beta_color <- 4
+beta_word <- 1.5
+beta <- c(beta_color, beta_word)
+
+# Matrix of drifts for each accumulator for each trial
+nu <- matrix(NA, ncol = N_acc, nrow = nrow(single_subj))
+for(a in 1:N_acc){
+  nu[ ,a] <- beta_color * (single_subj$ncolor == a) + 
+             beta_word * (single_subj$nword == a)
+} 
+
+single_subj %<>% bind_cols(rLBA(nrow(single_subj), nu, A, b, s, t_0)) %>% 
+                  mutate(correct = ncolor == response)
+
+single_subj
+
+# Correct responses
+mean(single_subj$correct)
+# Average RT in ms
+mean(single_subj$RT)
+(meanRTs <- single_subj %>% filter(correct == TRUE) %>% 
+                group_by(condition) %>%
+                summarize(mean=mean(RT) * 1000)) 
+```
+```{r fig, fig.cap = capFig('The figure shows the response times for the correct responses of the synthetic data of one participant in the Stroop task.')}
+single_subj %>% filter(correct == TRUE) %>% mutate(RT = RT * 1000) %>% 
+              ggplot(aes(RT, fill = condition)) + 
+              geom_density(alpha = .5, bw = 100) +  
+              geom_vline(data=meanRTs, aes(xintercept = mean, linetype = condition)) +
+              xlab("Response time (ms)")
+```
+
+
+### LBA model for one participant performing the Stroop task 
+
+In order to implement the full LBA model for the data of one participant, there are some decisions that need to be made. 
+
+While the parameter $s$ (see Equation \\eqref{eq:v}) could in principle vary between accumulators (or conditions), I set it to $1$ for all accumulators, as it is generally done. It is required that at least one parameter would be fixed to satisfy a scaling property, which allows the model to yield unique estimates of the remaining parameters.
+
+Even though it fairly common to assign one accumulator to correct responses, and one to all the incorrect ones, this ignores the possibility that participants may favor one particular response requiring less evidence (i.e., a response bias). Here, I take this possibility into account by assuming three (potentially) different accumulators, so that each one represents the response to a color, with its parameters, $b_j$  and $A_j$(with $j=\{1,2,3\}$). 
+Following @Ratcliff1978 (among others), however, I assume that changing the response bias is a relatively slow process, and so threshold parameters ($b$ and $A$) of the accumulators do not depend on the stimulus presented for the current decision.
+
+
+
+The model is re-parameterized using  auxiliary parameters $\boldsymbol{k}$, rather than $\boldsymbol{b}$ so that $\boldsymbol{b} = \boldsymbol{A} + \boldsymbol{k}$. The reason for this is that the dependency between $\boldsymbol{b}$ and $\boldsymbol{A}$ ($b_j$ > $A_j$) makes the sampling more difficult. In addition, each $k_j$ and $A_j$ are parameterized so that the model does not ignore the common information among accumulators. This is to achieve a middle ground between completely independent parameters for the accumulators and identical parameters across the accumulators. This is done by having baseline parameters common for all the accumulators (e.g., $A_{baseline}$ and $k_{baseline}$) and different adjustments (e.g., $A_{diff}$ and $k_{diff}$) in the following way:
+
+\begin{equation}
+\begin{aligned}
+\boldsymbol{A} &= A_{baseline} + \boldsymbol{H} \cdot \boldsymbol{A_{diff}}\\
+\boldsymbol{k} &= k_{baseline} + \boldsymbol{H} \cdot \boldsymbol{k_{diff}}
+\end{aligned}
+\end{equation}
+
+where $\boldsymbol{A}$ and $\boldsymbol{k}$ are vectors with as many rows as there are accumulators (3 in this case), and $\boldsymbol{A_{diff}}$ and $\boldsymbol{k_{diff}}$ are vectors with number of accumulators minus one rows (two in this case). 
+$A_{baseline}$ and $k_{baseline}$ are constrained to ensure that $\boldsymbol{A}$ and $\boldsymbol{k}$ are strictly positive. 
+$\boldsymbol{H}$ is a Helmert contrast matrix for as many levels as there are accumulators. Since the Helmert matrix is a centered and orthogonal matrix, the adjustments and the baseline parameters should be uncorrelated, making the sampling process easier. For this particular case with three accumulators, the Helmert matrix is the following:
+
+\begin{equation}
+\begin{aligned}
+\boldsymbol{H} = 
+\begin{bmatrix}
+   -1  & -1 \\
+    1  & -1 \\
+    0  &  2
+\end{bmatrix}
+\end{aligned}
+\end{equation}
+
+While the parameters associated to the accumulators are relatively independent, the samples of the non-decision time $t_0$ tend to be correlated with $k_{baseline}$ causing problems in the sampling. This is the case because the minimum time it takes to make a decision can be increased (or reduced) by either increasing (or reducing) either the threshold, $b$, or the non-decision time, $t_0$. This problem is partially solved with an informative prior on $t_0$. Since $t_0$ represents peripheral aspects of processing, such as encoding or motor execution [@Rouder2005], we can estimate that this will take at least 150 ms and it is unlikely to last more than 300 ms. This information can be encoded in the model with a prior such as $LogNormal(-1.7, .35)$. The priors for the parameters are detailed below:
+
+\begin{equation}
+\begin{aligned}
+A_{baseline} \sim&  Normal(0, 2) \text{ with }  A_{baseline} > -min(\boldsymbol{H} \cdot \boldsymbol{A_{diff}})\\ 
+A_{diff}  \sim& Normal(0, .5)\\
+k_{baseline} \sim&  Normal(0, 2) \text{ with }  k_{baseline} > -min(\boldsymbol{H} \cdot \boldsymbol{k_{diff}})\\ 
+k_{diff}  \sim& Normal(0, .5)\\
+t_0 \sim& LogNormal(-1.7, .5)\\
+beta \sim& Normal(0, 10)
+\end{aligned}
+\end{equation}
+
+
+
+
+The complete Stan code `tLBA_s.stan` following the previous specifications can be found [here](tLBA_s.stan).
+
+```{r, echo = F, results = 'hide'}
+temp_saved <- "temp/results1.Rda"
+# Creates the dir temp in case it doesn't exist
+if(!dir.exists("temp")){
+    dir.create("temp")
+}
+
+# Since the fitting takes so long, 
+# avoid doing it if the results were already saved.
+# The fitting model chunks won't be evaluated if dofit is FALSE
+if(file.exists(temp_saved)){
+  dofit <- FALSE
+  load(temp_saved)
+} else {
+  dofit <- TRUE
+}
+
+```
+
+With 1000 iterations, the model as specified below takes approximately 40 minutes to finish. While there is no need to set initial values for the sampling, the model may reject some of the randomly generated initial values (issuing a warning message). This is because some combinations of unrealistic parameter values can
+lead to negative values of the probability density function due to approximation errors and over/underflows of terms inside the functions. This happens even restricting the interval used for generating random initial values (`init_r = .5`). Restricting this interval is necessary, however, to help the model to find suitable initial values and to avoid discontinuities produced by the `log_calc_exp` (which lead to [divergent transitions](http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup)). After verifying that the model converged (e.g., no divergent transitions, or warnings besides some rejections of initial values, all Rhats $< 1.1$), it shows to have recovered the underlying parameters fairly well. 
+The fitted model can be downloaded from [here](temp/results1.Rda). 
+
+
+```{r, message = F}
+library(rstan)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+
+# Make a list of the data:
+lss <- as.list(single_subj)
+lss$N_obs <- nrow(single_subj)
+lss$N_pred <- 2 
+lss$N_acc <-  N_acc
+lss$X <- array(NA, c(lss$N_acc,lss$N_obs,lss$N_pred))
+# One model matrix for each accumulator, drift_color and drift_word, and I remove the intercept
+for(a in 1:lss$N_acc){
+  lss$X[a, , ] <- model.matrix(~ 1 + I(ncolor == a) +I(nword == a),
+                  data = single_subj)[ ,-1]
+}
+
+```
+```{r stanmodel, eval = dofit, message = F}
+m_ss <- stan(file = "tLBA_s.stan",  
+             data = lss, chains = 4, iter = 1000,
+             control = list(adapt_delta = .9999, max_treedepth=13),
+             init_r = .5) 
+```
+
+```{r, echo = FALSE, results = 'hide', eval = dofit}
+save(m_ss, file = temp_saved)
+
+```
+```{r params-stanmodel}
+print(m_ss,pars=c("A","b","beta","t_0"), probs =c(.025,.975))
+```
+
+Below I show the scaled
+difference (the difference divided by the size of the generated value) between
+the posterior means of the parameters of the model and the values we generated
+for those parameters. (The code producing the graph is adapted from [Daniel C. Furr's case study](http://mc-stan.org/documentation/case-studies/rasch_and_2pl.html) and it is available in the Rmd file.)
+
+
+```{r recovery, echo=F, fig.cap=capFig("Scaled discrepancies between estimated and generating parameters of the model. Points indicate the scaled difference between the posterior means and generating values for a parameter, the thin and the bold horizontal lines indicate 95% and 50% posterior intervals for the difference respectively.")}
+
+wanted_pars <- c(paste0("A[", 1:3, "]"),paste0("b[", 1:3, "]"),
+paste0("beta[", 1:2, "]"), "t_0")  
+# The plot function is based on http://mc-stan.org/documentation/case-studies/rasch_and_2pl.html 
+plot_discrepancies <- function(fit_model, wanted_pars,lim=1,breaks=.1){ 
+  # Extract the actual generating values:
+  generating_values <-   
+  unlist(sapply(wanted_pars, function(x) eval(parse(text = x)))) 
+  sim_monitor <- monitor(fit_model, probs = c(.025, .25,.75,.975), print = FALSE)
+  estimated_values <- sim_monitor[wanted_pars, 
+                      c("mean", "2.5%", "25%", "75%", "97.5%")]
+  # Assemble a data frame to pass to ggplot()
+  sim_df <- data.frame(parameter = factor(wanted_pars, rev(wanted_pars)), row.names = NULL)
+  sim_df$middle <- (estimated_values[,"mean"] - generating_values)/generating_values
+  sim_df$lower <- (estimated_values[,"2.5%"] - generating_values)/generating_values
+  sim_df$upper <- (estimated_values[,"97.5%"] - generating_values)/generating_values
+  sim_df$lower5 <- (estimated_values[,"25%"] - generating_values)/generating_values
+  sim_df$upper5 <- (estimated_values[,"75%"] - generating_values)/generating_values
+
+  ggplot(sim_df) +
+    aes(x = parameter, y = middle, ymin = lower, ymax = upper) +
+    scale_x_discrete() + scale_y_continuous(breaks=round(seq(-lim,lim,breaks),2),limits=c(-lim,lim))+
+    labs(y = "Scaled discrepancy", x = NULL) +
+    geom_abline(intercept = 0, slope = 0, color = "black",linetype="dotted") +
+    geom_linerange() +
+    geom_linerange(aes(ymin = lower5, ymax = upper5), size = 1.5) +
+    geom_point(size = 2) +
+    theme_bw() +
+    coord_flip()   
+}
+
+plot_discrepancies(m_ss, wanted_pars, lim=1,breaks=.2)     
+
+```
+
+
+
+
+### A hierarchical LBA model for the Stroop task
+
+In order to answer the original question, that is, how to assess the cognitive control  of the first 25 participants, I fit a hierarchical version of the previous model. 
+The individual differences  between participants are accounted by including adjustments to the drift rates,  $r_{\beta_{color},subj}$ and $r_{\beta_{word},subj}$ so that each participant acquires evidence for color or for word in a slightly different way. 
+The differences in cognitive control in this model are represented by the adjustment in the task-irrelevant drift, $r_{\beta_{color},subj}$.
+
+
+For each trial $i$, for each accumulator $j$, and each subject $subj$:
+
+\begin{equation}
+\nu_{j,i} = x_{color,j,i} \cdot (\beta_{color} + r_{\beta_{color},subj[i]}) + x_{word,j,i} \cdot (\beta_{word} + r_{\beta_{color},subj[i]})
+\end{equation}
+
+\noindent
+
+where $x_{color,j,i}$ is $1$ if `color` matches the accumulator $j$ and $0$ otherwise, and $x_{word,j,i}$ is $1$ if `word` matches the accumulator $j$ and $0$ otherwise. The adjustments were assumed to be correlated, reflecting the possibility that faster answers for a given subject might be because of a higher drift for color and a higher drift for word. [The Stan code uses a non-centered parametrization; @Papaspiliopoulos2007general.]
+
+\begin{equation}
+\mathbf{r_{\beta}} \sim \mathcal{N}(\mathbf{0},\, \boldsymbol\Sigma_{r_{\beta}})
+\end{equation}
+
+where $\boldsymbol\Sigma_{r_{\beta}}$ is built using
+
+\begin{equation}
+\begin{aligned}
+\boldsymbol{\sigma_{r_\beta}} &\sim Normal_+(0,1) \\
+\boldsymbol{\rho_{r_\beta}} &\sim lkj\_corr(2.0)
+\end{aligned}
+\end{equation}
+
+I accounted for the possible bias of the participants by including  adjustments to the parameters of the accumulators. These adjustments
+reflect the possibility that subjects may have different thresholds or uncertainty in the decision for different colors. This was achieved by scaling
+the parameters $A$ and $k$ differently depending on the participants (while ensuring that they remain strictly positive).
+
+\begin{align}
+A_{j,subj} = A_{j} \cdot \exp(r_{A_j,subj})\\
+k_{j,subj} = k_{j} \cdot \exp(r_{k_j,subj})
+\end{align}
+
+The adjustments are assumed to be correlated, reflecting the possibility that the accumulators might behave similarly for a given subject. This is defined by the following prior:
+
+
+\begin{equation}
+\mathbf{r_{A,k}} \sim \mathcal{N}(\mathbf{0},\, \boldsymbol\Sigma_{r_{A,k}})
+\end{equation}
+
+where $\boldsymbol\Sigma_{r_{A,k}}$ is built using
+\begin{equation}
+\begin{aligned}
+\mathbf{\sigma_{r_A,k}} &\sim Normal_+(0,1) \\
+\mathbf{\rho_{r_A,k}} &\sim lkj\_corr(2.0)
+\end{aligned}
+\end{equation}
+
+
+I included a by-participant adjustment to $t_{0,subj}$ [in a similar way to @NicenboimVasishth2018Models]:
+\begin{equation}
+t_{0,subj} = exp(\psi_0 + r_{\psi,subj})
+\end{equation}
+
+with 
+
+\begin{equation}
+\mathbf{r_{\psi}} \sim\ \mathcal{N}(\mathbf{0},\, \boldsymbol\sigma_{r_\psi})
+\end{equation}
+
+The exponential function ensures that $t_{0,subj}$ will be higher than zero. A
+constraint on the upper bound of the prior distribution of $\psi_0$ ensures
+that the non-decision time of each participant is smaller than the participant minimum response time.
+
+\begin{align}
+\psi_0  <& {\underset {i}{\operatorname {arg\,min} }}\,\left(log(RT_{i}) - r_{\psi,subj[i]}\right)\\
+\psi_0 \sim& Normal(-1.7, .5)
+\end{align}
+
+
+
+The complete Stan model can be found [here](tLBA_h.stan).
+
+## Fitting the model
+
+To fit the model, I recode the color of the word, the word, and the response as `ncolor`, `nword`, and `response` respectively,  with values 1 for "blue", 2 for "green", and 3 for "red".
+
+```{r dstroop25}
+dstroop_25 %<>% 
+              mutate(ncolor = as.numeric(as.factor(color)),
+                     nword = as.numeric(as.factor(word)),
+                     response = as.numeric(as.factor(trial_response)))
+# Sanity check
+dstroop_25 %>% group_by(subject) %>% 
+              summarize(min(RT), mean(RT),max(RT)) %>% print(n=25)
+```
+I remove the observation of a response time of 1 ms (since it's likely an error in the dataset or a delayed response from the previous trial) and the observation of nearly 9 seconds.
+
+```{r}
+# I exclude the RT of 1 ms:
+dstroop_25 <- filter(dstroop_25, RT > 1, RT < 8000)
+
+lstroop_25 <- as.list(dstroop_25)
+lstroop_25$N_obs <- nrow(dstroop_25)
+lstroop_25$N_pred <- 2 
+lstroop_25$N_acc <- 3 # 3 colors
+lstroop_25$RT <- dstroop_25$RT/1000
+lstroop_25$J_subj <- dstroop_25$subject
+lstroop_25$N_subj <- max(dstroop_25$subject)
+lstroop_25$X <- array(NA, 
+                c(lstroop_25$N_acc, lstroop_25$N_obs, lstroop_25$N_pred))
+# One model matrix for each accumulator:
+for(a in 1:lstroop_25$N_acc){
+  lstroop_25$X[a,,] <- model.matrix(~ 1 +  I(ncolor == a) +
+                                    I(nword == a),
+                  data = dstroop_25)[ ,-1]
+}
+```
+
+```{r, echo = F, results = 'hide'}
+temp_saved <- "temp/results2.Rda"  
+# Creates the dir temp in case it doesn't exist
+if(!dir.exists("temp")){
+    dir.create("temp")
+} 
+
+# Since the fitting takes so long, 
+# avoid doing it if the results were already saved.
+# The fitting model chunks won't be evaluated if dofit is FALSE
+if(file.exists(temp_saved)){
+  dofit <- FALSE
+  load(temp_saved)
+} else {
+  dofit <- TRUE
+}
+
+```
+
+
+
+
+The model as specified below, with 6 chains and only 500 iterations, shows signs that it converged (e.g., no divergent transitions, or warnings besides some rejections of initial values, all Rhats $< 1.1$). However, fitting the model to only 25 subjects took a approximately 12 hours with 6 cores in a server. The fitted model can be downloaded from [here](temp/results2.Rda). 
+
+
+```{r stanfith, eval = dofit, message = F}
+m_h <- stan(file = "tLBA_h.stan",  
+            data = lstroop_25, chains = 6, iter = 500,
+            control = list(adapt_delta = .9999, max_treedepth = 13),
+            init_r = .5) 
+
+
+
+```
+
+
+```{r, echo = FALSE, results = 'hide', eval = dofit}
+save(m_h, file = temp_saved) 
+
+```
+
+### Population-level parameters (or fixed effects)
+
+The following listing shows the results for the population-level parameters (or fixed effects):
+
+```{r params-stanreal}
+print(m_h, pars=c("A", "b", "beta", "t_0"), probs =c(.025, .975)) 
+```
+
+It is clear that there are no general response biases (the three parameters $A$ and the three parameters $b$ are similar to each other), and, as expected, the color of the word ($\beta_{color}$ or `beta[1]` in the listing) increases the rate of accumulation of evidence much more than the word ($\beta_{word}$ or `beta[2]`). This is expected given that the participants were asked to answer the color of the word and the general accuracy was of `r round(mean(dstroop_25$correct==1)*100)`%.
+
+### Posterior predictive check
+
+As it is shown below with posterior predictive checks, the model has in general captured the patterns in the data (see the code in the Rmd file for the implementation of the generation of predicted datasets).  While the model shows a great deal of uncertainty for the incorrect responses in the congruent condition, this is expected since there are very few observations in this category.
+
+```{r predata, echo=FALSE}
+pars <- rstan::extract(m_h,pars=c("A","b","beta","t_0","sd_nu_subj",
+                                  "L_nu_subj","z_nu_subj","sd_Ak_subj",
+                                  "L_Ak_subj","z_Ak_subj","sd_psi_subj","z_psi_subj","psi_0"))
+pars$s <- c(1,1,1)
+
+pred_LBA <- function(N_samples = 3, pars=pars, ldata = lstroop_25){
+  outcome <- array(NA, list(N_samples,lstroop_25$N_obs,2))
+  for(sample in 1:N_samples){
+    r_nu_subj <-  diag(pars$sd_nu_subj[sample,]) %*% pars$L_nu_subj[sample,,] %*% pars$z_nu_subj[sample,,]
+    r_Ak_subj <- diag(pars$sd_Ak_subj[sample,]) %*% pars$L_Ak_subj[sample,,] %*% pars$z_Ak_subj[sample,,]
+    r_psi_subj <- pars$sd_psi_subj[sample] %*% pars$z_psi_subj[sample,];
+
+  t_nu <- matrix(rep(NA,ldata$N_obs*ldata$N_acc ),nrow=ldata$N_obs)
+
+  for(a in 1:(ldata$N_acc)){
+        t_nu[, a] <-  ldata$X[a,,] %*% pars$beta[sample,]
+  }
+  
+  t_0 = exp(r_psi_subj[ldata$J_subj] + pars$psi_0[sample]);
+  
+  for (n in 1:ldata$N_obs) {
+    A_n <- rep(NA, ldata$N_acc)
+    b_n <- rep(NA, ldata$N_acc)
+    nu_n <- rep(NA, ldata$N_acc)                
+    for(a in 1:(ldata$N_acc)) {
+      r_acc = 0;
+      A_n[a] = pars$A[sample, a] * exp(r_Ak_subj[a, ldata$J_subj[n]]);
+      b_n[a] = (pars$b[sample, a]- pars$A[sample, a]) * 
+                exp(r_Ak_subj[ldata$N_acc + a, ldata$J_subj[n]]) + A_n[a];
+      nu_n[a] = t_nu[n, a];
+        for(p in 1:(ldata$N_pred)){
+            r_acc = r_acc + ldata$X[a,n,p] * r_nu_subj[p, ldata$J_subj[n]]}
+      nu_n[a] = nu_n[a] + r_acc;   
+        }
+     
+    outcome[sample,n, ]  <- unlist(rLBA(1,nu_n, A_n, b_n,  pars$s, t_0[n]))
+    }
+  }
+  return(outcome)
+}
+
+rep <- 30 
+outcome <- pred_LBA(rep, pars, lstroop_25)
+```
+
+```{r preplot, echo= FALSE,  fig.cap = capFig("The red line shows the distribution of the real data and the blue lines show the distributions of some of the simulated datasets. The plots are shown for correct and incorrect responses in congruent and incongruent conditions.")}
+
+dstroop_25 %<>% filter(RT > 1, RT < 8000)
+dstroop_25_all <- dstroop_25
+dstroop_25_all$rep <- 0
+for(r in 1:rep){
+  fdstroop_25 <- dstroop_25
+  fdstroop_25$rep <- r
+  fdstroop_25$RT <- outcome[r,,1] * 1000
+  fdstroop_25$response <- outcome[r,,2]
+  dstroop_25_all <- bind_rows(dstroop_25_all, fdstroop_25) 
+}
+
+dstroop_25_all %<>% mutate(acc = ifelse(correct, "Correct response", "Incorrect response"))
+
+dstroop_25_all %>% filter(RT < 3000, rep != 0) %>% 
+              ggplot( aes(RT, color=rep, group=rep)) + 
+              geom_density(alpha = .5, bw=100) + 
+              facet_grid(acc~condition)+ 
+              scale_size_manual(values=c(.5,2))  +
+              geom_density(data= dstroop_25, aes(RT),
+                bw=100,color="red", size = 1) +
+              theme(legend.position="none") + 
+              xlab("Response time (ms)")
+
+```
+
+### Group-level parameters (or random effects)
+
+The following listing shows the results for the group-level parameters (or random effects):
+
+```{r paramsgroup-stanreal}
+print(m_h,pars=c("sd_nu_subj","sd_Ak_subj","sd_psi_subj",
+  "Corr_nu[1,2]", "Corr_Ak[1,3]", "Corr_Ak[1,4]", "Corr_Ak[1,5]", 
+  "Corr_Ak[1,6]", "Corr_Ak[2,3]", "Corr_Ak[2,4]", "Corr_Ak[2,5]",
+  "Corr_Ak[2,6]", "Corr_Ak[3,4]", "Corr_Ak[3,5]", "Corr_Ak[3,6]", 
+  "Corr_Ak[4,5]", "Corr_Ak[4,6]", "Corr_Ak[5,6]"), probs =c(.025,.975)) 
+```
+The group-level parameter estimates reveal that adding correlations might have been justified (see `Corr_Ak[4,5]`, `Corr_Ak[4,6]`, and `Corr_Ak[5,6]`).
+Furthermore, it seems that there are some differences between participants (compare `sd_nu_subj[2]` with `beta[2]`), but with a great deal of uncertainty. 
+
+
+Plotting the adjustments for the color-drift, $r_{\beta_{color}}$, could in principle reveal individual differences and a way to "rank" the participants. However, in this case, as the following plot shows, the low number of trials per participants do not allow us to clearly distinguish between them. It is only evident from the plot, that participants `2` and `18` show a higher color-drift, $r_{\beta_{color}}$  indicating, presumably, that their cognitive control was lower than the cognitive control of the rest.
+
+```{r params-indiv-stanreal, fig.cap=capFig("The graph depicts the individual differences in color-drift, $r_{\\beta_{color}}$, which is presumably related to cognitive control.")}
+library(bayesplot)
+posteriors <- as.array(m_h)
+mcmc_intervals(posteriors, regex_pars="r_nu_subj\\[2,", prob_outer=.95, prob=.8)
+```
+
+# Summary
+
+The contribution of this notebook was in showing the Stan implementation
+of a model of choice, namely,  the LBA model with a drift rate drawn from a normal distribution (restricted to positive values) [@BrownHeathcote2008;@HeathcoteLove2012]. Given that tasks that elicit a choice under time pressure are very common in cognitive science and psychology,  models of choice, such as sequential-sampling models should be particularly useful. However, these models are difficult to implement and fit. Using the Stroop task [@Stroop1935] as a case study,  I discussed the challenges in the implementation of a sequential-sampling model, the LBA  model. Importantly, some of its challenges might also apply to models that require complex likelihood functions. Finally, I exemplified how a hierarchical version of the LBA can be used for examining individual differences. I showed that this implementation of the LBA successfully recovers parameter estimates and converges with a relatively small number of iterations even when assuming a strong hierarchical structure. However, some limitations of the current implementation are that as the datasets get larger, the model struggles to find initial values that can start the sampling processes, and that the fitting time can reach several days (even for datasets of a moderate size, e.g., 100 subjects doing the Stroop task).
+
+# References
+
+<!-- This comment causes section to be numbered -->

@@ -1,0 +1,420 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gexf xmlns="http://www.gexf.net/1.2draft" xmlns:viz="http://www.gexf.net/1.1draft/viz" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.gexf.net/1.2draft http://www.gexf.net/1.2draft/gexf.xsd" version="1.2">
+  <meta lastmodifieddate="2018-06-18">
+    <creator>NodosChile</creator>
+    <description>A graph file writing in R using "rgexf"</description>
+    <keywords>gexf graph, NodosChile, R, rgexf</keywords>
+  </meta>
+  <graph mode="static" defaultedgetype="directed">
+    <attributes class="edge" mode="static">
+      <attribute id="att1" title="mean" type="float"/>
+      <attribute id="att2" title="l95CI" type="float"/>
+      <attribute id="att3" title="u95CI" type="float"/>
+      <attribute id="att4" title="b_sigma" type="float"/>
+    </attributes>
+    <nodes>
+      <node id="fshdl" label="HDL-cholesterol">
+        <viz:color r="116" g="170" b="242" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="fsldl" label="LDL-cholesterol">
+        <viz:color r="116" g="170" b="242" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="fsins" label="blood insulin">
+        <viz:color r="116" g="170" b="242" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="fskol" label="blood cholesterol">
+        <viz:color r="116" g="170" b="242" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="fpgluk" label="blood glucose">
+        <viz:color r="116" g="170" b="242" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="sukupuoli" label="gender (0 - male, 1 - female)">
+        <viz:color r="60" g="209" b="100" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="kolestrolilaakitys" label="chol. medication">
+        <viz:color r="60" g="209" b="100" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="energia" label="energy">
+        <viz:color r="60" g="209" b="100" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="prot" label="protein">
+        <viz:color r="60" g="209" b="100" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="rasva" label="fat">
+        <viz:color r="60" g="209" b="100" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="safa" label="safa">
+        <viz:color r="60" g="209" b="100" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="mufa" label="mufa">
+        <viz:color r="60" g="209" b="100" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="pufa" label="pufa">
+        <viz:color r="60" g="209" b="100" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="linoli" label="linoleic acid">
+        <viz:color r="60" g="209" b="100" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="linoleeni" label="alpha lipoic acid">
+        <viz:color r="60" g="209" b="100" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="kol" label="cholesterol">
+        <viz:color r="60" g="209" b="100" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="hhydr" label="carb.hydr.">
+        <viz:color r="60" g="209" b="100" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="sakkar" label="sucrose">
+        <viz:color r="60" g="209" b="100" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="kuitu" label="fibre">
+        <viz:color r="60" g="209" b="100" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="sellul" label="cellulose">
+        <viz:color r="60" g="209" b="100" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="ligniini" label="lignin">
+        <viz:color r="60" g="209" b="100" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="alkoholi" label="alcohol">
+        <viz:color r="60" g="209" b="100" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="dvit" label="vitamin D">
+        <viz:color r="60" g="209" b="100" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="foolih" label="folic acid (vitamin B9)">
+        <viz:color r="60" g="209" b="100" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="cvit" label="vitamin C">
+        <viz:color r="60" g="209" b="100" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="epa" label="EPA-fatty acid">
+        <viz:color r="60" g="209" b="100" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+      <node id="dha" label="DHA-fatty acid">
+        <viz:color r="60" g="209" b="100" a="1"/>
+        <viz:size value="1"/>
+        <viz:shape value="circle"/>
+      </node>
+    </nodes>
+    <edges>
+      <edge id="0" label="beta = 0.017, b_sigma = 0.081" source="sukupuoli" target="fshdl" value="confband" weight="0.01723913">
+        <attvalues>
+          <attvalue for="att1" value="0.01723913"/>
+          <attvalue for="att2" value="-0.02309691"/>
+          <attvalue for="att3" value="0.05757518"/>
+          <attvalue for="att4" value="0.08067209"/>
+        </attvalues>
+      </edge>
+      <edge id="1" label="beta = -0.004, b_sigma = 0.107" source="kolestrolilaakitys" target="fshdl" value="confband" weight="-0.004359682">
+        <attvalues>
+          <attvalue for="att1" value="-0.004359682"/>
+          <attvalue for="att2" value="-0.05776332"/>
+          <attvalue for="att3" value="0.04904395"/>
+          <attvalue for="att4" value="0.1068073"/>
+        </attvalues>
+      </edge>
+      <edge id="2" label="beta = -0.006, b_sigma = 0.072" source="energia" target="fshdl" value="confband" weight="-0.00588434">
+        <attvalues>
+          <attvalue for="att1" value="-0.00588434"/>
+          <attvalue for="att2" value="-0.04192378"/>
+          <attvalue for="att3" value="0.0301551"/>
+          <attvalue for="att4" value="0.07207888"/>
+        </attvalues>
+      </edge>
+      <edge id="3" label="beta = -0.003, b_sigma = 0.073" source="prot" target="fshdl" value="confband" weight="-0.003371952">
+        <attvalues>
+          <attvalue for="att1" value="-0.003371952"/>
+          <attvalue for="att2" value="-0.04002521"/>
+          <attvalue for="att3" value="0.03328131"/>
+          <attvalue for="att4" value="0.07330652"/>
+        </attvalues>
+      </edge>
+      <edge id="4" label="beta = -0.004, b_sigma = 0.074" source="rasva" target="fshdl" value="confband" weight="-0.004062324">
+        <attvalues>
+          <attvalue for="att1" value="-0.004062324"/>
+          <attvalue for="att2" value="-0.04102132"/>
+          <attvalue for="att3" value="0.03289667"/>
+          <attvalue for="att4" value="0.07391799"/>
+        </attvalues>
+      </edge>
+      <edge id="5" label="beta = -0.004, b_sigma = 0.071" source="safa" target="fshdl" value="confband" weight="-0.003837226">
+        <attvalues>
+          <attvalue for="att1" value="-0.003837226"/>
+          <attvalue for="att2" value="-0.03934003"/>
+          <attvalue for="att3" value="0.03166557"/>
+          <attvalue for="att4" value="0.0710056"/>
+        </attvalues>
+      </edge>
+      <edge id="6" label="beta = -0.003, b_sigma = 0.072" source="mufa" target="fshdl" value="confband" weight="-0.003321728">
+        <attvalues>
+          <attvalue for="att1" value="-0.003321728"/>
+          <attvalue for="att2" value="-0.03944803"/>
+          <attvalue for="att3" value="0.03280457"/>
+          <attvalue for="att4" value="0.0722526"/>
+        </attvalues>
+      </edge>
+      <edge id="7" label="beta = -0.002, b_sigma = 0.071" source="pufa" target="fshdl" value="confband" weight="-0.002211687">
+        <attvalues>
+          <attvalue for="att1" value="-0.002211687"/>
+          <attvalue for="att2" value="-0.03782838"/>
+          <attvalue for="att3" value="0.03340501"/>
+          <attvalue for="att4" value="0.07123339"/>
+        </attvalues>
+      </edge>
+      <edge id="8" label="beta = 0.002, b_sigma = 0.052" source="linoli" target="fshdl" value="confband" weight="0.001719063">
+        <attvalues>
+          <attvalue for="att1" value="0.001719063"/>
+          <attvalue for="att2" value="-0.02430424"/>
+          <attvalue for="att3" value="0.02774237"/>
+          <attvalue for="att4" value="0.05204662"/>
+        </attvalues>
+      </edge>
+      <edge id="9" label="beta = 0.002, b_sigma = 0.053" source="linoleeni" target="fshdl" value="confband" weight="0.002397021">
+        <attvalues>
+          <attvalue for="att1" value="0.002397021"/>
+          <attvalue for="att2" value="-0.02399029"/>
+          <attvalue for="att3" value="0.02878434"/>
+          <attvalue for="att4" value="0.05277463"/>
+        </attvalues>
+      </edge>
+      <edge id="10" label="beta = -0.006, b_sigma = 0.073" source="hhydr" target="fshdl" value="confband" weight="-0.006123904">
+        <attvalues>
+          <attvalue for="att1" value="-0.006123904"/>
+          <attvalue for="att2" value="-0.042681"/>
+          <attvalue for="att3" value="0.03043319"/>
+          <attvalue for="att4" value="0.07311419"/>
+        </attvalues>
+      </edge>
+      <edge id="11" label="beta = -0.003, b_sigma = 0.066" source="sakkar" target="fshdl" value="confband" weight="-0.0028864">
+        <attvalues>
+          <attvalue for="att1" value="-0.0028864"/>
+          <attvalue for="att2" value="-0.03567649"/>
+          <attvalue for="att3" value="0.02990369"/>
+          <attvalue for="att4" value="0.06558018"/>
+        </attvalues>
+      </edge>
+      <edge id="12" label="beta = 0.002, b_sigma = 0.063" source="ligniini" target="fshdl" value="confband" weight="0.001636541">
+        <attvalues>
+          <attvalue for="att1" value="0.001636541"/>
+          <attvalue for="att2" value="-0.02992504"/>
+          <attvalue for="att3" value="0.03319812"/>
+          <attvalue for="att4" value="0.06312316"/>
+        </attvalues>
+      </edge>
+      <edge id="13" label="beta = -0.027, b_sigma = 0.107" source="kolestrolilaakitys" target="fsldl" value="confband" weight="-0.02689791">
+        <attvalues>
+          <attvalue for="att1" value="-0.02689791"/>
+          <attvalue for="att2" value="-0.0804033"/>
+          <attvalue for="att3" value="0.02660748"/>
+          <attvalue for="att4" value="0.1070108"/>
+        </attvalues>
+      </edge>
+      <edge id="14" label="beta = 0.002, b_sigma = 0.075" source="energia" target="fsldl" value="confband" weight="0.001891176">
+        <attvalues>
+          <attvalue for="att1" value="0.001891176"/>
+          <attvalue for="att2" value="-0.03566244"/>
+          <attvalue for="att3" value="0.03944479"/>
+          <attvalue for="att4" value="0.07510723"/>
+        </attvalues>
+      </edge>
+      <edge id="15" label="beta = 0.002, b_sigma = 0.073" source="prot" target="fsldl" value="confband" weight="0.002044839">
+        <attvalues>
+          <attvalue for="att1" value="0.002044839"/>
+          <attvalue for="att2" value="-0.03434679"/>
+          <attvalue for="att3" value="0.03843647"/>
+          <attvalue for="att4" value="0.07278326"/>
+        </attvalues>
+      </edge>
+      <edge id="16" label="beta = -0.004, b_sigma = 0.099" source="sukupuoli" target="fsins" value="confband" weight="-0.004419155">
+        <attvalues>
+          <attvalue for="att1" value="-0.004419155"/>
+          <attvalue for="att2" value="-0.05413153"/>
+          <attvalue for="att3" value="0.04529322"/>
+          <attvalue for="att4" value="0.09942475"/>
+        </attvalues>
+      </edge>
+      <edge id="17" label="beta = 0.008, b_sigma = 0.16" source="kolestrolilaakitys" target="fsins" value="confband" weight="0.00810898">
+        <attvalues>
+          <attvalue for="att1" value="0.00810898"/>
+          <attvalue for="att2" value="-0.07187903"/>
+          <attvalue for="att3" value="0.08809699"/>
+          <attvalue for="att4" value="0.159976"/>
+        </attvalues>
+      </edge>
+      <edge id="18" label="beta = 0.003, b_sigma = 0.103" source="energia" target="fsins" value="confband" weight="0.003000637">
+        <attvalues>
+          <attvalue for="att1" value="0.003000637"/>
+          <attvalue for="att2" value="-0.04833175"/>
+          <attvalue for="att3" value="0.05433302"/>
+          <attvalue for="att4" value="0.1026648"/>
+        </attvalues>
+      </edge>
+      <edge id="19" label="beta = 0, b_sigma = 0.097" source="prot" target="fsins" value="confband" weight="0.0003831033">
+        <attvalues>
+          <attvalue for="att1" value="0.0003831033"/>
+          <attvalue for="att2" value="-0.04794231"/>
+          <attvalue for="att3" value="0.04870852"/>
+          <attvalue for="att4" value="0.09665083"/>
+        </attvalues>
+      </edge>
+      <edge id="20" label="beta = 0.005, b_sigma = 0.1" source="rasva" target="fsins" value="confband" weight="0.005167793">
+        <attvalues>
+          <attvalue for="att1" value="0.005167793"/>
+          <attvalue for="att2" value="-0.04459082"/>
+          <attvalue for="att3" value="0.0549264"/>
+          <attvalue for="att4" value="0.09951722"/>
+        </attvalues>
+      </edge>
+      <edge id="21" label="beta = 0.003, b_sigma = 0.097" source="safa" target="fsins" value="confband" weight="0.00346046">
+        <attvalues>
+          <attvalue for="att1" value="0.00346046"/>
+          <attvalue for="att2" value="-0.04483299"/>
+          <attvalue for="att3" value="0.05175391"/>
+          <attvalue for="att4" value="0.09658691"/>
+        </attvalues>
+      </edge>
+      <edge id="22" label="beta = 0.007, b_sigma = 0.1" source="mufa" target="fsins" value="confband" weight="0.007027948">
+        <attvalues>
+          <attvalue for="att1" value="0.007027948"/>
+          <attvalue for="att2" value="-0.04317927"/>
+          <attvalue for="att3" value="0.05723517"/>
+          <attvalue for="att4" value="0.1004144"/>
+        </attvalues>
+      </edge>
+      <edge id="23" label="beta = 0.002, b_sigma = 0.096" source="pufa" target="fsins" value="confband" weight="0.002224686">
+        <attvalues>
+          <attvalue for="att1" value="0.002224686"/>
+          <attvalue for="att2" value="-0.04595794"/>
+          <attvalue for="att3" value="0.05040731"/>
+          <attvalue for="att4" value="0.09636525"/>
+        </attvalues>
+      </edge>
+      <edge id="24" label="beta = -0.002, b_sigma = 0.056" source="linoli" target="fsins" value="confband" weight="-0.002030047">
+        <attvalues>
+          <attvalue for="att1" value="-0.002030047"/>
+          <attvalue for="att2" value="-0.02987277"/>
+          <attvalue for="att3" value="0.02581267"/>
+          <attvalue for="att4" value="0.05568544"/>
+        </attvalues>
+      </edge>
+      <edge id="25" label="beta = 0.002, b_sigma = 0.089" source="kol" target="fsins" value="confband" weight="0.001868154">
+        <attvalues>
+          <attvalue for="att1" value="0.001868154"/>
+          <attvalue for="att2" value="-0.04280646"/>
+          <attvalue for="att3" value="0.04654276"/>
+          <attvalue for="att4" value="0.08934922"/>
+        </attvalues>
+      </edge>
+      <edge id="26" label="beta = 0.001, b_sigma = 0.097" source="hhydr" target="fsins" value="confband" weight="0.0007827768">
+        <attvalues>
+          <attvalue for="att1" value="0.0007827768"/>
+          <attvalue for="att2" value="-0.04781848"/>
+          <attvalue for="att3" value="0.04938403"/>
+          <attvalue for="att4" value="0.09720251"/>
+        </attvalues>
+      </edge>
+      <edge id="27" label="beta = -0.003, b_sigma = 0.09" source="kuitu" target="fsins" value="confband" weight="-0.002884656">
+        <attvalues>
+          <attvalue for="att1" value="-0.002884656"/>
+          <attvalue for="att2" value="-0.04774685"/>
+          <attvalue for="att3" value="0.04197754"/>
+          <attvalue for="att4" value="0.0897244"/>
+        </attvalues>
+      </edge>
+      <edge id="28" label="beta = 0.002, b_sigma = 0.078" source="dvit" target="fsins" value="confband" weight="0.00153658">
+        <attvalues>
+          <attvalue for="att1" value="0.00153658"/>
+          <attvalue for="att2" value="-0.0373011"/>
+          <attvalue for="att3" value="0.04037426"/>
+          <attvalue for="att4" value="0.07767536"/>
+        </attvalues>
+      </edge>
+      <edge id="29" label="beta = -0.004, b_sigma = 0.093" source="foolih" target="fsins" value="confband" weight="-0.003825425">
+        <attvalues>
+          <attvalue for="att1" value="-0.003825425"/>
+          <attvalue for="att2" value="-0.05018558"/>
+          <attvalue for="att3" value="0.04253473"/>
+          <attvalue for="att4" value="0.09272031"/>
+        </attvalues>
+      </edge>
+      <edge id="30" label="beta = 0.002, b_sigma = 0.073" source="sukupuoli" target="fskol" value="confband" weight="0.001611579">
+        <attvalues>
+          <attvalue for="att1" value="0.001611579"/>
+          <attvalue for="att2" value="-0.03511203"/>
+          <attvalue for="att3" value="0.03833519"/>
+          <attvalue for="att4" value="0.07344721"/>
+        </attvalues>
+      </edge>
+      <edge id="31" label="beta = -0.012, b_sigma = 0.1" source="kolestrolilaakitys" target="fskol" value="confband" weight="-0.01182317">
+        <attvalues>
+          <attvalue for="att1" value="-0.01182317"/>
+          <attvalue for="att2" value="-0.06189603"/>
+          <attvalue for="att3" value="0.0382497"/>
+          <attvalue for="att4" value="0.1001457"/>
+        </attvalues>
+      </edge>
+      <edge id="32" label="beta = 0.001, b_sigma = 0.095" source="kolestrolilaakitys" target="fpgluk" value="confband" weight="0.001096637">
+        <attvalues>
+          <attvalue for="att1" value="0.001096637"/>
+          <attvalue for="att2" value="-0.0465248"/>
+          <attvalue for="att3" value="0.04871807"/>
+          <attvalue for="att4" value="0.09524287"/>
+        </attvalues>
+      </edge>
+    </edges>
+  </graph>
+</gexf>
+

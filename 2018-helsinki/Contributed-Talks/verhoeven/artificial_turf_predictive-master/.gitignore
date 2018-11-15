@@ -1,0 +1,14 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+*.log
+*.gz
+*.pptx
+*.db
+*.docx
+FITS/
+output/a_sims*
+Stancon/
+bridgesampling/models/*.rds
+bridgesampling/output/*

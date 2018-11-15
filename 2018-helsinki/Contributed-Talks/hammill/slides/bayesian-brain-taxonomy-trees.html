@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Analyzing Brain Taxonomy Trees</title>
+    <meta charset="utf-8">
+    <meta name="author" content="Chris Hammill and Jason Lerch" />
+    <meta name="date" content="2018-08-31" />
+    <link href="libs/remark-css-0.0.1/default.css" rel="stylesheet" />
+    <link href="libs/remark-css-0.0.1/default-fonts.css" rel="stylesheet" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# Analyzing Brain Taxonomy Trees
+### <strong><i>Chris Hammill </i></strong>and Jason Lerch
+### August 31, 2018
+
+---
+
+
+&lt;!-- TODO: 
+  - better explain effect diffusion tree: equations (verbal)
+  - better explain figures
+--&gt;
+
+
+
+
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/allen_fig-1.png)&lt;!-- --&gt;
+
+# Overview
+
+- Use hierarchical modelling in Stan to improve efficiency of
+  brain anatomy studies.
+- Focus on mouse brain, but generalizes naturally to
+  other species (humans) and measures (function).
+
+---
+
+# A hypothetical study
+
+- Want to estimate the effect of a drug on brain development
+- 10 control mice
+- 10 mice receive the drug
+- Localize in space where the treated mouse brains differ from controls
+
+---
+
+# Analysis Pipeline
+
+- Automatically label the regions of the brain
+- Bring brain images into alignment - **registration**
+- Take a labelled brain - **atlas**
+- Propagate labels from the atlas to the images
+- Compute structure volumes
+- Find regions where volumes differ
+
+---
+
+# Traditional Analysis
+
+## Massively Univariate Modelling
+- Fit one linear model per structure
+- Extract t-statistics
+- Compute p-values
+- FDR control
+
+---
+
+# Traditional Analysis
+
+## Massively Univariate Modelling
+- Fit one linear model per structure
+- Extract t-statistics
+- Compute p-values
+- FDR control
+- No pooling
+
+---
+
+# The Mouse Brain
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-2-1.png)&lt;!-- --&gt;
+
+---
+
+# The Mouse Brain Labelled
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-3-1.png)&lt;!-- --&gt;
+
+---
+
+# The Mouse Brain Labelled
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-4-1.png)&lt;!-- --&gt;
+
+- Fit 336 linear models
+
+---
+
+# Downside
+
+- Ignore covariance
+- Unable to borrow strength from similar structures
+- Needs separate analyses for multiple scales
+
+---
+
+# First Improvement: Allow for pooling
+
+- Use brain structure to construct hierarchical model
+- Pool effects of interest across structures
+- `y ~ eff + (eff | structure) + (1 | ID)`
+
+---
+
+# What we gain
+
+- This already has advantages over unpooled models.
+- Structures can borrow strength from each other.
+- Individual level effects can be estimated
+
+---
+
+# What we gain
+
+- This already has advantages over unpooled models.
+- Structures can borrow strength from each other.
+- Individual level effects can be estimated
+
+# Room for improvement
+
+- Pooling is driven only by stucture variance
+- We are ignoring lots we know about the brain
+
+---
+
+# The Mouse Brain Tree
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-5-1.png)&lt;!-- --&gt;
+
+- Hierarchy from histology atlas from the Allen Institute
+
+---
+
+# A tree structured atlas
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-6-1.png)&lt;!-- --&gt;
+
+- Hierarchical MRI atlas
+- Structures organized into the taxonomy shown before
+
+---
+
+# The First Split
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-7-1.png)&lt;!-- --&gt;
+
+---
+#The First Split
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-7-2.png)&lt;!-- --&gt;
+
+---
+#Subdividing the Grey Matter
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-7-3.png)&lt;!-- --&gt;
+
+---
+#Subdividing the Grey Matter
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-7-4.png)&lt;!-- --&gt;
+
+---
+#Subdividing the Grey Matter
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-7-5.png)&lt;!-- --&gt;
+
+---
+#Subdividing the Grey Matter
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-7-6.png)&lt;!-- --&gt;
+
+---
+#Subdividing the Grey Matter
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-7-7.png)&lt;!-- --&gt;
+
+---
+#Subdividing the Grey Matter
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-7-8.png)&lt;!-- --&gt;
+
+---
+#Subdividing the Grey Matter
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-7-9.png)&lt;!-- --&gt;
+
+---
+#Subdividing the Grey Matter
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-7-10.png)&lt;!-- --&gt;
+
+---
+#Subdividing the Cortex
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-7-11.png)&lt;!-- --&gt;
+
+---
+#Subdividing the Cortex
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-7-12.png)&lt;!-- --&gt;
+
+---
+#Subdividing the Cortex
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-7-13.png)&lt;!-- --&gt;
+
+---
+#Subdividing the Cortex
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-7-14.png)&lt;!-- --&gt;
+
+---
+
+# Second Step: Pool by taxonomy
+
+- Use the structure of the taxonomy to guide pooling
+- Two main approaches:
+    1. Pool across depths
+    1. Pool toward immediate parent 
+
+---
+
+# Assess Five Models
+
+- **No pooling**: chunk the data by structure, fit:
+  
+    `y ~ eff` 
+	with `stan_lm` then combine estimates
+
+---
+
+# Assess Five Models
+
+- **No pooling**: chunk the data by structure, fit:
+  
+    `y ~ eff` 
+	with `stan_lm` then combine estimates
+	
+- **Flat model**: pool across all structures, fit:
+  
+    `y ~ eff + (eff | structure) + (1 | ID)` 
+	with `stan_lmer`
+	
+
+---
+class: center
+
+# Flat Model
+
+&lt;code class="remark-inline-code"&gt;&lt;/br&gt;&amp;zwnj;&lt;/code&gt;
+
+&lt;img src="hippocampal_tree.svg" height="400px" /&gt;
+
+---
+class: center
+
+# Flat Model
+
+`y ~ eff + (eff | structure) + (1 | ID)`
+&lt;code class="remark-inline-code"&gt;&lt;/br&gt;&amp;zwnj;&lt;/code&gt;
+
+&lt;img src="hippocampal_tree_first_level.svg" height="400px" /&gt;
+
+---
+
+# Assess Five Models
+
+- **No pooling**: chunk the data by structure, fit:
+  
+    `y ~ eff` 
+	with `stan_lm` then combine estimates
+	
+- **Flat model**: pool across all structures, fit:
+  
+    `y ~ eff + (eff | structure) + (1 | ID)` 
+	with `stan_lmer`
+	
+- **Parental model**: pool across all structures and add a pooled
+  effect of parent, fit:
+  
+    `y ~ eff + (eff | structure) + (eff | parent) + (1 | ID)`
+	
+---
+class: center
+
+# Parental Model
+
+`y ~ eff + (eff | structure) + (eff | parent) + (1 | ID)`
+&lt;code class="remark-inline-code"&gt;&lt;/br&gt;&amp;zwnj;&lt;/code&gt;
+
+&lt;img src="hippocampal_tree_second_level.svg" height="400px" /&gt;
+
+---
+
+# Assess Five Models
+
+- **No pooling**: chunk the data by structure, fit:
+  
+    `y ~ eff` 
+	with `stan_lm` then combine estimates
+	
+- **Flat model**: pool across all structures, fit:
+  
+    `y ~ eff + (eff | structure) + (1 | ID)` 
+	with `stan_lmer`
+	
+- **Parental model**: pool across all structures and add a pooled
+  effect of parent, fit:
+  
+    `y ~ eff + (eff | structure) + (eff | parent) + (1 | ID)`
+	
+- **Grand-parental model**: add an effect for grand-parent, fit:
+
+	`y ~ eff + (eff | structure) + (eff | parent) +` &lt;/br&gt;
+	`     (eff | gparent) + (1 | ID)`
+
+---
+class: center
+
+# Grand Parental Model
+
+`y ~ eff + (eff | structure) + (eff | parent) + (eff | grandparent) + (1 | ID)`
+
+&lt;img src="hippocampal_tree_third_level.svg" height="400px" /&gt;
+---
+
+# Assess Five Models
+
+- **No pooling**: chunk the data by structure, fit:
+  
+    `y ~ eff` 
+	with `stan_lm` then combine estimates
+	
+- **Flat model**: pool across all structures, fit:
+  
+    `y ~ eff + (eff | structure) + (1 | ID)` 
+	with `stan_lmer`
+	
+- **Parental model**: pool across all structures and add a pooled
+  effect of parent, fit:
+  
+    `y ~ eff + (eff | structure) + (eff | parent) + (1 | ID)`
+	
+- **Grand-parental model**: add an effect for grand-parent, fit:
+
+    `y ~ eff + (eff | structure) + (eff | parent) +` &lt;/br&gt;
+	`     (eff | gparent) + (1 | ID)`
+	
+- **Effect Diffusion Tree**: a pooling across branches.	
+
+---
+class: center
+
+# Effect Diffusion Tree
+
+&lt;code class="remark-inline-code"&gt;&lt;/br&gt;&amp;zwnj;&lt;/code&gt;
+
+&lt;img src="hippocampal_tree_hierarchical.svg" height="400px" /&gt;
+
+---
+
+# Effect Diffusion Tree
+
+### Base Model
+
+`$$\large{y_{is} = \boldsymbol{\beta} \mathbf{x}_i^t + \boldsymbol{\beta}_{s} \mathbf{x}_i^t  + r_i + \epsilon_{is}}$$`
+
+---
+
+# Effect Diffusion Tree
+
+### Base Model
+
+`$$\large{y_{is} = \boldsymbol{\beta} \mathbf{x}_i^t + \boldsymbol{\beta}_{s} \mathbf{x}_i^t  + r_i + \epsilon_{is}}$$`
+
+### Non-centered hierarchical effects
+
+`$$\large{\boldsymbol{\beta}_s = \Sigma^{1/2} \boldsymbol{\epsilon}_{s}}$$`
+
+---
+
+# Effect Diffusion Tree
+
+### Base Model
+
+`$$\large{y_{is} = \boldsymbol{\beta} \mathbf{x}_i^t + \boldsymbol{\beta}_{s} \mathbf{x}_i^t  + r_i + \epsilon_{is}}$$`
+
+### Non-centered hierarchical effects
+
+`$$\large{\boldsymbol{\beta}_s = \Sigma^{1/2} \boldsymbol{\epsilon}_{s}}$$`
+
+### Effect diffusion model
+
+`$$\large{\boldsymbol{\beta}_s = \boldsymbol{\beta}_{p_s} + \Sigma^{1/2} \boldsymbol{\epsilon}_{s}}$$`
+
+---
+
+# Simulation Results
+
+- Simulated from two data generating processes
+- When simulating from effect diffusion prior, the effect
+  diffusion model performs better
+- When simulating from a simpler DGP, all hierarchical
+  models perform similarly
+
+---
+
+
+
+# Real Data Results
+
+- Each study collects controls, so we have many replicates of control mice.
+- Can examine each set of controls for sex differences
+- Examined five studies
+    1. AndR - 20 mice
+    1. Foster - 158 mice
+	1. MAR - 45 mice
+	1. Palmert - 40 mice
+	1. SERT_KI - 20 mice
+- Estimates from each study were compared against
+  the average of the other four studies.
+- Assess predictive performance
+- Assess type S error 
+- Assess effect consistency across replicates. 
+
+---
+
+# Compare Loo
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-13-1.png)&lt;!-- --&gt;
+
+---
+
+# Compare Loo
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-14-1.png)&lt;!-- --&gt;
+
+---
+
+# Claims with confidence
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:right;"&gt; No-pooling &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Flat &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Parental &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Grand-parental &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Diffusion Tree &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 126 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 47.8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 122 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 18.8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 68.8 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+- Claims with confidence where 90% credible interval doesn't bound zero
+- No-pooling and parental models make the most claims with confidence
+- Grand-parental model makes very few
+
+---
+
+# Set similarity of claims with confidence
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:right;"&gt; No-pooling &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Flat &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Parental &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Grand-parental &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Diffusion Tree &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 0.341 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.118 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.283 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.524 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.182 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+- Mean pairwise Jaccard similarity of recovered structures
+- The grand-parental model has the highest mean similarity
+- The no-pooling model has high similarity
+- Flat and effect diffusion have the lowest set similarities
+
+---
+
+# Type S errors
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-17-1.png)&lt;!-- --&gt;
+
+---
+
+# Effect Correlation
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-18-1.png)&lt;!-- --&gt;
+
+---
+
+# Effect Correlation
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-19-1.png)&lt;!-- --&gt;
+
+---
+
+# Effect Correlation
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-20-1.png)&lt;!-- --&gt;
+
+---
+
+# Effect Correlation
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-21-1.png)&lt;!-- --&gt;
+
+---
+
+# Effect Correlation
+
+![](bayesian-brain-taxonomy-trees_files/figure-html/unnamed-chunk-22-1.png)&lt;!-- --&gt;
+
+- The grand-parental model had the best agreement between individual
+studies and the average of the others. (I'm suspicious)
+- No-pooling had the most variance
+- The diffusion tree outperformed no-pooling, flat, and parental models.
+
+---
+
+# Next Steps
+
+- Identify the circumstances under which each model is most useful
+- Explore other notions of distance, perhaps using gaussian processes
+- Scale up - move from `\(10^2\)` structures to `\(10^7\)` voxels.
+- Regularize
+- Aggregate
+
+---
+
+# Take Aways
+
+- Region based neuroscience can benefit from hierarchical modelling.
+- All hierarchical models outperform no-pooling
+- We can slightly improve performance when respecting the brains 
+  taxonomic structure
+- It is unclear how exactly to model the taxonomy
+- The effect diffusion performs as well as simpler methods, 
+  but can model more complex trees
+- Lots to be done.
+
+---
+background-image: url("acknowledgements.png")
+background-size: cover
+
+---
+
+# Take Aways
+
+- Region based neuroscience can benefit from hierarchical modelling
+- All hierarchical models outperform no-pooling
+- We can slightly improve performance when respecting the brains 
+  taxonomic structure
+- It is unclear how exactly to model the taxonomy
+- The effect diffusion performs as well as simpler methods, 
+  but can model more complex trees
+- Lots to be done.
+
+# Contact me
+
+- Chris Hammill 
+- twitter: @cfhammill
+- github: @cfhammill
+- website: cfhammill.github.io
+    </textarea>
+<script src="libs/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function() {
+  var d = document, s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})();</script>
+<script type="text/javascript">
+  console.log("wtf");
+  document.
+  querySelectorAll('.remark-slide-number').
+  forEach(x => x.remove());
+</script>
+
+<script>
+(function() {
+  var i, text, code, codes = document.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+})();
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://cdn.bootcss.com/mathjax/2.7.1/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

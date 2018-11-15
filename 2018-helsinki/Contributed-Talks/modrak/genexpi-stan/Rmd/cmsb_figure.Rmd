@@ -1,0 +1,126 @@
+---
+title: "Figure for CMSB paper"
+output: html_notebook
+---
+
+
+```{r setup}
+library(cowplot)
+library(here)
+library(tidyverse)
+devtools::load_all()
+```
+
+```{r}
+time <- seq(0,2,length.out = 100)
+regulator <- sin(time * 4) + 1
+
+params1 <- c(degradation = 0.5, bias = -3, sensitivity = 1, weight = 5, basal_transcription = 0, protein = approxfun(time, regulator, rule=2));
+target1 <-  ode( y = c(x = 0), times = time, func = target_ODE, parms = params1, method = "ode45")[,"x"];
+
+params2 <- c(degradation = 0.5, bias = -6, sensitivity = 1, weight = 10, basal_transcription = 0, protein = approxfun(time, regulator, rule=2));
+target2 <-  ode( y = c(x = 0), times = time, func = target_ODE, parms = params2, method = "ode45")[,"x"];
+
+params3 <- c(degradation = 0.5, bias = -30, sensitivity = 1, weight = 50, basal_transcription = 0, protein = approxfun(time, regulator, rule=2));
+target3 <-  ode( y = c(x = 0), times = time, func = target_ODE, parms = params3, method = "ode45")[,"x"];
+
+params_to_legend <- function(params) {
+  paste0("w = ", params["weight"], ", b = ", params["bias"])
+}
+
+type1 <- "c) Modifying w and b"
+data1 <- data.frame(time = time, regulator = regulator, target1 = target1, target2 = target2, target3 = target3) %>%
+  gather("profile","expression", -time) %>% mutate(type = type1)
+
+measured_data1 = data.frame(time = seq(0,2,length.out = 9), 
+                           expression = c(0.1,0.15,0.6,0.57,0.81,0.78,0.48,0.61,1.1), type = type1)
+
+
+#######################
+
+time <- seq(0,2,length.out = 100)
+regulator <- sin(time * 4) + 1
+
+params1 <- c(degradation = 5, bias = -1, sensitivity = 10, weight = 1, basal_transcription = 0, protein = approxfun(time, regulator, rule=2));
+target1 <-  ode( y = c(x = 1), times = time, func = target_ODE, parms = params1, method = "ode45")[,"x"];
+
+params2 <- c(degradation = 10, bias = -1, sensitivity = 19, weight = 1, basal_transcription = 0, protein = approxfun(time, regulator, rule=2));
+target2 <-  ode( y = c(x = 1), times = time, func = target_ODE, parms = params2, method = "ode45")[,"x"];
+
+params3 <- c(degradation = 100, bias = -1, sensitivity = 180, weight = 1, basal_transcription = 0, protein = approxfun(time, regulator, rule=2));
+target3 <-  ode( y = c(x = 1), times = time, func = target_ODE, parms = params3, method = "ode45")[,"x"];
+
+params_to_legend <- function(params) {
+  paste0("s = ", params["sensitivity"], ", d = ", params["degradation"])
+}
+
+type2 = "d) Modifying s and d"
+measured_data2 = data.frame(time = seq(0,2,length.out = 9), 
+                           expression = c(1,1.7,1.4,0.85, 0.83,0.35,0.7,1.4,1.5), type = type2)
+
+
+data2 <- data.frame(time = time, regulator = regulator, target1 = target1, target2 = target2, target3 = target3) %>%
+  gather("profile","expression", -time) %>% mutate(type = type2)
+
+
+#################
+
+time <- seq(0,2,length.out = 100)
+regulator <- sin(time * 4) + 1
+
+params1 <- c(degradation = 3, bias = -2, sensitivity = 3, weight = 10, basal_transcription = 0, protein = approxfun(time, regulator, rule=2));
+target1 <-  ode( y = c(x = 1.5), times = time, func = target_ODE, parms = params1, method = "ode45")[,"x"];
+
+params2 <- c(degradation = 3.4, bias = 0, sensitivity = 6, weight = 0, basal_transcription = 0, protein = approxfun(time, regulator, rule=2));
+target2 <-  ode( y = c(x = 1.6), times = time, func = target_ODE, parms = params2, method = "ode45")[,"x"];
+
+params3 <- c(degradation = 10, bias = 0, sensitivity = 16, weight = 0, basal_transcription = 0, protein = approxfun(time, regulator, rule=2));
+target3 <-  ode( y = c(x = 2.5), times = time, func = target_ODE, parms = params3, method = "ode45")[,"x"];
+
+
+params_to_legend <- function(params) {
+  paste0("s = ", params["sensitivity"],", w = ", params["weight"], ", b = ", params["bias"], ", d = ", params["degradation"])
+}
+
+type3 = "b) w = 0 vs. w = 5"
+measured_data3 = data.frame(time = seq(0,2,length.out = 9), 
+                           expression = c(1.8,0.9,1,0.66, 1.11,0.6,0.7,0.96,1.03), type = type3)
+
+
+data3 <- data.frame(time = time, regulator = regulator, target1 = target1, target2 = target2, target3 = target3) %>%
+  gather("profile","expression", -time) %>% mutate(type = type3)
+
+############################
+
+time <- seq(0,2,length.out = 100)
+regulator <- c(0.3296698,0.6667181,1.0083617,1.3518170,1.6943005,2.0330289,2.3652186,2.6880862,2.9988482,3.2947213,3.5729219 ,3.8306665,4.0651718,4.2736542,4.4533304,4.6014168,4.7154822,4.7961600,4.8456619,4.8662125,4.8600365,4.8293585 ,4.7764032,4.7033952,4.6125592,4.5061198,4.3863016,4.2553294,4.1154277,3.9688212,3.8177346,3.6643924,3.5110195 ,3.3598403,3.2130795,3.0725728,2.9385992,2.8110488,2.6898117,2.5747779,2.4658374,2.3628803,2.2657967,2.1744767 ,2.0888102,2.0086873,1.9339981,1.8646326,1.8004810,1.7414331,1.6873792,1.6382092,1.5938132,1.5540812,1.5189034 ,1.4881697,1.4617702,1.4395950,1.4215341,1.4074776,1.3973155,1.3909378,1.3882347,1.3890962,1.3934123,1.4010732 ,1.4119687,1.4259843,1.4428964,1.4623727,1.4840759,1.5076691,1.5328149,1.5591763,1.5864163,1.6141975,1.6421830 ,1.6700355,1.6974179,1.7239932,1.7494242,1.7733737,1.7955046,1.8154798,1.8329622,1.8476146,1.8590998,1.8670809 ,1.8712205,1.8711817,1.8666272,1.8572200,1.8426229,1.8224987,1.7965104,1.7643208,1.7255927,1.6799891,1.6271729 ,1.5668068) * 0.5
+
+params1 <- c(degradation = 10, bias = -8, sensitivity = 15, weight = 10, basal_transcription = 0, protein = approxfun(time, regulator, rule=2));
+target1 <-  ode( y = c(x = 0), times = time, func = target_ODE, parms = params1, method = "ode45")[,"x"];
+
+params2 <- c(degradation = 1, bias = 3, sensitivity = 100, weight = -10, basal_transcription = 0, protein = approxfun(time, regulator, rule=2));
+target2 <-  ode( y = c(x = 0), times = time, func = target_ODE, parms = params2, method = "ode45")[,"x"];
+
+
+
+
+type4 = "a) w = -10 vs. w = +10"
+measured_data4 = data.frame(time = seq(0,2,length.out = 9), 
+                           expression = c(0.05,1.62,1.44,0.83, 0.96,1.01,0.72,1.07,0.65), type = type4)
+
+
+data4 <- data.frame(time = time, regulator = regulator, target1 = target1, target2 = target2) %>%
+  gather("profile","expression", -time) %>% mutate(type = type4) 
+
+plot <- rbind(data1,data2,data3,data4) %>%
+  ggplot(aes(x = time, y = expression, color = profile, linetype = profile)) + geom_line() + 
+  geom_point(data = rbind(measured_data1, measured_data2, measured_data3, measured_data4), aes(x=time, y = expression), inherit.aes = FALSE, color = "#ba1b1d", size = 3) +
+  facet_wrap(~type) +
+  guides(color = FALSE, linetype = FALSE) +
+  theme(strip.background = element_rect(fill = FALSE)) 
+
+plot
+
+ggsave("non_ident.eps", plot)
+```
+

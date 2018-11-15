@@ -1,0 +1,152 @@
+---
+title: "Compare Skellam model versus t-distribution model using bridgesampling"
+author: "Gertjan S Verhoeven (gertjan.verhoeven@gmail.com)"
+date: '`r format(Sys.time(), "%d %B, %Y")`'
+output:
+  pdf_document:
+fontsize: 11pt
+---
+
+# Summary
+
+Read in data, prep for stan, fit model with cnsts, run the bridge_sampling.
+
+(Todo: Ctry to leave out mu.)
+
+# Load packages
+
+```{r}
+rm(list = ls())
+library(bridgesampling)
+library(rstan)
+library(data.table)
+source("prep.R")
+
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+```
+
+# prep model_data for fitting
+
+
+```{r}
+model_data <- Create_model_data_for_TS2(NL_ALL[season == 17], 
+                                        NL_ALL[season == 16], 
+                                        NL_ALL[season == 17][1:2,])
+```
+
+
+# fit T-dist model
+
+```{r}
+fullrun <- 0
+
+if(fullrun) {
+  sm <- stan_model( "models/epl_model_retain_cnst.stan")
+
+  stanfit_tdist <- sampling(
+    sm,  
+    data = model_data,   
+    chains = 2,
+    warmup = 200, # number of Markov chain
+    iter = 2000,            # total number of iterations per chain
+    control = list(max_treedepth = 15,
+    adapt_delta = 0.99)
+  )
+  stanmodel_tdist <- stanfit_tdist
+  dir.create("output")
+  saveRDS(stanfit_tdist, "output/stanfit_tdist.rds")
+} else{ 
+    stanfit_tdist <- readRDS("output/stanfit_tdist.rds");
+    # trick to allow bridgesampler() to evaluate the saved samples
+    sm <- stan_model( "models/epl_model_retain_cnst.stan")
+    stanmodel_tdist <- sampling(
+      sm,  
+      data = model_data,   
+      chains = 0)
+}
+
+```
+
+```{r}
+print(stanfit_tdist, pars = c("b_home", "b_prev",  "nu", "sigma_y"))
+```
+
+# fit Skellam model
+
+```{r}
+fullrun <- 0
+
+if(fullrun) {
+  sm <- stan_model( "models/skellam_dynamic_no_zif_retain_cnst.stan")
+  set.seed(123)
+  stanfit_skellam <- sampling(
+    sm,  
+    data = model_data,   
+    chains = 2,
+    init_r = 0.1,
+    warmup = 200, # number of Markov chain
+    iter = 400,            # total number of iterations per chain
+    control = list(max_treedepth = 15,
+    adapt_delta = 0.99)
+  )
+  stanmodel_skellam <- stanfit_skellam
+  dir.create("output")
+  saveRDS(stanfit_skellam, "output/stanfit_skellam.rds")
+} else { 
+    stanfit_skellam <- readRDS("output/stanfit_skellam.rds")
+    # trick to allow bridgesampler() to evaluate the saved samples
+    sm <- stan_model( "models/skellam_dynamic_no_zif_retain_cnst.stan")
+    stanmodel_skellam <- sampling(
+      sm,  
+      data = model_data,   
+      chains = 0)
+}
+```
+
+```{r}
+print(stanfit_skellam, c("constant_mu", 
+                         "home_advantage", 
+                         "b_prev_offense", "b_prev_defense"))
+```
+
+# compute (log) marginal likelihoods
+
+```{r}
+set.seed(2)
+bridge_tdist <- bridge_sampler(samples = stanfit_tdist, 
+                               stanfit_model = stanmodel_tdist, silent = T)
+bridge_tdist
+```
+
+```{r}
+set.seed(2)
+bridge_skellam <- bridge_sampler(stanfit_skellam, 
+                                 stanfit_model = stanmodel_skellam,
+                                 method = "normal",
+                                 silent = T)
+bridge_skellam
+```
+
+# Compute approximate percentage errors
+
+```{r}
+error_measures(bridge_tdist)$percentage
+
+error_measures(bridge_skellam)$percentage
+```
+
+# compute Bayes factor
+
+```{r}
+bf(bridge_tdist, bridge_skellam)
+```
+
+
+# Calculated posterior model probabilities given equal prior probability
+
+```{r}
+post1 <- post_prob(bridge_tdist, bridge_skellam)
+print(post1)
+```
+

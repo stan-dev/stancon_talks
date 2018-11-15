@@ -1,0 +1,350 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r setup}
+library(rstan)
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+library(tidyverse)
+library(loo)
+library(MVN)
+library(bayesplot)
+library(here)
+devtools::load_all()
+```
+
+
+# Load the sigB data from GSE6865
+
+The original source of data: (https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE6865)
+
+```{r}
+#Try to download the data, if it was not already present on the computer
+
+data_dir <- here("local_data")
+if(! dir.exists(data_dir)) {
+  dir.create(data_dir)
+}
+data_file <- here("local_data","GSE6865_series_matrix.txt.gz")
+if(!file.exists(data_file)) {
+  download.file("ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE6nnn/GSE6865/matrix/GSE6865_series_matrix.txt.gz", data_file)
+}
+
+# Read and preprocess the data
+gse6865_raw_df = read.delim(gzfile(data_file), comment.char = "!") #Intermediate data frame representation
+
+# Raw profile data. We scale by 1000 to get to more wieldy values
+gse6865_raw = as.matrix(gse6865_raw_df[,2:15]) / 1000
+rownames(gse6865_raw) = gse6865_raw_df$ID_REF
+
+#Times (in minutes) for the individual samples
+gse6865_raw_time = c(0,5,10,15,20,25,30,40,50,60,70,80,90,100)
+colnames(gse6865_raw) <- sapply(gse6865_raw_time,  FUN = function(x) { paste0(x,"min")})
+
+# For the first measurement, we can expect the value to be 0 (the series are from germination)
+gse6865_raw[is.na(gse6865_raw[,1]),1] = 0
+
+# For the second measurement we will go with a linear interpolation
+na2 = is.na(gse6865_raw[,2])
+gse6865_raw[na2,2] = 0.5 * gse6865_raw[na2,1] + 0.5 * gse6865_raw[na2,3]
+
+#cleanup the intermediate results
+rm(gse6865_raw_df)
+rm(na2)
+rm(data_file)
+
+```
+```{r}
+measurement_times = floor(gse6865_raw_time / 2) + 1
+smooth_time  <- seq(0,100, by = 2)
+expression_data <- gse6865_raw
+
+spline_df <- 6
+spline_basis <- bs(smooth_time, degree = 3, df = spline_df)
+sigB_spline_params <- spline_params(
+  spline_basis = spline_basis,
+  scale = 5
+)
+
+sigB_params_prior <-  params_prior(
+  initial_condition_prior_sigma = 2,
+  asymptotic_normalized_state_prior_sigma = 0.5,
+  degradation_prior_mean = -2,
+  degradation_prior_sigma = 1,
+  mean_regulatory_input_prior_sigma = 5,
+  sd_regulatory_input_prior_sigma =5,
+  intercept_prior_sigma = 2
+)
+
+```
+
+
+#Regulated model
+```{r}
+regulated_model <- stan_model(file = here('stan','regulated.stan'))
+```
+
+#Estimate sigma with splines
+```{r, eval=FALSE}
+
+sources <- c("sigA","sigB", sample(rownames(expression_data), 5))
+
+data_sigma_estimate <- regulated_model_params(
+  measurement_times = measurement_times,
+  regulator_expression = t(expression_data[sources,]),
+  measurement_sigma = measurement_sigma_prior(
+      sigma_absolute_prior_mean = 0,
+      sigma_relative_prior_mean = 0,
+      sigma_absolute_prior_sigma = 0.1,
+      sigma_relative_prior_sigma = 0.2
+  ),
+  params_prior = sigB_params_prior,
+  spline_params = sigB_spline_params
+)
+
+fit_sigma_estimate <- sampling(regulated_model, data = data_sigma_estimate, control = list(adapt_delta = 0.95))
+
+summary(fit_sigma_estimate, pars = c("sigma_relative_param","sigma_absolute_param"))$summary
+
+for(s in 1:length(sources)) {
+  print(fitted_regulator_plot(fit_sigma_estimate, data_sigma_estimate, s))
+}
+```
+
+
+#With known regulator
+
+##Show splining if no target info was used
+```{r}
+#source <- "sigA"
+source <- "sigB"
+targets <- c()
+
+data <- regulated_model_params(
+  measurement_times = measurement_times,
+  regulator_expression = expression_data[source,],
+  # measurement_sigma = measurement_sigma_prior(
+  #     sigma_absolute_prior_mean = 0,
+  #     sigma_relative_prior_mean = 0,
+  #     sigma_absolute_prior_sigma = 0.1,
+  #     sigma_relative_prior_sigma = 0.2
+  # ),
+  measurement_sigma = measurement_sigma_given(0.1,0.2),
+  spline_params = sigB_spline_params,
+  params_prior = sigB_params_prior
+)
+
+
+fit <- sampling(regulated_model, data = data, control = list(adapt_delta = 0.95))
+print(summary(fit, pars = c("coeffs", "intercept","initial_condition","sensitivity","degradation","w","b"))$summary)
+
+fitted_regulator_plot(fit, data)
+```
+
+# Improved splining where target info is use
+
+```{r}
+sigBregulon = c("aag", "aldY", "bmr", "bmrR", "bmrU", "bofC", "cdd", "chaA", "clpC", "clpP", "corA", "csbA", "csbB", "csbC", "csbD", "csbX", "ctc", "ctsR", "cypC", "disA", "dps", "era", "gabD", "gsiB", "gspA", "gtaB", "guaD", "hpf", "iolW", "ispD", "ispF", "katE", "katX", "mcsA", "mcsB", "mgsR", "mhqO", "mhqP", "nadE", "nhaX", "ohrB", "opuE", "phoP", "phoR", "plsC", "radA", "rnr", "rpmEB", "rsbRD", "rsbV", "rsbW", "rsbX",  "sodA", "spo0E", "spoVC", "spx", "trxA", "yaaH", "yaaI", "yacL", "ybyB", "ycbP", "ycdF", "ycdG", "yceC", "yceD", "yceE", "yceF", "yceG", "yceH", "ydaD", "ydaE", "ydaF", "ydaG", "ydaJ", "ydaK", "ydaL", "ydaM", "ydaN", "ydaP", "ydaS", "ydaT", "ydbD", "ydeC", "ydhK", "yerD", "yfhD", "yfhE", "yfhF", "yfhK", "yfhL", "yfhM", "yfkD", "yfkH", "yfkI", "yfkJ", "yfkM", "yfkS", "yfkT", "yflA", "yflH", "yflT", "ygxB", "yhcM", "yhdF", "yhdN", "yhxD", "yitT", "yjbC", "yjgB", "yjgC", "yjgD", "yjzE", "ykgA", "ykgB", "ykuT", "ykzI", "ylxP", "ymzB", "yoaA", "yocB", "yocK", "yoxB", "yoxC", "ypuB", "ypuC", "ypuD", "yqhB", "yqhP", "yqhQ", "yqjL", "yraA", "ysdB", "ysnF", "ytaB", "ytkL", "ytxG", "ytxH", "ytxJ", "yugU", "yuzA", "yvaK", "yvgN", "yvgO", "yvrE", "ywiE", "ywjC", "ywlB", "ywmE", "ywmF", "ywsB", "ywtG", "ywzA", "yxaB", "yxbG", "yxiS", "yxjI", "yxjJ", "yxkO", "yxnA", "yxzF", "yycD", "yczO", "ydaC", "yebE", "yebG", "yflD", "yflB", "yisP", "ipi", "yjlB", "ykzN", "spo0E", "yktC", "ykzC", "rbfA", "ytkC", "ytiB", "menC", "menE", "yuzH", "yvbG", "yvzE", "ywsA", "ywjA", "yydC", "yyzG", "yyzH", "yybO")
+
+plot_profiles <- function(expression_data, targets) {
+  expression_data[targets,,drop = FALSE] %>% as.data.frame() %>% 
+    rownames_to_column("gene") %>% 
+    gather("time","expression",-gene) %>%
+    mutate(time = as.integer(gsub("min","",time, fixed = TRUE))) %>%
+    ggplot(aes(x = time, y = expression, color = gene, linetype = gene)) + geom_line()
+}
+
+set.seed(1345477965)
+targets_learn <- sample(sigBregulon, 3)
+plot_profiles(expression_data, targets_learn)
+```
+
+
+```{r}
+#source <- "sigA"
+source <- "sigB"
+targets <- targets_learn
+#targets <- c("codY","clpQ","yqxD")
+
+
+data_source <- regulated_model_params(
+  measurement_times = measurement_times,
+  target_expression = t(expression_data[targets,]),
+  regulator_expression = expression_data[source,],
+  # measurement_sigma = measurement_sigma_prior(
+  #     sigma_absolute_prior_mean = 0,
+  #     sigma_relative_prior_mean = 0,
+  #     sigma_absolute_prior_sigma = 0.1,
+  #     sigma_relative_prior_sigma = 0.2
+  # ),
+  measurement_sigma = measurement_sigma_given(0.1,0.1),
+  spline_params = sigB_spline_params,
+  params_prior = sigB_params_prior,
+  regulation_signs = matrix(1, 1, length(targets))
+)
+
+fit_source <- sampling(regulated_model, data = data_source, control = list(adapt_delta = 0.95))
+
+#print(summary(fit_source, pars = c("sensitivity","degradation","w","b","sigma_absolute_param","sigma_relative_param"))$summary)
+
+num_samples <- 100
+main_geom <- geom_line(alpha = 0.2)
+total_samples <- length(rstan::extract(fit_source,"sigma_relative")$sigma_relative)
+samples_to_show <-  sample(1:total_samples, num_samples)
+samples_regulator <- rstan::extract(fit_source,"predicted_regulator_expression")$predicted_regulator_expression[samples_to_show,,1]
+
+regulator_plot <- ggmatplot(1:data_source$num_time, t(samples_regulator), main_geom = main_geom) + ggtitle(paste0("Regulator - ", source))
+
+if(data_source$regulators_measured != 0) {
+  regulator_plot <- regulator_plot + geom_point(data = data.frame(x = data_source$measurement_times,  y = data_source$regulator_expression), aes(x=x, y=y), inherit.aes = FALSE, color = "#ba1b1d", size = 3)
+}
+print(regulator_plot)
+ 
+samples_expression_replicates <- rstan::extract(fit_source,"expression_replicates")$expression_replicates[samples_to_show,,,drop=FALSE]
+for(target in 1:length(targets)) {
+
+  
+  print(ggmatplot(data_source$measurement_times, t(samples_expression_replicates[,,target]), main_geom = main_geom, x_title = "time", y_title = "expression") +
+    geom_point(data = data.frame(x = data_source$measurement_times,  y = data_source$expression[,target]), aes(x=x, y=y), inherit.aes = FALSE, color = "#ba1b1d", size = 3) + ggtitle(paste0("Replicates - ", targets[target])))
+  
+}
+```
+
+
+##Checking whether resulting coeffs are approximately multivariate normal
+
+```{r}
+pairs(fit_source, pars = "coeffs")
+samples_coeffs <- rstan::extract(fit_source,"coeffs")$coeffs[,,1]
+mvn(samples_coeffs, mvnTest = "mardia", multivariatePlot = "qq")
+
+```
+We see there are some deviations from normality. In particular it seems the posterior has heavier tails than normal. Let's see what happens when we try to fit multivariete normal anyway. 
+
+```{r}
+coeffs_prior_cov <- cov(samples_coeffs)
+chol_cov <- chol(coeffs_prior_cov)
+coeffs_prior_mean <- colMeans(samples_coeffs)
+
+means_array <- t(array(
+  rep(coeffs_prior_mean,dim(samples_coeffs)[1]),c(dim(samples_coeffs)[2],dim(samples_coeffs)[1])))
+
+samples_coeffs_mvn <- array(rnorm(dim(samples_coeffs)[1] * dim(samples_coeffs)[2], 0, 1), dim(samples_coeffs)) %*% chol_cov +  means_array
+
+measured_geom <- geom_point(data = data.frame(x = data_source$measurement_times,  y = data_source$regulator_expression), aes(x=x, y=y), inherit.aes = FALSE, color = "#ba1b1d", size = 3)
+
+num_samples = 100
+samples_to_show <- sample(1:nrow(samples_coeffs_mvn),num_samples)
+spline_samples <- t(samples_coeffs_mvn[samples_to_show,] %*% t(data_source$spline_basis) ) * data_source$scale
+ggmatplot(1:data_source$num_time, spline_samples, main_geom = main_geom) + ggtitle("Regulator - MVN") + measured_geom
+
+spline_samples_orig <- t(samples_coeffs[samples_to_show,] %*% t(data_source$spline_basis) ) * data_source$scale
+ggmatplot(1:data_source$num_time, spline_samples_orig, main_geom = main_geom) + ggtitle("Regulator - Orig") + measured_geom
+
+
+```
+
+
+#Using the fitted normal to check regulations of other genes
+
+```{r}
+#set.seed(132468714)
+#targets <- sample(rownames(expression_data[])[rowMeans(expression_data) > 1])
+```
+
+
+
+```{r}
+#targets <- c("yfkJ")
+#targets <- c("yqxD","yfkJ","pyrB","purT")
+#targets <- c("yqxD")
+#targets <- c("jag","kinC","kinE","lepA")
+#targets <- c("codV", "yhdL", "kinE","purT")
+#tagG, rplD, ptsG, ahpC, glmS, yurV
+targets <- sigBregulon[!(sigBregulon %in% targets_learn) & (sigBregulon %in% rownames(expression_data))]
+
+data_target <- list()
+for(t in 1:length(targets)) {
+
+ data_target[[t]] <- regulated_model_params(
+    measurement_times = measurement_times,
+    target_expression = expression_data[targets[t],],
+    #regulator_expression = expression_data[source,],
+    coeffs_prior = coeffs_prior_from_fit(fit_source, covariance_scale = 1),
+    # measurement_sigma = measurement_sigma_prior(
+    #     sigma_absolute_prior_mean = 0,
+    #     sigma_relative_prior_mean = 0,
+    #     sigma_absolute_prior_sigma = 0.1,
+    #     sigma_relative_prior_sigma = 0.2
+    # ),
+    measurement_sigma = measurement_sigma_given(0.2,0.05),
+    spline_params = sigB_spline_params,
+    params_prior = sigB_params_prior,
+    regulation_signs = matrix(1, 1, 1)
+  )
+ 
+}
+
+results_target <- fit_regulated_multi(data_target, output.dir = here("out","test_target"))
+
+saveRDS(results_target, "results_links.rds")
+
+# fits_target <- list()
+#    
+# for(t in 1:length(targets)) {
+#   fits_target[[t]] <- sampling_multi_read_fit(results_target, t)
+#   #print(fitted_regulator_plot(fits_target[[t]], data_target[[t]])) 
+#   print(fitted_target_plot(fits_target[[t]],data_target[[t]], name = targets[t]))
+#   print(fitted_target_observed_plot(fits_target[[t]],data_target[[t]], name = targets[t]))
+# }
+
+```
+
+
+TODO: zkorelovat WAIC vs. sum sq.
+
+```{r}
+waic_target <- get_waic_regulated_multi(results_target)
+
+```
+
+##Comparing to constant synthesis
+```{r}
+csynth_model <- stan_model(file = here('stan','constant_synthesis.stan'))
+```
+
+```{r}
+data_csynth <- list()
+for(t in 1:length(targets)) {
+  data_csynth[[t]] <- 
+    csynth_model_params(
+      measurement_times = measurement_times,
+      target_expression = expression_data[targets[t],],
+      measurement_sigma = measurement_sigma_given(0.2,0.05),
+      params_prior = sigB_params_prior
+    )
+}
+results_csynth <- fit_csynth_multi(data_csynth, here("out","csynth"))
+```
+```{r}
+
+looic <- array(-1,length(targets))
+waic <- array(-1,length(targets))
+for(t in 1:length(targets)) {
+  if(t > length(fits_csynth) || is.null(fits_csynth[[t]])) {
+    next
+  }
+
+  samples_log_lik <- rstan::extract(fits_csynth[[t]], "log_likelihood")$log_likelihood
+  lik_data <- samples_log_lik
+  loo_res <- loo(lik_data)
+  looic[t] <- loo_res$looic
+  waic[t] <- waic(lik_data)$waic
+}
+o <- order(looic)
+data.frame(order = (1:length(targets))[o],gene = targets[o], waic = waic[o], looic = looic[o]) %>% filter(waic >= 0)
+
+```

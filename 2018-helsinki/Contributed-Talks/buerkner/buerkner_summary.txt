@@ -1,0 +1,5 @@
+brms is an R package based on Stan which allows to fit Bayesian multilevel models.
+Although it natively supports a large range of response distributions, users may still want
+to define their own distributions for use in brms. In this case study, I explain
+the process of defining and applying such custom response distributions by means of 
+two real world examples.

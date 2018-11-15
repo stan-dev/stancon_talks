@@ -1,0 +1,711 @@
+---
+title: "Check fit diagnostics, analyse results"
+author: "GS Verhoeven"
+output:
+  pdf_document:
+    includes: 
+      in_header: preamble.tex
+    keep_tex: no  
+  toc: true
+toc_depth: 3
+---
+
+```{r setup, include=FALSE} 
+rm(list=ls())
+knitr::opts_chunk$set(cache=FALSE) 
+```
+
+# Summary
+
+This Notebook contains the following analyses:
+
+* MCMC diagnostics
+    * screening for high Rhat's / low effective sample sizes.
+    * MCMC error and run consistency
+* Dot plots of fitted model parameters with credible (HPDI) intervals
+* Analysis of the DM-statistic
+* Bookmaker odds
+    * Predictive quality (using RPS) over time
+    * Longshot bias: Model calibration for low probability events
+* Model checking (comparing average RPS between models by various strata, including over time)
+* Appendix: Ranked probability score
+
+# Load packages
+
+```{r, results='hide', message=FALSE, warning=FALSE}
+library(data.table)
+library(ggplot2)
+library(rstan)
+library(cowplot)
+
+rstan_options(auto_write = TRUE)
+options(mc.cores = parallel::detectCores())
+```
+
+```{r}
+source("code/rankProbScore.R")
+source("code/ppc_coverage_plot.R")
+source("code/MakeTimeSeriesPlot.R")
+source("code/Create_model_data_for_TS2.R")
+source("code/addTeamIds.R")
+source("code/create_league_table.R")
+source("code/MakeEPLPlotAbility.R")
+source("code/games_predicted_vs_actual_intervals.R")
+source("code/ppc_coverage_plot.R")
+source("code/calc_rps_scores.R")
+source("code/odds_to_probability.R")
+source("code/ReadfitsandCalculateRPS.R")
+source("code/FitOneStepAhead.R")
+source("code/ReadfitsandExtractCoefs.R")
+
+```
+
+```{r load_data, results = 'hide', message = FALSE}
+NL_ALL <- readRDS("data/NL Eredivisie 2000-2018.rds")
+
+# set 2017/2018 season apart
+NL_17 <- NL_ALL[Date > as.Date("2017-07-01")]
+
+NL_ALL <- NL_ALL[Date < as.Date("2017-07-01")]
+setkey(NL_ALL, Date)
+
+# add round and season
+nrounds <- nrow(NL_ALL)/9
+nseasons <- nrow(NL_ALL)/(9*34)
+NL_ALL <- NL_ALL[, round := rep(1:nrounds, each = 9)]
+NL_ALL <- NL_ALL[, season := rep(1:nseasons, each = 34*9)]
+
+# prep 2017/2018 separately
+setkey(NL_17, Date)
+nrounds <- ceiling(nrow(NL_17)/9)
+start_nr_round <- max(NL_ALL$round)+1
+
+round_vec <- rep(start_nr_round:(start_nr_round + nrounds), each = 9)
+NL_17 <- NL_17[, round := round_vec[1:nrow(NL_17)]]
+NL_17 <- NL_17[, season := 18]
+
+# add to NL_ALL
+NL_ALL <- rbind(NL_ALL, NL_17)
+
+setkey(NL_ALL, Date)
+
+NL_ALL <- NL_ALL[, row_id := 1:nrow(NL_ALL)]
+```
+
+```{r echo = FALSE}
+result_by_model <- readRDS("output/20180828 average RPS by model.rds")
+tidy_coef_res <- readRDS("output/20180828 tidy_coef_res.RDS")
+
+tidy_rhat_neff_res <- readRDS("output/20180828 tidy_rhat_neff_res.rds")
+
+# rename variable for plotting
+tidy_coef_res <- tidy_coef_res[L1 == "b_home", L1 := "home_advantage"]
+
+NL_ALL_PRED <- readRDS("Output/20180828 NL_ALL_PRED_w_odds.rds")
+```
+
+```{r}
+# model checking
+# res <- readRDS("output/res_match_type.rds")
+# res_upper_lower <- readRDS("output/res_upper_lower.RDS")
+# res_upper_lower <- res_upper_lower[, ul_type_name := "Upper / Upper"]
+# res_upper_lower <- res_upper_lower[upper_lower_type == 1, ul_type_name := "Upper / Lower"]
+# res_upper_lower <- res_upper_lower[upper_lower_type == 0, ul_type_name := "Lower / Lower"]
+# 
+# res_upper_lower_at <- readRDS("output/res_upper_lower_at.RDS")
+# res_time <- readRDS("output/res_time.RDS")
+```
+
+
+# MCMC Diagnostics
+
+## Analyse rhat values
+
+We screen all model fits for low n_eff of high Rhat values.
+Each model has about 150.000 to 300.000 parameters sampled in total.
+
+```{r}
+# # check n_eff for T-dist and skellam base models.
+# fit <- readRDS("c:/testversleutel/FITS/fitX_0.rds")
+# #print(fit, pars = c("a"))
+# fit <- readRDS("c:/testversleutel/FITS/fit_sd_0.rds")
+# options(max.print=1000000)
+#print(fit)
+# Check Rhat
+#tidy_rhat_neff_res[, .(mean(Rhat), sd(Rhat)), .(varnames)][order(-V1)][1:10]
+
+table(tidy_rhat_neff_res$Rhat > 1.07)
+table(tidy_rhat_neff_res$Rhat < 1.04 & tidy_rhat_neff_res$Rhat > 1.02)
+table(tidy_rhat_neff_res$Rhat < 0.99)
+#tidy_rhat_neff_res[, .(sum((ifelse(Rhat > 1.01, 1, 0)))), .(model_nr, shift_nr)][order(-V1)]
+tidy_rhat_neff_res[!(varnames %in%  c("sigma_a0", "tau_a")) & Rhat > 1.02, .(model_nr, shift_nr, varnames)]
+
+tidy_rhat_neff_res[(varnames %in%  c("sigma_a0", "tau_a")) & Rhat > 1.02, .N,]
+# model 6, shift 55 might have some problems. This is the model without home advantage.
+
+```
+
+## Analyse N_eff values
+
+```{r}
+N_total <- 3000
+tidy_rhat_neff_res <- tidy_rhat_neff_res[, neff_ratio := n_eff/N_total]
+
+tidy_rhat_neff_res[neff_ratio < 0.1 , .N, .(varnames, model_nr)]
+tidy_rhat_neff_res[neff_ratio < 0.1 , .N,]
+
+tidy_rhat_neff_res[neff_ratio < 0.1 & Rhat >= 1.02,]
+tidy_rhat_neff_res[neff_ratio < 0.1 & Rhat < 1.02,]
+```
+
+```{r}
+tidy_rhat_neff_res[, .(min = min(n_eff), mean(n_eff), sd(n_eff)), .(model_nr, varnames, name)][order(min)][1:20]
+tidy_rhat_neff_res[varnames != "sigma_a0", .(min = min(n_eff), mean(n_eff), sd(n_eff)), .(model_nr, varnames, name)][order(min)][1:20]
+
+#summary(tidy_rhat_neff_res[varnames == "tau_a" & model_nr == 10, ]$n_eff)
+```
+The parameters with the lowest n_eff are the sigma_a0, that we use to initialize the time series.
+And tau, the hyper prior for the hierarchical model.
+
+## MCMC error and run consistency
+
+To check MCMC error / consistency of MCMC runs, we ran for two models the whole forecasting procedure (including fitting all out of sample weeks) twice and compared our main quantity of interest, the RPS score per match.
+
+```{r}
+# check correlation between runs
+rps_tdist <- NL_ALL_PRED[model_nr %in% c(1, 9) & has_pred == 1,.(matchKey, round, rps_vec, model_nr)]
+rps_tdist_cast <- dcast(rps_tdist, matchKey + round ~ model_nr, value.var = "rps_vec")
+cor(rps_tdist_cast[,"1", with = F], rps_tdist_cast[,"9", with = F])
+# 0.998
+
+# check correlation between runs
+rps_tdist <- NL_ALL_PRED[model_nr %in% c(2, 8) & has_pred == 1,.(matchKey, round, rps_vec, model_nr)]
+rps_tdist_cast <- dcast(rps_tdist, matchKey + round ~ model_nr, value.var = "rps_vec")
+cor(rps_tdist_cast[,"2", with = F], rps_tdist_cast[,"8", with = F])
+# 0.998
+```
+
+We judge that the correlation is sufficiently high for our purposes.
+
+# Panel plot of in-sample coefficients using four seasons of data
+
+## T-distibution models
+
+Plot all coefs for all models in one big panel plot.
+Do this for the final model (ie.. shift_nr = 67)
+
+```{r, message= FALSE, warning = FALSE}
+ggplot(tidy_coef_res[shift_nr == 67 & !(model_nr %in% c(8,9)) & dist == "T-dist",] , aes(x=L1, y = Q50))  +
+  geom_linerange(aes(ymin = Q5, ymax = Q95)) + 
+  geom_line() + geom_point() + facet_wrap(~ name) + coord_flip() + 
+  geom_hline(yintercept = 0) + ggtitle("90% credible intervals") + ylab("Parameter value") + xlab("Parameter name")
+```
+
+## Skellam models
+
+Plot all coefs for all models in one big panel plot.
+Do this for the final model (ie.. shift_nr = 67)
+
+```{r, message= FALSE, warning = FALSE}
+ggplot(tidy_coef_res[shift_nr == 67 & !(model_nr %in% c(8,9)) & dist == "Skellam",] , aes(x=L1, y = Q50))  +
+  geom_linerange(aes(ymin = Q5, ymax = Q95)) + 
+  geom_line() + geom_point() + facet_wrap(~ name) + coord_flip() + 
+  geom_hline(yintercept = 0) + ggtitle("90% credible intervals") + ylab("Parameter value") + xlab("Parameter name")
+```
+
+# DM-like test for differences in predictions
+
+Can we perform statistical testing to compare the RPS values from two models?
+(Constantinou et al plot the cumulative RPS difference.)
+Use the best bookmaker odds as reference.
+
+```{r}
+knitr::kable(result_by_model[!(model_nr %in% c(8,9)), .(model_nr, name, DMstat_12, DMpval_12)][order(DMstat_12)])
+
+```
+
+So it appears that for both the partial pooling and the regular home advantage we have sufficient statistical power to conclude that those models perform worse in OOS predictions. As well as the equal probability reference predictions.
+
+The other models can not reliably be distinguished based on 608 match predictions.
+
+# Analyse Bookmaker odds over time 2000-2017
+
+Check year to year variability in the average RPS of William Hill.
+Apparently sometimes there are no odds for a match.
+
+```{r}
+arps_season <-c()
+for(i in 1:17){
+  WH_probs <- odds_to_probability(NL_ALL[season %in% c(i), .(WHH, WHD, WHA)])
+  actual_scorez <- Convert_actual_to_win_draw_loss_vector(NL_ALL[season %in% c(i),]$goal_difference)
+  # select non-NA records
+  selection <- !is.na(WH_probs$prob_win)
+  arps_season[i] <- calculate_arps(WH_probs[selection,.( prob_win, prob_draw, prob_loss)], actual_scorez[selection,.(act_win, act_draw, act_loss)])
+}
+
+ggplot(data.frame(year = 2000:2016, arps = arps_season), aes(x= year, y = arps)) +
+  geom_point() + ylim(0, 0.25) + geom_line() + ggtitle("William-Hill outcome probabilities")
+```
+
+We conclude that there is a large variability from season to season ranging between 0.17 and 0.2.
+
+# Calculate Bookmaker benchmark for Lit et al study
+
+Check what the Bookmaker average RPS benchmark is, ** exactly **, for the Lit study. They use the period 2009/2010 to 2015/2016, i.e. the average of seven seasons as out-of-sample.
+By comparing this with the performance of their best models, we can learn if they "beat the bookies".
+
+```{r}
+# calculate aprs bookmakers for oos period Lit: 
+WH_probs <- odds_to_probability(NL_ALL[season %in% c(10:16), .(WHH, WHD, WHA)])
+actual_scorez <- Convert_actual_to_win_draw_loss_vector(NL_ALL[season %in% c(10:16),]$goal_difference)
+# select non-NA records
+selection <- !is.na(WH_probs$prob_win)
+print(calculate_arps(WH_probs[selection,.( prob_win, prob_draw, prob_loss)], actual_scorez[selection,.(act_win, act_draw, act_loss)]))
+```
+So Lit et al also do not "beat the bookies" with their best dynamic models (0.193) for the NL Eredivisie.
+
+# analyse long shot bias
+
+There is some literature on "long shot bias" in bookmakers odds, where models could outperform the bookmakers for low-probability events, where the bettors would overvalue low-probability events.
+We interpret this as checking calibration for low-probability events.
+To get sufficient statistics, we choose the probability bin between 5% and 15%.
+Check all three outcomes.
+
+```{r}
+NL_ALL_PRED[p_win >= 0.05 & p_win < 0.15, .(mean(act_win), .N), .(model_nr)][order(-N)]
+NL_ALL_PRED[p_draw >= 0.05 & p_draw < 0.15, .(mean(act_draw), .N), .(model_nr)][order(-N)]
+NL_ALL_PRED[p_loss >= 0.05 & p_loss < 0.15, .(mean(act_loss), .N), .(model_nr)][order(-N)]
+```
+
+What sampling variation do we expect for these sample sizes?
+For 100 events with a probability of 0.1 of happening, we expect a range of values between 5 and 15, ie.. percentages of 0.05 to 0.15.
+
+```{r}
+summary(rbinom(1000, 100, 0.1))
+summary(rbinom(1000, 50, 0.1))
+```
+
+The actual frequency for low probability wins and losses are within acceptable range of sampling error if we assume that the predicted probabilities are correct. The frequencies for the low probability draws however are structurally too high (around 20% instead of 10%). I.e. they occur more often than predicted. 
+
+# Model checking
+
+The Rank Probability score quantifies the quality of our model-based forecasts. We can use this metric to learn about the performance of our models. The purpose is not to select the best model, but to identify strengths and weaknesses for each model, and how they compare with one another. 
+
+We stratify the matches along four dimensions and calculating average RPS for each stratum:
+
+* Team type (Artficial turf or natural grass)
+* playing surface type (Artificial turf or natural grass)
+* Relative team strength
+* time (Round number) 
+
+```{r}
+res <- NL_ALL_PRED[, .(arps = mean(rps_vec, na.rm = T),
+                       N = length(na.omit(rps_vec))), .(match_type,model_nr)]
+setkey(res, model_nr)
+setkey(result_by_model, model_nr)
+res <- result_by_model[res]
+#res
+
+# use in manuscript
+saveRDS(res, "output/20180828 res_match_type.rds")
+```
+
+As a benchmark, we also plot the odds-derived predictions, as well as the before mentioned equal-probability (win, draw, loss) uninformed model.
+
+## T-distribution models stratified by relative team strength
+
+We start with comparing the T-distribution models. We expect that matches where the team abilities are similar are more difficult to predict. Based on a two-season league table, we  label each team as relatively "strong" when it ranks in the upper halve of the league table, and as relatively "weak" when it ends up in the lower halve of the ranking. With these labels, we then classify each match as a match between two strong teams, a match between a weak and a strong team, or a match between two weak team. For each of the three match types we calculate the average RPS for each model. The results are plotted in Figure \ref(fig:figTdist). It should be noted that the "Lower / Lower" segment contains less matches (N = 110) than the "Upper / Upper" segment (N= 180) because of relegated and promoted teams between the two seasons.
+
+```{r}
+ltab <- create_league_table(NL_ALL_PRED)
+lower_half <- ltab[order(total_points)][1:10,]$HomeTeam
+upper_half <- ltab[order(total_points)][11:20,]$HomeTeam
+
+NL_ALL_PRED[, upper_lower_type := 0]
+NL_ALL_PRED[HomeTeam %in% upper_half, upper_lower_type := upper_lower_type+1]
+NL_ALL_PRED[AwayTeam %in% upper_half, upper_lower_type := upper_lower_type+1]
+
+res_upper_lower <- NL_ALL_PRED[, .(arps = mean(rps_vec, na.rm = T),
+                       N = length(na.omit(rps_vec))), .(upper_lower_type, model_nr)]
+setkey(res_upper_lower, model_nr)
+setkey(result_by_model, model_nr)
+res_upper_lower <- result_by_model[res_upper_lower]
+
+res_upper_lower <- res_upper_lower[, ul_type_name := "Upper / Upper"]
+res_upper_lower <- res_upper_lower[upper_lower_type == 1, ul_type_name := "Upper / Lower"]
+res_upper_lower <- res_upper_lower[upper_lower_type == 0, ul_type_name := "Lower / Lower"]
+
+saveRDS(res_upper_lower, "output/20180828 res_upper_lower.RDS")
+```
+
+We first compare the base model (with home advantage and partial pooling) with odds-based predictions, as well as models that leave out these two elements. 
+
+```{r figTdist, echo = FALSE, fig.width=6, fig.height=4, fig.cap="T-distribution models compared by match type."}
+res_tmp <- rbind(data.table(res_upper_lower[dist == "T-dist" & ata ==0 & !(ha == 0 | part_pool ==0),], grouping = 1),
+             data.table(res_upper_lower[dist %in% c("Benchmark"),], grouping = 2),
+             data.table(res_upper_lower[dist %in% c("T-dist") & (ha == 0 | part_pool ==0),], grouping = 3)
+             )
+      
+ggplot(res_tmp[!(model_nr %in% c(8,9)),], 
+       aes(x= factor(ul_type_name), y = arps,
+           group = factor(short_name), shape = factor(grouping), col = factor(short_name))) + geom_point(aes( size = sqrt(N)),  position = position_dodge(width = .5)) + 
+  scale_size_area(range(0, 100)) +
+#scale_size_continuous(range = c(1, 5)) + # min max size after transformation
+  coord_flip() + theme_bw()+ theme(legend.position="bottom") + theme(legend.title = element_blank()) +guides(shape = FALSE, size = FALSE) + ylab("average RPS") + xlab("")
+```
+
+Not including the regular home advantage, or leaving out the partial pooling caused by the hierarchical model results in worse predictions for all three match types (squared symbols). From here on we consider these two elements as "must haves" for optimal predictive performance, and no longer include them in the graphs. Compared to the odds-based predictions (triangle symbols), we find that only for matches between two lower ranking teams do the model predictions perform (slightly) better. 
+The largest room for model improvement seems to be for matches between two "upper half" ranking teams.
+
+Next we compare the base model with an expanded model that includes the artificial turf advantage (ATA) predictor. Figure \@ref(fig:figTdistATA) shows both models.
+
+```{r figTdistATA, echo = FALSE, fig.width=6, fig.height=4, fig.cap="T-distribution model with and without Artificial turf advantage."}
+res_tmp <- rbind(data.table(res_upper_lower[dist == "T-dist" & !(ha == 0 | part_pool ==0),], grouping = 1),
+             data.table(res_upper_lower[dist %in% c("Benchmark"),], grouping = 2)
+             )
+      
+ggplot(res_tmp[!(model_nr %in% c(8,9)),], 
+       aes(x= factor(ul_type_name), y = arps,
+           group = factor(short_name), shape = factor(grouping), col = factor(ata))) + geom_point(aes( size = sqrt(N)),  position = position_dodge(width = .5)) + 
+  scale_size_area(range(0, 100)) + # min max size after transformation
+  coord_flip() + theme_bw()+ theme(legend.position="bottom") + theme(legend.title = element_blank()) +guides(shape = FALSE, size = FALSE) + xlab("") + ylab("average RPS")
+
+```
+
+Including the ATA predictor slightly improves predictions for matches between upper half ranking teams (i.e. Heracles), but results in worse predictions for matches between lower half ranking teams. For matches between a strong and a weak team, the quality of the predictions is similar for both models.
+
+## T-distribution models by Team playing surface
+
+```{r figTdistATA2, echo = FALSE, fig.width=6, fig.height=4, fig.cap="T-distribution model with and without Artificial turf advantage by playing surface."}
+res_tmp <- rbind(data.table(res[dist == "T-dist" & !(ha == 0 | part_pool ==0),], grouping = 1),
+             data.table(res[dist %in% c("Benchmark"),], grouping = 2)
+             )
+      
+ggplot(res_tmp[!(model_nr %in% c(8,9)),], 
+       aes(x= factor(match_type), y = arps,
+           group = factor(short_name), shape = factor(grouping), col = factor(ata))) + geom_point(aes( size = sqrt(N)),  position = position_dodge(width = .5)) + 
+  scale_size_area(range(0, 100)) + # min max size after transformation
+  coord_flip() + theme_bw()+ theme(legend.position="bottom") + theme(legend.title = element_blank()) +guides(shape = FALSE, size = FALSE) + xlab("") + ylab("average RPS")
+
+```
+
+We see that there is no stratum for which the artificial turf model clearly outperforms the base T-distribution model.
+
+## Skellam models stratified by relative team strength
+
+We also compare several Skellam models. Here we focus on the choice between one or two team ability parameters, as well as the zero inflation component. 
+
+```{r figSkellam, echo = FALSE, fig.width=6, fig.height=4, fig.cap="Skellam models compared by Relative team strength match type."}
+res_tmp <- rbind(data.table(res_upper_lower[dist == "Skellam" & ata ==0,], grouping = 1),
+             data.table(res_upper_lower[dist %in% c("Benchmark"),], grouping = 2)
+             )
+      
+ggplot(res_tmp[!(model_nr %in% c(8,9)),], 
+       aes(x= factor(ul_type_name), y = arps,
+           group = factor(short_name), shape = factor(grouping), col = factor(short_name))) + geom_point(aes( size = sqrt(N)),  position = position_dodge(width = .5)) + 
+  scale_size_area(range(0, 100)) + # min max size after transformation
+  coord_flip() + theme_bw()+ theme(legend.position="bottom") + theme(legend.title = element_blank()) +guides(shape = FALSE, size = FALSE) + xlab("") + ylab("average RPS")
+```
+
+Interestingly, when two strong teams play each other, the odd-based predictions clearly outperforms the Skellam models. For matches between a  lower half ranking team and a upper half ranking team, the models perform similar to the betting odds derived predictions. And finally, when two lower half ranking teams play each other, the models outperform the betting odds.  
+
+The differences between the three Skellam variants are very small. The model with a single team strength parameter appears slightly worse. Leaving out the zero inflation slighly improves the predictions. That adding a zero inflation element does not contribute to model fit was also found by [@karlis_bayesian_2009-1] as well as [@koopman_dynamic_2014-1].
+
+Next we compare the base Skellam model with an expanded model that includes the artificial turf advantage (ATA) predictor. Figure \@ref(fig:figSkellamATA) shows both models.
+
+```{r figSkellamATA, echo = FALSE, fig.width=5, fig.height=4, fig.cap="Skellam model with and without Artficial turf advantage."}
+res_tmp <- rbind(data.table(res_upper_lower[dist == "Skellam" & zif == 1 & n_ability == 2,], grouping = 1),
+             data.table(res_upper_lower[dist %in% c("Benchmark"),], grouping = 2)
+             )
+      
+ggplot(res_tmp[!(model_nr %in% c(8,9)),], 
+       aes(x= factor(ul_type_name), y = arps,
+           group = factor(short_name), shape = factor(grouping), col = factor(ata))) + geom_point(aes( size = sqrt(N)),  position = position_dodge(width = .5)) + 
+  scale_size_area(range(0, 100)) + # min max size after transformation
+  coord_flip() + theme_bw()+ theme(legend.position="bottom") + theme(legend.title = element_blank()) +guides(shape = FALSE, size = FALSE) + xlab("") + ylab("average RPS")
+
+```
+
+For all three categories, the average RPS is very similar comparing with and without the artificial turf advantage parameter. Including the AT effect slightly improves predictions between two upper half ranking teams (as we see later because match outcome prediction for Heracles improve), but at the cost of slightly worse predictions for matches between an upper half and a lower half ranking team.
+
+## Skellam models by Team playing surface
+
+```{r figTdistATA3, echo = FALSE, fig.width=6, fig.height=4, fig.cap="Skellam model with and without Artificial turf advantage by playing surface."}
+res_tmp <- rbind(data.table(res[dist == "Skellam" & zif == 1 & n_ability == 2,], grouping = 1),
+             data.table(res[dist %in% c("Benchmark") ,], grouping = 2)
+             )
+      
+ggplot(res_tmp[!(model_nr %in% c(8,9)),], 
+       aes(x= factor(match_type), y = arps,
+           group = factor(short_name), shape = factor(grouping), col = factor(ata))) + geom_point(aes( size = sqrt(N)),  position = position_dodge(width = .5)) + 
+  scale_size_area(range(0, 100)) + # min max size after transformation
+  coord_flip() + theme_bw()+ theme(legend.position="bottom") + theme(legend.title = element_blank()) +guides(shape = FALSE, size = FALSE) + xlab("") + ylab("average RPS")
+
+```
+
+We see that there is no stratum for which the artificial turf model clearly outperforms the base Skellam model.
+
+## Stratifying by Match surface and relative team strength
+
+```{r}
+res_upper_lower_at <- NL_ALL_PRED[, .(arps = mean(rps_vec, na.rm = T),
+                       N = length(na.omit(rps_vec))), .(upper_lower_type, art_turf, model_nr)]
+
+res_upper_lower_at[, upper_lower_art_turf_type := paste(upper_lower_type, "at=", art_turf, sep = '')]
+setkey(res_upper_lower_at, model_nr)
+setkey(result_by_model, model_nr)
+res_upper_lower_at <- result_by_model[res_upper_lower_at]
+saveRDS(res_upper_lower_at, "output/20180828 res_upper_lower_at.RDS")
+```
+
+
+In Figure x, we stratify the matches by playing surface type and relative team strength.
+There are clear differences in predictability in this section, with matches played on natural grass between a relatively strong and a relatively weak team having the highest predictability. 
+
+```{r figSkellam2, echo = FALSE, fig.width=6, fig.height=4, fig.cap="Skellam models compared by playing surface and relative team strength."}
+res_tmp <- rbind(data.table(res_upper_lower_at[dist == "Skellam" & ata ==0,], grouping = 1),
+             data.table(res_upper_lower_at[dist %in% c("Benchmark") & short_name != "monkey_odds",], grouping = 2)
+             )
+      
+ggplot(res_tmp[!(model_nr %in% c(8,9)),], 
+       aes(x= factor(upper_lower_art_turf_type), y = arps,
+           group = factor(short_name), shape = factor(grouping), col = factor(dist))) + geom_point(aes( size = sqrt(N)),  position = position_dodge(width = .5)) + 
+  scale_size_area(range(0, 100)) + # min max size after transformation
+  coord_flip() + theme_bw()+ theme(legend.position="bottom") + theme(legend.title = element_blank()) +guides(shape = FALSE, size = FALSE) + xlab("") + ylab("average RPS")
+```
+
+Here we find that there are no large differences between the various "flavors" for the Skellam. Now compare base model with and without AT:
+
+```{r figSkellam4, echo = FALSE, fig.width=6, fig.height=4, fig.cap="Skellam models compared by playing surface and relative team strength."}
+res_tmp <- rbind(data.table(res_upper_lower_at[dist == "Skellam" & zif == 1 & n_ability == 2,], grouping = 1),
+             data.table(res_upper_lower_at[dist %in% c("Benchmark") & short_name != "monkey_odds",], grouping = 2)
+             )
+      
+ggplot(res_tmp[!(model_nr %in% c(8,9)),], 
+       aes(x= factor(upper_lower_art_turf_type), y = arps,
+           group = factor(short_name), shape = factor(grouping), col = factor(ata))) + geom_point(aes( size = sqrt(N)),  position = position_dodge(width = .5)) + 
+  scale_size_area(range(0, 100)) + # min max size after transformation
+  coord_flip() + theme_bw()+ theme(legend.position="bottom") + theme(legend.title = element_blank()) +guides(shape = FALSE, size = FALSE) + xlab("") + ylab("average RPS")
+```
+
+Including the AT parameter does not do much, but since the coefficient is small this is no surprise.
+
+## Comparing Skellam and t-distribution models by match surface x relative team strength
+
+Compare the best Skellam and T-dist models with this slicing:
+
+```{r figSkellam3, echo = FALSE, fig.width=6, fig.height=4, fig.cap="Skellam models compared by match surface type and relative team strength."}
+res_tmp <- rbind(data.table(res_upper_lower_at[model_nr %in% c(1, 3),], grouping = 1),
+             data.table(res_upper_lower_at[dist %in% c("Benchmark") & short_name != "monkey_odds",], grouping = 2)
+             )
+      
+ggplot(res_tmp[!(model_nr %in% c(8,9)),], 
+       aes(x= factor(upper_lower_art_turf_type), y = arps,
+           group = factor(short_name), shape = factor(grouping), col = factor(short_name))) + geom_point(aes( size = sqrt(N)),  position = position_dodge(width = .5)) + 
+  scale_size_area(range(0, 100)) + # min max size after transformation
+  coord_flip() + theme_bw()+ theme(legend.position="bottom") + theme(legend.title = element_blank()) +guides(shape = FALSE, size = FALSE) + xlab("") + ylab("average RPS")
+```
+
+We see  that for some subgroups, the Skellam model outperforms the t-distribution model and vice versa.
+
+## Stratifying by round (time)
+
+Given the suggestion that the artificial turf effect is strongest during the second season of forecasts, we check how the predictions of the various models change over time.
+
+```{r}
+res_time <- NL_ALL_PRED[, .(arps = mean(rps_vec, na.rm = T),
+                       N = length(na.omit(rps_vec))), .(model_nr, round)]
+setkey(res_time, model_nr)
+setkey(result_by_model, model_nr)
+res_time <- result_by_model[res_time]
+saveRDS(res_time, "output/20180828 res_time.rds")
+```
+
+
+We first compare the two bookmakers, to see how they line up.
+
+```{r figtimeBook, echo = FALSE, fig.width=5, fig.height=4, fig.cap="Bet365 and William-Hill forecasts compared over time."}
+tmp <- melt(res_time[model_nr %in% c(11,12), .(round, model_nr, arps)], measure.vars = "arps")
+tmp <- dcast(tmp, round ~ model_nr)
+tmp <- tmp[, diff := `11` - `12`]
+# 11 is WH, 12 B365
+min_round <- min(tmp$round)
+gp1 <- ggplot(res_time[model_nr %in% c(11,12),], aes(x = (round - min_round), y = arps, group = short_name,
+                                                     col = short_name)) +
+  geom_point() + geom_line() +# theme_bw() + 
+  theme(legend.position="none") + xlab("Round number") + ylab("RPS")
+
+gp2 <- ggplot(tmp, aes(x = (round - min_round), y = diff)) +
+  geom_point() + geom_line() + geom_smooth() + xlab("Round number") + ylab("delta RPS") + ylim(c(-0.02, 0.02))
+
+plot_grid(gp1, gp2, labels = c("A", "B"), nrow = 2, align = "v")
+```
+There are small diferences in the forecast accuracy between the two bookmakers, but no particular trend over time.
+
+Next, we are curious if the artificial turf advantage model starts outperforming the base model in the second season, when the in-sample coefficient value for the artificial turf advantage starts to increase.
+
+We first compare the t-distribution model with and without AT effect:
+
+```{r figtimeATA, echo = FALSE, fig.width=5, fig.height=4, fig.cap="T-distribution model with and with artificial turf advantage."}
+tmp <- melt(res_time[model_nr %in% c(1,2), .(round, model_nr, arps)], measure.vars = "arps")
+tmp <- dcast(tmp, round ~ model_nr)
+tmp <- tmp[, diff := `1` - `2`]
+# 1 is no AT, 2 is with AT
+min_round <- min(tmp$round)
+gp1 <- ggplot(res_time[model_nr %in% c(1,2),], aes(x = (round - min_round), y = arps, group = short_name,
+                                                     col = short_name)) +
+  geom_point() + geom_line() +# theme_bw() + 
+  theme(legend.position="none") + xlab("Round number") + ylab("RPS")
+
+gp2 <- ggplot(tmp, aes(x = (round - min_round), y = diff)) +
+  geom_point() + geom_line() + geom_smooth() + xlab("Round number") + ylab("delta RPS") + ylim(c(-0.02, 0.02))
+
+plot_grid(gp1, gp2, labels = c("A", "B"), nrow = 2, align = "v")
+```
+
+This turns out not to be the case. There appears no pattern over time in differences between the parametric models.
+
+The same check for the Skellam model:
+
+```{r figtimeATA2, echo = FALSE, fig.width=5, fig.height=4, fig.cap="Skellam model with and with artificial turf advantage."}
+tmp <- melt(res_time[model_nr %in% c(3,10), .(round, model_nr, arps)], measure.vars = "arps")
+tmp <- dcast(tmp, round ~ model_nr)
+tmp <- tmp[, diff := `3` - `10`]
+# 3is no AT, 10 is with AT
+min_round <- min(tmp$round)
+gp1 <- ggplot(res_time[model_nr %in% c(1,2),], aes(x = (round - min_round), y = arps, group = short_name,
+                                                     col = short_name)) +
+  geom_point() + geom_line() +# theme_bw() + 
+  theme(legend.position="none") + xlab("Round number") + ylab("RPS")
+
+gp2 <- ggplot(tmp, aes(x = (round - min_round), y = diff)) +
+  geom_point() + geom_line() + geom_smooth() + xlab("Round number") + ylab("delta RPS") + ylim(c(-0.02, 0.02))
+
+plot_grid(gp1, gp2, labels = c("A", "B"), nrow = 2, align = "v")
+```
+
+For the Skellam model with and without AT effect, the difference in weekly averaged RPS over time are very small, consistent with the small estimated value of the parameter.
+
+Finally, we compare the best bookmaker odds (Bet365) to our best parametric model, the Skellam model without zero inflation. This might suggests directions for improvement.
+
+```{r figtimeShowdown, echo = FALSE, fig.width=5, fig.height=4, fig.cap="Bet365 vs best Skellam model forecasts compared over time."}
+tmp <- melt(res_time[model_nr %in% c(7,12), .(round, model_nr, arps)], measure.vars = "arps")
+tmp <- dcast(tmp, round ~ model_nr)
+tmp <- tmp[, diff := `7` - `12`]
+# 3is no AT, 10 is with AT
+min_round <- min(tmp$round)
+gp1 <- ggplot(res_time[model_nr %in% c(1,2),], aes(x = (round - min_round), y = arps, group = short_name,
+                                                     col = short_name)) +
+  geom_point() + geom_line() +# theme_bw() + 
+  theme(legend.position="none") + xlab("Round number") + ylab("RPS")
+
+gp2 <- ggplot(tmp, aes(x = (round - min_round), y = diff)) +
+  geom_point() + geom_line() + geom_smooth() + xlab("Round number") + ylab("delta RPS") + ylim(c(-0.05, 0.05)) + geom_vline(xintercept = 34)
+
+plot_grid(gp1, gp2, labels = c("A", "B"), nrow = 2, align = "v")
+```
+
+In particular the last round of the first season shows the models performing worse. However, this is reversed for the last round of the second season.
+
+# Appendix: Ranked Probability Score
+
+To compare model predictive performance we use the Rank Probability Score (RPS), which is the mean-squared error for a multi-category forecast. Here we consider three outcomes, win, draw of loss.
+
+We first test if we have implemented the algorithm properly.
+For this, we reproduce the predictions and outcomes from the Constantinou & Fenton 2012 paper, and compare the RPS values for these examples.
+
+```{r}
+# Unit test: calculate Constantinou & Fenton 2012 examples
+predictions <- rbind(c(1, 0, 0),
+                     c(0.9, 0.1, 0),
+                     c(0.8, 0.1, 0.1),
+                     c(0.5, 0.25, 0.25),
+                     
+                     c(0.35 ,0.3 ,0.35), # this one is better
+                     c( 0.6, 0.3, 0.1), # or not?
+                     
+                     c(0.6 ,0.25 ,0.15),
+                     c( 0.6, 0.15, 0.25),
+                     c( 0.57,0.33,0.1),
+                     c(0.6 ,0.2 ,0.2),
+                     c(0.4, 0.2, 0.4), # not in C&F 2012 paper
+                     c(1/3, 1/3, 1/3), # not in C&F 2012 paper
+                     c(1/3, 1/3, 1/3) # not in C&F 2012 paper
+                     
+)
+
+observed <- rbind(c(1, 0, 0),
+                  c(1, 0, 0),
+                  c(1, 0, 0),
+                  c(1, 0, 0),
+                  
+                  c(0,1,0),
+                  c(0,1,0),
+                  
+                  c(1,0,0),
+                  c(1,0,0),
+                  c(1,0,0),
+                  c(1,0,0) ,
+                  c(1, 0, 0),
+                  c(0, 1, 0),
+                  c(1, 0, 0)
+)
+
+
+vec <- calculate_rps(predictions, observed)
+
+# According their paper, the calculations should give:
+Constantinou_Fenton <- c(0, 0.005, 0.025, 0.1562, 0.1225, 0.1850, 0.09125, 0.11125, 0.09745, 0.1)
+
+signif(vec[1:10],5) == Constantinou_Fenton
+
+Constantinou_Fenton[4]
+vec[4]
+```
+Apart from what appears a rounding error in C&F, we conclude we have implemented the Rank probability score properly.
+
+To get some intuition on what "good" RPS values are for soccer matches,  we try a few simple prediction strategies.
+
+* All wins
+* all draws
+* equal probs
+* long run average probability of a win, draw of loss
+
+This last strategy automatically incorporates the home advantage, but does not take into account team strength.
+
+```{r}
+model_data <- Create_model_data_for_TS2(NL_ALL[season %in% c(17)], 
+                                        NL_ALL[season == 16], 
+                                        NL_ALL[season %in% c(17)][1:2,])
+
+actual_scorez <- Convert_actual_to_win_draw_loss_vector(model_data$goal_difference)
+
+# always draw
+pred_probz <- data.table(game_id = 1:model_data$n_games, 
+                         p_win = 0, 
+                         p_draw = 1,
+                         p_loss = 0)
+calculate_arps(pred_probz[,.( p_win, p_draw, p_loss)], actual_scorez[,.(act_win, act_draw, act_loss)])
+
+# always win
+pred_probz <- data.table(game_id = 1:model_data$n_games, 
+                         p_win = 1, 
+                         p_draw = 0,
+                         p_loss = 0)
+calculate_arps(pred_probz[,.( p_win, p_draw, p_loss)], actual_scorez[,.(act_win, act_draw, act_loss)])
+
+# equal probs
+pred_probz <- data.table(game_id = 1:model_data$n_games, 
+                         p_win = 1/3, 
+                         p_draw = 1/3,
+                         p_loss = 1/3)
+calculate_arps(pred_probz[,.( p_win, p_draw, p_loss)], actual_scorez[,.(act_win, act_draw, act_loss)])
+
+# average over all matches (this takes into account the home advantage)
+pred_probz <- data.table(game_id = 1:model_data$n_games, 
+                         p_win = mean(actual_scorez$act_win), 
+                         p_draw = mean(actual_scorez$act_draw),
+                         p_loss = mean(actual_scorez$act_loss))
+calculate_arps(pred_probz[,.( p_win, p_draw, p_loss)], actual_scorez[,.(act_win, act_draw, act_loss)])
+```
+So our models must score at least an average RPS of 0.23 to be any good.
