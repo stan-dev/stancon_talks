@@ -594,8 +594,7 @@ have been proposed for modeling the numbers of goals scored by two competing tea
 **number of scores**, **number of shots on target** and **number of total shots**. We model the number of scores and the number of shots on target with  <span style="color:red">two binomial 
 distributions</span> respectively, whereas the total shots follow a negative binomial distributon. Our dataset consists of nine seasons of the English Premier League (EPL): eight seasons---from 2008/2009 to 2015/2016, 3040 matches---represent the train set, whereas the nineth season, 2016/2017 (with the remaining 380 matches), is our test set, used for out-of sample prediction. 
 
-
-DOI link image goes here
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1465963.svg)](https://doi.org/10.5281/zenodo.1465963)
 
 Links: 
 
@@ -777,9 +776,7 @@ Links:
 * Authors: Arya A. Pourzanjani, Tie Bo Wu, Benjamin B. Bales, Linda R. Petzold (University
   of California, Santa Barbara)
   
-Blurb goes here
-
-DOI link image goes here
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1489142.svg)](https://doi.org/10.5281/zenodo.1489142)
 
 Links: 
 
@@ -791,11 +788,11 @@ Links:
  
 **_Modeling the Effects of Nutrition with Mixed-Effect Bayesian Network_** 
 
-* Authors: Jari Turkia
+* Authors: Jari Turkia (University of Eastern Finland)
 
 This work proposes Mixed-Effect Bayesian Network (MEBN) as a method for modeling the effects of nutrition. It allows identifying both typical and personal correlations between nutrients and their bodily responses. Predicting a personal network of nutritional reactions would allow interesting applications at personal diets and in understanding this complex system. Brief theory of MEBN is first given, followed by the implementation in R and Stan. A real life dataset from a nutritional study (Sysdimet) is then analyzed with this method and the results are visualized with a responsive JavaScript-visualization.
 
-DOI link image goes here
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1489146.svg)](https://doi.org/10.5281/zenodo.1489146)
 
 Links: 
 
@@ -819,7 +816,7 @@ making task, assuming a rational decision-maker. The problem can be solved parti
 assuming an expert able to answer queries about counterfactuals. We demonstrate the effective-
 ness of the proposed method in a binary outcome decision-making task using simulated data, and in a continuous-valued outcome task on the medical dataset IHDP with synthetic treatment outcomes. The outcomes are predicted using Gaussian processes.
 
-DOI link image goes here
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1489150.svg)](https://doi.org/10.5281/zenodo.1489150)
 
 Links: 
 
