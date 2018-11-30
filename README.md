@@ -363,6 +363,7 @@ Links:
 * Instructors: Jonah Gabry & Lauren Kennedy
 * [Video part 1](https://www.youtube.com/watch?v=ZRpo41l02KQ&t=18s&index=6&list=PLuwyh42iHquU4hUBQs20hkBsKSMrp6H0J)
 * [Video part 2](https://www.youtube.com/watch?v=6cc4N1vT8pk&t=2s&index=7&list=PLuwyh42iHquU4hUBQs20hkBsKSMrp6H0J)
+* [Slides and code](https://github.com/jgabry/stancon2018helsinki_intro)
 
 **_Hierarchical models_**
 
