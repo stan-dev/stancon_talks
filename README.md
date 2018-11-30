@@ -375,7 +375,7 @@ Links:
 
 * Instructors: Bob Carpenter, Sean Talts, and Mitzi Morris. 
 * [Video part 1](https://www.youtube.com/watch?v=tIzxfFxCb2Y&t=4s&index=13&list=PLuwyh42iHquU4hUBQs20hkBsKSMrp6H0J)
-* [Video part 1](https://www.youtube.com/watch?v=pHatMUlK6nk&t=1s&index=5&list=PLuwyh42iHquU4hUBQs20hkBsKSMrp6H0J)
+* [Video part 2](https://www.youtube.com/watch?v=pHatMUlK6nk&t=1s&index=5&list=PLuwyh42iHquU4hUBQs20hkBsKSMrp6H0J)
 
 **_Ordinary differential equation (ODE) models in Stan_**
 
