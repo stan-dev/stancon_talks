@@ -53,7 +53,7 @@ this enables to *scale* Stan's performance as needed.
 Links: 
 
 * [Video](https://www.youtube.com/watch?v=wcpjZC9AV84&t=1h44m33s)
-* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/weber/stancon18-master) 
+* [Notebook, code, slides](2018-helsinki/Contributed-Talks/weber/stancon18-master) 
 
 <br>
 
@@ -69,7 +69,7 @@ In addition to the modelling itself, we further show how to make inference on th
 Links: 
 
 * Video not available
-* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/weber/stancon18-master) 
+* [Notebook, code, slides](2018-helsinki/Contributed-Talks/weber/stancon18-master) 
 
 <br>
 
@@ -84,7 +84,7 @@ The **brms** package (Bürkner, 2017a, 2017b) implements Bayesian regression mod
 Links: 
 
 * [Video](https://www.youtube.com/watch?v=FoaxA7sJi7w&t=2h13m03s)
-* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/blob/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/buerkner/buerkner_notebook.Rmd) 
+* [Notebook, code, slides](2018-helsinki/Contributed-Talks/buerkner/buerkner_notebook.Rmd) 
 
 <br>
 
@@ -103,7 +103,7 @@ distributions</span> respectively, whereas the total shots follow a negative bin
 Links: 
 
 * [Video](https://www.youtube.com/watch?v=pKZLJPrZLhU&t=4h15m39s)
-* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/egidi/egidi) 
+* [Notebook, code, slides](2018-helsinki/Contributed-Talks/egidi/egidi) 
 
 <br>
 
@@ -118,7 +118,7 @@ We develop a flexible, portable, and interpretable Bayesian model of cyclical ho
 Links: 
 
 * [Video](https://www.youtube.com/watch?v=FoaxA7sJi7w&t=18m15s)
-* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/braylan) 
+* [Notebook, code, slides](2018-helsinki/Contributed-Talks/braylan) 
 
 <br>
 
@@ -133,7 +133,7 @@ This submission uses Stan to learn about the so-called artificial turf advantage
 Links: 
 
 * [Video](https://www.youtube.com/watch?v=pKZLJPrZLhU&t=4h40m34s)
-* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/verhoeven/artificial_turf_predictive-master) 
+* [Notebook, code, slides](2018-helsinki/Contributed-Talks/verhoeven/artificial_turf_predictive-master) 
 
 <br>
 
@@ -153,7 +153,7 @@ model well identified.
 Links: 
 
 * [Video](https://www.youtube.com/watch?v=wcpjZC9AV84&t=1h24m10s)
-* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/modrak/genexpi-stan) 
+* [Notebook, code, slides](2018-helsinki/Contributed-Talks/modrak/genexpi-stan) 
 
 <br>
 
@@ -176,7 +176,7 @@ York City.
 Links: 
 
 * [Video](https://www.youtube.com/watch?v=pKZLJPrZLhU&t=4h02m50s)
-* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/blob/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/auerbach_jones_winstanley/auerbach_jones_winstanley_notebook.Rmd) 
+* [Notebook, code, slides](2018-helsinki/Contributed-Talks/auerbach_jones_winstanley/auerbach_jones_winstanley_notebook.Rmd) 
 
 <br>
 
@@ -191,7 +191,7 @@ This talk and notebook introduce the idea of analyzing brain anatomy as a taxono
 Links: 
 
 * [Video](https://www.youtube.com/watch?v=pKZLJPrZLhU&t=2h18m48s)
-* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/hammill) 
+* [Notebook, code, slides](2018-helsinki/Contributed-Talks/hammill) 
 
 <br>
 
@@ -207,7 +207,7 @@ We present draft bindings to Stan in Haskell, a purely functional programming la
 Links: 
 
 * [Video](https://www.youtube.com/watch?v=pKZLJPrZLhU&t=5h05m28s)
-* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/nielsen) 
+* [Notebook, code, slides](2018-helsinki/Contributed-Talks/nielsen) 
 
 <br>
 
@@ -225,7 +225,7 @@ These models are implemented in the trialr R-package using Stan.
 Links: 
 
 * [Video](https://www.youtube.com/watch?v=FoaxA7sJi7w&t=2h32m49s)
-* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/brock) 
+* [Notebook, code, slides](2018-helsinki/Contributed-Talks/brock) 
 
 <br>
 
@@ -240,7 +240,7 @@ It is very common in cognitive science and psychology to use experimental tasks 
 Links: 
 
 * [Video](https://www.youtube.com/watch?v=pKZLJPrZLhU&t=1h46m05s)
-* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/nicenboim) 
+* [Notebook, code, slides](2018-helsinki/Contributed-Talks/nicenboim) 
 
 <br>
 
@@ -255,7 +255,7 @@ This work investigates probabilistic time series models that are motivated by ap
 Links: 
 
 * [Video](https://www.youtube.com/watch?v=pKZLJPrZLhU&t=2h05m53s)
-* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/laitinen) 
+* [Notebook, code, slides](2018-helsinki/Contributed-Talks/laitinen) 
 
 <br>
 
@@ -270,7 +270,7 @@ The Stan Math library's Hamilton Monte Carlo (HMC) sampler has computationally e
 Links: 
 
 * [Video](https://www.youtube.com/watch?v=pKZLJPrZLhU&t=5h46m00s)
-* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/Bronder) 
+* [Notebook, code, slides](2018-helsinki/Contributed-Talks/Bronder) 
 
 <br>
  
@@ -285,7 +285,7 @@ Links:
 Links: 
 
 * [Video](https://www.youtube.com/watch?v=wcpjZC9AV84&t=1h02m58s)
-* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/arya) 
+* [Notebook, code, slides](2018-helsinki/Contributed-Talks/arya) 
 
  
 <br>
@@ -301,7 +301,7 @@ This work proposes Mixed-Effect Bayesian Network (MEBN) as a method for modeling
 Links: 
 
 * [Video](https://www.youtube.com/watch?v=FoaxA7sJi7w&t=39m11s)
-* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/tree/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/Turkia) 
+* [Notebook, code, slides](2018-helsinki/Contributed-Talks/Turkia) 
 
 <br>
  
@@ -325,7 +325,7 @@ ness of the proposed method in a binary outcome decision-making task using simul
 Links: 
 
 * [Video](https://www.youtube.com/watch?v=FoaxA7sJi7w&t=0m00s)
-* [Notebook, code, slides](https://github.com/stan-dev/stancon_talks/blob/stancon_2018_helsinki/2018-helsinki/Contributed-Talks/Sundin.pdf) 
+* [Notebook, code, slides](2018-helsinki/Contributed-Talks/Sundin.pdf) 
 
 
 ### 2018 Helsinki Invited talks 
