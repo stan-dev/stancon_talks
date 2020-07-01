@@ -10,6 +10,11 @@ StanCon’s version of conference proceedings is a collection of contributed tal
 
 ### Contents:
 
+**2019 Cambridge (UK)**
+
+* [Abstracts](https://mc-stan.org/events/stancon2019Cambridge/abstracts.html)
+* [Videos](https://mc-stan.org/events/stancon2019Cambridge/#recorded-talks)
+
 **2018 Helsinki**
 
 * [Contributed talks](#2018-helsinki-peer-reviewed-contributed-talks)
