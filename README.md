@@ -4,11 +4,13 @@
 
 # Materials from StanCon
 
-StanCon’s version of conference proceedings is a collection of contributed talks based on interactive notebooks. Every submission is peer reviewed by at least two reviewers. The reviewers are members of the [Stan Conference Organizing Committee](https://mc-stan.org/events/stancon2018Helsinki/#committee) and the [Stan Developmemt Team](https://mc-stan.org/about/team/). This repository contains all of the accepted notebooks as well as any supplementary materials required for building the notebooks. The slides presented at the conference are also included.
-
-**License**: unless otherwise noted, the text in this repository is distributed under the [CC BY 4.0 License](https://creativecommons.org/licenses/by/4.0/legalcode) and code is distributed under the [New BSD License](https://opensource.org/licenses/BSD-3-Clause). Copyright to the authors.
+This repository contains materials from StanCon and links to StanCon content hosted elsewhere. Unless otherwise noted, the text in this repository is distributed under the [CC BY 4.0 License](https://creativecommons.org/licenses/by/4.0/legalcode) and code is distributed under the [New BSD License](https://opensource.org/licenses/BSD-3-Clause). Copyright to the authors.
 
 ### Contents:
+
+**2020 Virtual Conference**
+
+* [Videos](https://www.youtube.com/playlist?list=PLCrWEzJgSUqzI3goQEAKkDsHg72inmqbe)
 
 **2019 Cambridge (UK)**
 
@@ -33,6 +35,8 @@ StanCon’s version of conference proceedings is a collection of contributed tal
 <br>
   
 ## StanCon 2018 | August 29-31, Aalto University, Helsinki
+
+StanCon’s version of conference proceedings is a collection of contributed talks based on interactive notebooks. Every submission is peer reviewed by at least two reviewers. The reviewers are members of the [Stan Conference Organizing Committee](https://mc-stan.org/events/stancon2018Helsinki/#committee) and the [Stan Developmemt Team](https://mc-stan.org/about/team/). This repository contains all of the accepted notebooks as well as any supplementary materials required for building the notebooks. The slides presented at the conference are also included.
 
 ### 2018 Helsinki Peer reviewed contributed talks
 
@@ -404,6 +408,8 @@ Productization panel discussion: Markus Ojala (Smartly), Tom Nielsen (Tweag.io),
   
 ## StanCon 2018 | January 10-12, Asilomar, California  
 
+StanCon’s version of conference proceedings is a collection of contributed talks based on interactive notebooks. Every submission is peer reviewed by at least two reviewers. The reviewers are members of the Stan Conference Organizing Committee and the [Stan Developmemt Team](https://mc-stan.org/about/team/). This repository contains all of the accepted notebooks as well as any supplementary materials required for building the notebooks. The slides presented at the conference are also included.
+
 ### 2018 Peer reviewed contributed talks
 
 **_Does the New York City Police Department rely on quotas?_** 
@@ -728,6 +734,8 @@ Links:
 <br>
 
 ## StanCon 2017 | January 21, Columbia University, New York
+
+StanCon’s version of conference proceedings is a collection of contributed talks based on interactive notebooks. Every submission is peer reviewed by at least two reviewers. The reviewers are members of the Stan Conference Organizing Committee and the [Stan Developmemt Team](https://mc-stan.org/about/team/). This repository contains all of the accepted notebooks as well as any supplementary materials required for building the notebooks. The slides presented at the conference are also included.
 
 ### 2017 Peer reviewed contributed talks
 
